@@ -5,7 +5,10 @@
 
 **Enterprise-grade face recognition system built for real-world deployment**
 
-You can find the details of training the model **[here](experiments/README.md)**
+You can find the details of the model here:
+
+- **[Face Detection Training](experiments/README.md)** - Model training logs & datasets
+- **[Face Recognition Model](experiments/README_RECOGNITION.md)** - Encoding & matching pipeline
 
 ## 🎯 Features
 
