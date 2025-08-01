@@ -1,5 +1,5 @@
 # SURI Model Training Log: YOLOv8n Pretrained with 600e+ from WIDERFACE, FDDB, MAFA & DARKFACE
-> **Note:** This README documents only the face detection model logs. For details on the recognition model, see the [main README](./README_RECOGNITION.md).
+> **Note:** This README documents only the face detection model logs. For details on the recognition model, see the [Recognition README](../recognition/README.md).
 > Raw logs of **SURI’s face detection model** trained on over **50,000 face annotations** from four major datasets. Training was done over roughly **336 hours** using a **T4 GPU** on **Google Colab**.
 
 As of this model’s training, I’m still a **computer science student** without access to a high-end workstation. I trained the MVP version of **SURI** entirely on **Google Colab** using the **free-tier T4 GPU**. Because of the 4-hour session limits, I had to constantly monitor, restart, and checkpoint the training across multiple sessions. In total, it took around **336 hours (2 full weeks)** to complete the entire **[600e training cycle](https://github.com/johnraivenolazo/suri/tree/main/experiments/detection/runs/train_wider300e_on_widerface-fddb-darkface-mafa_as-300e)**.I Model Training Log: YOLOv8n Pretrained with 600e+ from WIDERFACE, FDDB, MAFA & DARKFACE
