@@ -31,7 +31,7 @@ conf_thresh = 0.4  # Lowered for better detection in difficult conditions
 iou_thresh = 0.45
 base_recognition_threshold = 0.20  # Will be dynamically adjusted
 
-class AttendanceSystem:
+class Main:
     def __init__(self):
         self.face_database = {}
         self.attendance_log = []
@@ -546,8 +546,6 @@ def non_max_suppression(predictions, conf_thres=0.5, iou_thres=0.45, img_shape=N
             keep_boxes.append([int(x1), int(y1), int(x2), int(y2), conf])
     
     return keep_boxes
-
-def show_main_menu():
     """Display the main menu and get user choice"""
     print("\n" + "="*70)
     print("🎯 ENTERPRISE-GRADE FACE RECOGNITION ATTENDANCE SYSTEM")
@@ -578,7 +576,7 @@ def show_main_menu():
         except KeyboardInterrupt:
             return 5
 
-def process_single_image(attendance_system, image_path):
+def process_single_image(app, image_path):
     """Process a single image for face recognition"""
     try:
         # Load the image
@@ -620,7 +618,7 @@ def process_single_image(attendance_system, image_path):
             quality = calculate_quality_score(face_img, conf)
             
             # Enhanced identification
-            identified_name, similarity, should_log, info = attendance_system.identify_face_enhanced(
+            identified_name, similarity, should_log, info = app.identify_face_enhanced(
                 face_img, conf, scene_crowding
             )
             
@@ -638,7 +636,7 @@ def process_single_image(attendance_system, image_path):
             
             # Log attendance if recognized
             if identified_name and should_log:
-                attendance_system.log_attendance(identified_name, similarity, info)
+                app.log_attendance(identified_name, similarity, info)
                 print(f"✅ Recognized: {identified_name} (confidence: {similarity:.3f})")
             elif identified_name:
                 print(f"⚠️  Possible match: {identified_name} (confidence: {similarity:.3f}) - Below threshold")
@@ -651,7 +649,7 @@ def process_single_image(attendance_system, image_path):
                 method_text = info.get('method', 'unknown')[:8]
                 
                 # Check data types
-                person_summary = attendance_system.get_person_summary(identified_name)
+                person_summary = app.get_person_summary(identified_name)
                 data_types = []
                 if person_summary['in_legacy']:
                     data_types.append("L")
@@ -684,7 +682,7 @@ def process_single_image(attendance_system, image_path):
         print(f"❌ Error processing image: {e}")
         return []
 
-def process_batch_images(attendance_system, folder_path):
+def process_batch_images(app, folder_path):
     """Process all images in a folder"""
     try:
         import glob
@@ -710,7 +708,7 @@ def process_batch_images(attendance_system, folder_path):
         for i, image_path in enumerate(image_files, 1):
             print(f"\n📸 Processing {i}/{len(image_files)}: {os.path.basename(image_path)}")
             
-            faces = process_single_image(attendance_system, image_path)
+            faces = process_single_image(app, image_path)
             if faces:
                 total_faces += len(faces)
                 recognized_count = sum(1 for face in faces if face['should_log'])
@@ -735,7 +733,7 @@ def process_batch_images(attendance_system, folder_path):
         print(f"❌ Error processing batch: {e}")
         return []
 
-def system_management(attendance_system):
+def system_management(app):
     """System management menu"""
     while True:
         print("\n" + "="*50)
@@ -753,23 +751,23 @@ def system_management(attendance_system):
         choice = input("Enter choice (1-7): ").strip()
         
         if choice == "1":
-            add_person_single(attendance_system)
+            add_person_single(app)
         elif choice == "2":
-            add_person_multi(attendance_system)
+            add_person_multi(app)
         elif choice == "3":
-            show_attendance(attendance_system)
+            show_attendance(app)
         elif choice == "4":
-            show_statistics(attendance_system)
+            show_statistics(app)
         elif choice == "5":
-            clear_attendance(attendance_system)
+            clear_attendance(app)
         elif choice == "6":
-            search_person(attendance_system)
+            search_person(app)
         elif choice == "7":
             break
         else:
             print("❌ Invalid choice. Please enter 1-7.")
 
-def add_person_single(attendance_system):
+def add_person_single(app):
     """Add a person using camera (single capture)"""
     name = input("👤 Enter person's name: ").strip()
     if not name:
@@ -777,7 +775,7 @@ def add_person_single(attendance_system):
         return
     
     # Check for duplicates
-    summary = attendance_system.get_person_summary(name)
+    summary = app.get_person_summary(name)
     if summary['in_legacy'] or summary['num_templates'] > 0:
         print(f"\n⚠️  DUPLICATE DETECTED: '{name}' already exists!")
         print(f"   - Legacy database: {'✓' if summary['in_legacy'] else '✗'}")
@@ -789,12 +787,12 @@ def add_person_single(attendance_system):
             return
         
         # Clear existing data
-        if name in attendance_system.face_database:
-            del attendance_system.face_database[name]
-        if name in attendance_system.multi_templates:
-            del attendance_system.multi_templates[name]
-        if name in attendance_system.recognition_stats:
-            del attendance_system.recognition_stats[name]
+        if name in app.face_database:
+            del app.face_database[name]
+        if name in app.multi_templates:
+            del app.multi_templates[name]
+        if name in app.recognition_stats:
+            del app.recognition_stats[name]
     
     # Start camera for capture
     cap = cv2.VideoCapture(0)
@@ -831,7 +829,7 @@ def add_person_single(attendance_system):
                 x1, y1, x2, y2, conf = largest_face
                 face_img = frame[y1:y2, x1:x2]
                 
-                success = attendance_system.add_new_face(face_img, name)
+                success = app.add_new_face(face_img, name)
                 if success:
                     print(f"✅ {name} added successfully!")
                 else:
@@ -846,7 +844,7 @@ def add_person_single(attendance_system):
     cap.release()
     cv2.destroyAllWindows()
 
-def add_person_multi(attendance_system):
+def add_person_multi(app):
     """Add a person using camera (multi-capture for templates)"""
     name = input("👥 Enter person's name for multi-capture: ").strip()
     if not name:
@@ -854,7 +852,7 @@ def add_person_multi(attendance_system):
         return
     
     # Check for duplicates
-    summary = attendance_system.get_person_summary(name)
+    summary = app.get_person_summary(name)
     if summary['in_legacy'] or summary['num_templates'] > 0:
         print(f"\n⚠️  DUPLICATE DETECTED: '{name}' already exists!")
         print(f"   - Legacy database: {'✓' if summary['in_legacy'] else '✗'}")
@@ -865,12 +863,12 @@ def add_person_multi(attendance_system):
         
         if choice == "1":
             # Clear existing data
-            if name in attendance_system.face_database:
-                del attendance_system.face_database[name]
-            if name in attendance_system.multi_templates:
-                del attendance_system.multi_templates[name]
-            if name in attendance_system.recognition_stats:
-                del attendance_system.recognition_stats[name]
+            if name in app.face_database:
+                del app.face_database[name]
+            if name in app.multi_templates:
+                del app.multi_templates[name]
+            if name in app.recognition_stats:
+                del app.recognition_stats[name]
         elif choice != "2":
             print("❌ Operation cancelled.")
             return
@@ -933,7 +931,7 @@ def add_person_multi(attendance_system):
     cv2.destroyAllWindows()
     
     if captured_faces:
-        success = attendance_system.add_new_face_enhanced(captured_faces, name)
+        success = app.add_new_face_enhanced(captured_faces, name)
         if success:
             print(f"✅ {name} added with {len(captured_faces)} templates!")
         else:
@@ -941,9 +939,9 @@ def add_person_multi(attendance_system):
     else:
         print("❌ No faces captured.")
 
-def show_attendance(attendance_system):
+def show_attendance(app):
     """Show today's attendance"""
-    today_records = attendance_system.get_today_attendance()
+    today_records = app.get_today_attendance()
     print(f"\n📋 TODAY'S ATTENDANCE ({len(today_records)} records)")
     print("-" * 60)
     for record in today_records:
@@ -951,15 +949,15 @@ def show_attendance(attendance_system):
         print(f"{record['time']} - {record['name']} (conf: {record['confidence']:.3f}, method: {method})")
     print("-" * 60)
 
-def show_statistics(attendance_system):
+def show_statistics(app):
     """Show system statistics"""
     print(f"\n📊 SYSTEM STATISTICS")
     print("-" * 50)
-    print(f"Enhanced templates: {len(attendance_system.multi_templates)} people")
-    print(f"Legacy database: {len(attendance_system.face_database)} people")
+    print(f"Enhanced templates: {len(app.multi_templates)} people")
+    print(f"Legacy database: {len(app.face_database)} people")
     
-    for person_name in list(attendance_system.multi_templates.keys())[:10]:
-        summary = attendance_system.get_person_summary(person_name)
+    for person_name in list(app.multi_templates.keys())[:10]:
+        summary = app.get_person_summary(person_name)
         print(f"\n{person_name}:")
         print(f"  Templates: {summary['num_templates']}")
         if 'total_attempts' in summary:
@@ -967,23 +965,23 @@ def show_statistics(attendance_system):
             print(f"  Success rate: {summary['overall_success_rate']:.1%}")
     print("-" * 50)
 
-def clear_attendance(attendance_system):
+def clear_attendance(app):
     """Clear attendance log"""
     confirm = input("⚠️  Clear ALL attendance records? (type 'YES' to confirm): ")
     if confirm == "YES":
-        attendance_system.attendance_log = []
-        attendance_system.save_attendance_log()
+        app.attendance_log = []
+        app.save_attendance_log()
         print("✅ Attendance log cleared!")
     else:
         print("❌ Operation cancelled.")
 
-def search_person(attendance_system):
+def search_person(app):
     """Search for a person's details"""
     name = input("🔍 Enter person's name to search: ").strip()
     if not name:
         return
     
-    summary = attendance_system.get_person_summary(name)
+    summary = app.get_person_summary(name)
     if summary['in_legacy'] or summary['num_templates'] > 0:
         print(f"\n👤 PERSON DETAILS: {name}")
         print("-" * 30)
@@ -994,7 +992,7 @@ def search_person(attendance_system):
             print(f"Success rate: {summary['overall_success_rate']:.1%}")
         
         # Show recent attendance
-        today_records = [r for r in attendance_system.get_today_attendance() if r['name'] == name]
+        today_records = [r for r in app.get_today_attendance() if r['name'] == name]
         if today_records:
             print(f"Today's attendance: {len(today_records)} entries")
             for record in today_records[-3:]:  # Last 3 entries
@@ -1002,7 +1000,7 @@ def search_person(attendance_system):
     else:
         print(f"❌ Person '{name}' not found in database.")
 
-def live_camera_recognition(attendance_system):
+def live_camera_recognition(app):
     """Live camera recognition mode"""
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -1021,12 +1019,12 @@ def live_camera_recognition(attendance_system):
     print("="*50)
     
     # Show existing database
-    if attendance_system.face_database:
-        print(f"Legacy database: {len(attendance_system.face_database)} faces")
+    if app.face_database:
+        print(f"Legacy database: {len(app.face_database)} faces")
     
-    template_count = sum(len(templates) for templates in attendance_system.multi_templates.values())
+    template_count = sum(len(templates) for templates in app.multi_templates.values())
     if template_count > 0:
-        print(f"Enhanced templates: {template_count} templates for {len(attendance_system.multi_templates)} people")
+        print(f"Enhanced templates: {template_count} templates for {len(app.multi_templates)} people")
     
     mode = "recognition"  # "recognition", "adding", "multi_adding"
     add_name = ""
@@ -1070,13 +1068,13 @@ def live_camera_recognition(attendance_system):
             
             if mode == "recognition":
                 # Enhanced identification
-                identified_name, similarity, should_log, info = attendance_system.identify_face_enhanced(
+                identified_name, similarity, should_log, info = app.identify_face_enhanced(
                     face_img, conf, scene_crowding
                 )
                 
                 if identified_name and should_log:
                     # Log attendance with enhanced info
-                    attendance_system.log_attendance(identified_name, similarity, info)
+                    app.log_attendance(identified_name, similarity, info)
                 
                 # Visualization based on confidence and method
                 if identified_name and should_log:
@@ -1120,7 +1118,7 @@ def live_camera_recognition(attendance_system):
                 
                 if add_countdown <= 0:
                     # Add the face using legacy method
-                    attendance_system.add_new_face(face_img, add_name)
+                    app.add_new_face(face_img, add_name)
                     mode = "recognition"
                     add_name = ""
                     print(f"[INFO] Face added successfully! Returning to recognition mode.")
@@ -1142,7 +1140,7 @@ def live_camera_recognition(attendance_system):
                 
                 # Complete multi-capture
                 if len(multi_capture_buffer) >= 10:
-                    success = attendance_system.add_new_face_enhanced(multi_capture_buffer, add_name)
+                    success = app.add_new_face_enhanced(multi_capture_buffer, add_name)
                     if success:
                         print(f"[INFO] Enhanced templates created for {add_name}!")
                     mode = "recognition"
@@ -1161,7 +1159,7 @@ def live_camera_recognition(attendance_system):
             add_countdown -= 1
         
         # Show today's attendance count
-        today_count = len(attendance_system.get_today_attendance())
+        today_count = len(app.get_today_attendance())
         cv2.putText(orig, f"Today's Attendance: {today_count}", (10, h - 20), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
@@ -1190,13 +1188,13 @@ def live_camera_recognition(attendance_system):
                 print("[INFO] Invalid name. Staying in recognition mode.")
         elif key == ord("t"):
             # Show today's attendance
-            show_attendance(attendance_system)
+            show_attendance(app)
         elif key == ord("s"):
             # Show system statistics
-            show_statistics(attendance_system)
+            show_statistics(app)
         elif key == ord("c"):
             # Clear attendance log
-            clear_attendance(attendance_system)
+            clear_attendance(app)
 
     cap.release()
     cv2.destroyAllWindows()
