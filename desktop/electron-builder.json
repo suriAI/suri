@@ -1,0 +1,16 @@
+{     
+    "files": ["dist-electron", "dist-react"],
+    "appId": "com.suri.app",
+    "productName": "Suri",
+    "icon": "./react.svg",
+    "win": {
+        "target": ["portable", "msi"]
+    },
+    "linux": {
+        "target": "AppImage",
+        "category": "utility"
+    },
+    "mac": {
+        "target": "dmg"
+    }
+}
