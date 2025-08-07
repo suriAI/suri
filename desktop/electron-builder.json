@@ -2,7 +2,7 @@
     "files": ["dist-electron", "dist-react"],
     "appId": "com.suri.app",
     "productName": "Suri",
-    "icon": "./react.svg",
+    "icon": "./picture.png",
     "win": {
         "target": ["portable", "msi"]
     },
