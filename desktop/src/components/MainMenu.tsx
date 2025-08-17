@@ -52,86 +52,97 @@ export default function MainMenu({
   ]
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* System Status Card */}
-      <section className="bg-gray-900/50 border border-gray-800 rounded-lg backdrop-blur-sm">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-medium text-white tracking-wide">System Status</h2>
-            <button
-              onClick={onRefreshStats}
-              className="text-xs text-gray-400 hover:text-white transition-colors duration-200 px-3 py-1.5 rounded border border-gray-800 hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!isConnected}
-            >
-              Refresh
-            </button>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-900 to-black text-white">
+      {/* Hero Section */}
+      <div className="px-8 pt-20 pb-16">
+        <div className="max-w-3xl">
+          <h1 className="text-7xl font-extralight tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-500 mb-6">
+            SURI
+          </h1>
+          <p className="text-xl text-zinc-400 font-light leading-relaxed mb-12 max-w-2xl">
+            Intelligent face recognition system for attendance and identification
+          </p>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-black/30 border border-gray-800 rounded p-4 text-center">
-              <div className="text-2xl font-mono text-white mb-1">{systemStats?.total_people ?? '—'}</div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide">People</div>
-            </div>
-            <div className="bg-black/30 border border-gray-800 rounded p-4 text-center">
-              <div className="text-2xl font-mono text-white mb-1">{systemStats?.enhanced_templates ?? '—'}</div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Templates</div>
-            </div>
-            <div className="bg-black/30 border border-gray-800 rounded p-4 text-center">
-              <div className="text-2xl font-mono text-white mb-1">{systemStats?.today_records ?? '—'}</div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Today</div>
-            </div>
-            <div className="bg-black/30 border border-gray-800 rounded p-4 text-center">
-              <div className="text-2xl font-mono text-white mb-1">
-                {systemStats ? (systemStats.success_rate * 100).toFixed(0) : '—'}%
-              </div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Success</div>
-            </div>
+          {/* Status Indicator */}
+          <div className="glass-card inline-flex items-center gap-4 px-4 py-3 rounded-2xl mb-16">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`}></div>
+            <span className="text-sm text-zinc-300 uppercase tracking-wider font-medium">
+              {isConnected ? 'System Ready' : 'System Offline'}
+            </span>
+            {isConnected && (
+              <button
+                onClick={onRefreshStats}
+                className="text-xs text-zinc-400 hover:text-white transition-all duration-300"
+              >
+                Refresh
+              </button>
+            )}
           </div>
-        </div>
-      </section>
 
-      {/* Menu Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onMenuSelect(item.id)}
-            disabled={item.disabled}
-            className={`group relative bg-gray-900/30 border border-gray-800 rounded-lg p-6 text-left transition-all duration-200 hover:bg-gray-900/50 hover:border-gray-700 ${
-              item.disabled 
-                ? 'opacity-50 cursor-not-allowed' 
-                : 'hover:shadow-lg hover:shadow-gray-900/20'
-            }`}
-          >
-            <div className="flex items-start space-x-4">
-              <div className="text-2xl">{item.icon}</div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-white font-medium mb-1 group-hover:text-gray-100 transition-colors">
-                  {item.title}
-                </h3>
-                <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                  {item.description}
-                </p>
+          {/* Quick Stats */}
+          {systemStats && isConnected && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+              <div className="glass-card rounded-2xl p-4 text-center">
+                <div className="text-3xl font-light text-white mb-2">{systemStats.total_people}</div>
+                <div className="text-xs text-zinc-400 uppercase tracking-wider font-medium">People</div>
+              </div>
+              <div className="glass-card rounded-2xl p-4 text-center">
+                <div className="text-3xl font-light text-white mb-2">{systemStats.enhanced_templates}</div>
+                <div className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Templates</div>
+              </div>
+              <div className="glass-card rounded-2xl p-4 text-center">
+                <div className="text-3xl font-light text-white mb-2">{systemStats.today_records}</div>
+                <div className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Today</div>
+              </div>
+              <div className="glass-card rounded-2xl p-4 text-center">
+                <div className="text-3xl font-light text-white mb-2">{Math.round(systemStats.success_rate * 100)}%</div>
+                <div className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Success</div>
               </div>
             </div>
-            
-            {item.disabled && (
-              <div className="absolute top-3 right-3 flex items-center space-x-1 text-xs text-gray-500">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
-                <span>Connection required</span>
-              </div>
-            )}
-            
-            {!item.disabled && (
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="w-5 h-5 flex items-center justify-center text-gray-400 group-hover:text-white">
-                  →
+          )}
+        </div>
+
+        {/* Menu Grid - Glass Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => !item.disabled && onMenuSelect(item.id)}
+              disabled={item.disabled}
+              className={`menu-card group relative p-8 rounded-2xl text-left ${
+                item.disabled 
+                  ? 'opacity-40 cursor-not-allowed hover:transform-none' 
+                  : 'hover:scale-[1.02]'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="text-3xl mb-6">{item.icon}</div>
+                  <h3 className="text-xl font-light text-white mb-3 tracking-tight">{item.title}</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">{item.description}</p>
                 </div>
+                
+                {!item.disabled && (
+                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-x-2 group-hover:translate-x-0">
+                    <div className="w-10 h-10 glass-card rounded-full flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </button>
-        ))}
-      </section>
+              
+              {item.disabled && (
+                <div className="absolute top-6 right-6 text-xs text-zinc-500 font-medium">
+                  Connection required
+                </div>
+              )}
+              
+              {/* Hover gradient effect */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

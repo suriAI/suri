@@ -101,16 +101,26 @@ function App() {
     initializeConnection()
   }, [fetchSystemStats, preloadCamera])
 
+  const getCurrentSectionName = () => {
+    switch (currentMenu) {
+      case 'live-camera': return 'Live Camera'
+      case 'single-image': return 'Single Image'
+      case 'batch-processing': return 'Batch Processing'
+      case 'system-management': return 'System Management'
+      default: return 'Main'
+    }
+  }
+
   const renderCurrentComponent = () => {
     switch (currentMenu) {
       case 'live-camera':
-        return <LiveCameraRecognition onBack={() => setCurrentMenu('main')} />
+        return <LiveCameraRecognition />
       case 'single-image':
-        return <SingleImageRecognition onBack={() => setCurrentMenu('main')} />
+        return <SingleImageRecognition />
       case 'batch-processing':
         return <BatchImageProcessing onBack={() => setCurrentMenu('main')} />
       case 'system-management':
-        return <SystemManagement onBack={() => setCurrentMenu('main')} />
+        return <SystemManagement />
       default:
         return (
           <MainMenu 
@@ -124,38 +134,30 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono">
-      {/* Ultra-sleek header bar */}
-      <div className="border-b border-gray-800 bg-black/50 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-black text-white">
+      {/* Minimalist header - only when not on main menu */}
+      {currentMenu !== 'main' && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-zinc-800/50">
+          <div className="flex items-center justify-between px-8 py-4">
+            <button
+              onClick={() => setCurrentMenu('main')}
+              className="group flex items-center space-x-3 text-zinc-400 hover:text-white transition-all duration-300"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-white group-hover:scale-125 transition-transform duration-300"></div>
+              <span className="text-sm font-light tracking-wider">SURI</span>
+              <span className="text-xs opacity-60">•</span>
+              <span className="text-xs font-light">{getCurrentSectionName()}</span>
+            </button>
+            
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-white"></div>
-              <span className="text-sm font-medium tracking-wide">SURI</span>
-            </div>
-            {currentMenu !== 'main' && (
-              <button
-                onClick={() => setCurrentMenu('main')}
-                className="text-xs text-gray-400 hover:text-white transition-colors duration-200 px-2 py-1 rounded border border-gray-800 hover:border-gray-600"
-              >
-                ← Back
-              </button>
-            )}
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-              <span className="text-xs text-gray-400">
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </span>
+              <div className={`w-1 h-1 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`}></div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main content area */}
-      <div className="relative">
+      <div className={`${currentMenu !== 'main' ? 'pt-16' : ''}`}>
         {renderCurrentComponent()}
       </div>
     </div>

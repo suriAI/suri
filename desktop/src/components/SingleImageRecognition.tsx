@@ -1,8 +1,6 @@
 import { useState, useRef } from 'react'
 
-interface SingleImageRecognitionProps {
-  onBack: () => void
-}
+
 
 interface RecognitionResult {
   name: string | null
@@ -13,7 +11,7 @@ interface RecognitionResult {
   shouldLog: boolean
 }
 
-export default function SingleImageRecognition({ onBack }: SingleImageRecognitionProps) {
+export default function SingleImageRecognition() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [results, setResults] = useState<RecognitionResult[]>([])
@@ -84,18 +82,11 @@ export default function SingleImageRecognition({ onBack }: SingleImageRecognitio
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onBack}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-all duration-200 text-sm font-medium"
-          >
-            ← Back
-          </button>
-          <h1 className="text-2xl font-bold text-white">🖼️ Single Image Recognition</h1>
-        </div>
+    <div className="min-h-screen bg-black text-white p-8">
+      {/* Minimalist header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-light text-white">Single Image Recognition</h1>
+        <p className="text-sm text-zinc-500 mt-2">Upload and analyze face recognition in images</p>
       </div>
 
       {/* File Upload Section */}

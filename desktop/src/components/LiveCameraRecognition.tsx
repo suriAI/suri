@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-interface LiveCameraRecognitionProps {
-  onBack: () => void
-}
+
 
 interface RecognitionResult {
   name: string | null
@@ -20,7 +18,7 @@ interface AttendanceRecord {
   time: string
 }
 
-export default function LiveCameraRecognition({ onBack }: LiveCameraRecognitionProps) {
+export default function LiveCameraRecognition() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [recognitionResults] = useState<RecognitionResult[]>([])
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([])
@@ -207,100 +205,80 @@ export default function LiveCameraRecognition({ onBack }: LiveCameraRecognitionP
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={onBack} 
-              className="text-xs text-gray-400 hover:text-white transition-colors duration-200 px-2 py-1 rounded border border-gray-800 hover:border-gray-600"
-            >
-              ← Back
-            </button>
-            <h1 className="text-lg font-medium tracking-wide">Live Camera</h1>
-          </div>
+      {/* Minimalist control bar */}
+      <div className="px-8 py-6 flex items-center justify-between">
+        <div className="flex items-center space-x-6">
+          <button
+            onClick={isStreaming ? stopStream : startStream}
+            className={`px-6 py-3 rounded-lg text-sm font-medium transition-all duration-300 ${
+              isStreaming 
+                ? 'bg-red-500/20 border border-red-500/30 text-red-200 hover:bg-red-500/30'
+                : 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/30'
+            }`}
+          >
+            {isStreaming ? 'Stop Camera' : 'Start Camera'}
+          </button>
           
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={isStreaming ? stopStream : startStream}
-              className={`px-4 py-2 rounded text-xs font-medium transition-all duration-200 ${
-                isStreaming 
-                  ? 'bg-red-900/50 border border-red-800 text-red-200 hover:bg-red-900/70'
-                  : 'bg-green-900/50 border border-green-800 text-green-200 hover:bg-green-900/70'
-              }`}
-            >
-              {isStreaming ? 'Stop' : 'Start'}
-            </button>
-            
-            {isStreaming && (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => { window.suriVideo?.pause() }}
-                  className="px-3 py-2 rounded text-xs text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-all duration-200"
-                >
-                  Pause
-                </button>
-                <button
-                  onClick={() => { window.suriVideo?.resume() }}
-                  className="px-3 py-2 rounded text-xs text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-all duration-200"
-                >
-                  Resume
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Status Bar */}
-      <section className="border-b border-gray-800 bg-gray-900/30">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-400 uppercase tracking-wide">Status</span>
-              <div className={`flex items-center space-x-1.5 text-xs ${isStreaming ? 'text-green-400' : 'text-gray-500'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-green-400' : 'bg-gray-500'}`}></div>
-                <span>{isStreaming ? 'Live' : 'Stopped'}</span>
-              </div>
+          {isStreaming && (
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => { window.suriVideo?.pause() }}
+                className="px-4 py-2 rounded text-xs text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 transition-all duration-200"
+              >
+                Pause
+              </button>
+              <button
+                onClick={() => { window.suriVideo?.resume() }}
+                className="px-4 py-2 rounded text-xs text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 transition-all duration-200"
+              >
+                Resume
+              </button>
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-400 uppercase tracking-wide">Today</span>
-              <span className="text-sm font-mono text-white">{systemStats.today_records}</span>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-8">
+          <div className="text-right">
+            <div className="text-xs text-zinc-500 uppercase tracking-wide">Status</div>
+            <div className={`text-sm font-light ${isStreaming ? 'text-emerald-400' : 'text-zinc-500'}`}>
+              {isStreaming ? 'Live' : 'Stopped'}
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowAddPerson(true)}
-              disabled={!isStreaming}
-              className="px-3 py-1.5 rounded text-xs text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add Person
-            </button>
-            
-            <button
-              onClick={fetchTodayAttendance}
-              className="px-3 py-1.5 rounded text-xs text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-all duration-200"
-            >
-              Refresh
-            </button>
-            
-            <button
-              onClick={clearAttendance}
-              className="px-3 py-1.5 rounded text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-800 transition-all duration-200"
-            >
-              Clear Log
-            </button>
+          <div className="text-right">
+            <div className="text-xs text-zinc-500 uppercase tracking-wide">Today</div>
+            <div className="text-sm font-mono text-white">{systemStats.today_records}</div>
           </div>
+          
+          <button
+            onClick={() => setShowAddPerson(true)}
+            disabled={!isStreaming}
+            className="px-4 py-2 rounded text-xs text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Add Person
+          </button>
+          
+          <button
+            onClick={fetchTodayAttendance}
+            className="px-4 py-2 rounded text-xs text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 transition-all duration-200"
+          >
+            Refresh
+          </button>
+          
+          <button
+            onClick={clearAttendance}
+            className="px-4 py-2 rounded text-xs text-red-400 hover:text-red-300 border border-red-800 hover:border-red-700 transition-all duration-200"
+          >
+            Clear Log
+          </button>
         </div>
-      </section>
+      </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 h-[calc(100vh-140px)]">
+      <div className="flex flex-1 px-8 pb-8 gap-8">
         {/* Video Feed */}
-        <section className="flex-1 p-6">
-          <div className="h-full bg-gray-900/30 border border-gray-800 rounded-lg overflow-hidden">
+        <div className="flex-1">
+          <div className="h-[70vh] bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
             {isStreaming ? (
               <div className="relative h-full">
                 <img
@@ -317,7 +295,7 @@ export default function LiveCameraRecognition({ onBack }: LiveCameraRecognitionP
                         key={index}
                         className={`absolute top-4 left-4 px-3 py-2 rounded backdrop-blur-md text-xs ${
                           result.shouldLog 
-                            ? 'bg-green-900/80 border border-green-800 text-green-200' 
+                            ? 'bg-emerald-900/80 border border-emerald-800 text-emerald-200' 
                             : result.name 
                               ? 'bg-yellow-900/80 border border-yellow-800 text-yellow-200' 
                               : 'bg-red-900/80 border border-red-800 text-red-200'
@@ -336,49 +314,51 @@ export default function LiveCameraRecognition({ onBack }: LiveCameraRecognitionP
               </div>
             ) : (
               <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl mb-4 opacity-50">📹</div>
-                  <h3 className="text-lg font-medium text-white mb-2">Camera Inactive</h3>
-                  <p className="text-sm text-gray-400">Click Start to begin recognition</p>
+                <div className="text-center text-zinc-500">
+                  <div className="text-6xl mb-4">📹</div>
+                  <p className="text-lg font-light">Camera Stopped</p>
+                  <p className="text-sm mt-2 opacity-60">Click "Start Camera" to begin</p>
                 </div>
               </div>
             )}
           </div>
-        </section>
-
-        {/* Attendance Panel */}
-        <section className="w-80 border-l border-gray-800 bg-gray-900/20">
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b border-gray-800">
-              <h3 className="text-sm font-medium text-white tracking-wide">Today's Attendance</h3>
+        
+        {/* Minimalist Attendance Panel */}
+        <div className="w-80">
+          <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl h-[70vh] flex flex-col">
+            <div className="p-6 border-b border-zinc-800">
+              <h3 className="text-sm font-light text-zinc-300 uppercase tracking-wider">Today's Activity</h3>
+              <div className="text-2xl font-light text-white mt-2">{todayAttendance.length}</div>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-4">
               {todayAttendance.length > 0 ? (
-                <div className="space-y-1 p-2">
+                <div className="space-y-3">
                   {todayAttendance.slice().reverse().map((record, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-black/30 border border-gray-800 rounded">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-white truncate">{record.name}</div>
-                        <div className="text-xs text-gray-400">{record.time}</div>
-                      </div>
-                      <div className="text-xs font-mono text-gray-300 ml-2">
-                        {(record.confidence * 100).toFixed(0)}%
+                    <div key={index} className="group">
+                      <div className="flex items-center justify-between py-3 px-4 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-all duration-200">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-white">{record.name}</div>
+                          <div className="text-xs text-zinc-500 mt-1">{record.time}</div>
+                        </div>
+                        <div className="text-xs font-mono text-zinc-400">
+                          {(record.confidence * 100).toFixed(0)}%
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-center p-6">
-                  <div>
-                    <div className="text-2xl mb-2 opacity-50">📝</div>
-                    <p className="text-sm text-gray-400">No records today</p>
+                <div className="h-full flex items-center justify-center text-center">
+                  <div className="text-zinc-500">
+                    <div className="text-3xl mb-3">•</div>
+                    <p className="text-sm font-light">No activity today</p>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </section>
+        </div>
       </div>
 
       {/* Add Person Modal */}
@@ -428,6 +408,7 @@ export default function LiveCameraRecognition({ onBack }: LiveCameraRecognitionP
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
