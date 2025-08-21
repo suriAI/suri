@@ -26,6 +26,49 @@ function resolvePythonCmd(): string {
     return 'python'
 }
 
+function startVideoWorker() {
+    const args = [
+        'src.api.video_worker',
+    ]
+    
+    const pythonCmd = resolvePythonCmd()
+    
+    videoProc = spawn(pythonCmd, ['-m', ...args], {
+        cwd: path.join(app.getAppPath(), '..'),
+        env: { ...process.env },
+        stdio: 'pipe'
+    })
+    videoProc.stdout.on('data', (data) => {
+        try {
+            const str = data.toString().trim()
+            if (!str) return
+            
+            const lines = str.split('\n')
+            for (const line of lines) {
+                if (!line.trim()) continue
+                try {
+                    const msg = JSON.parse(line)
+                    if (msg.type === 'frame' && mainWindowRef) {
+                        mainWindowRef.webContents.send('video:frame', msg.data)
+                    } else if (mainWindowRef) {
+                        mainWindowRef.webContents.send('video:event', msg)
+                    }
+                } catch {
+                    // Not a JSON message, log as plain text
+                    console.log('[video][out]', line)
+                }
+            }
+        } catch (e) {
+            console.error('[video] stdout parse error:', e)
+        }
+    })
+    videoProc.stderr.on('data', (d) => console.error('[video][err]', d.toString()))
+    videoProc.on('exit', (code, signal) => {
+        console.log('[video] exited', { code, signal })
+        videoProc = null
+    })
+}
+
 function startBackend() {
     const args = [
         '-m', 'uvicorn',
@@ -163,6 +206,7 @@ ipcMain.handle('video:setDevice', (_evt, device: number) => { if (videoProc) vid
 
 app.on("ready", () => {
     startBackend()
+    startVideoWorker()
 	const preloadPath = path.join(__dirname, 'preload.js')
     console.log('[main] preload path:', preloadPath)
     // Diagnostics: confirm preload is loaded

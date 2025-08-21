@@ -1,0 +1,50 @@
+[
+  {
+    "name": "aven",
+    "timestamp": "2025-08-21T13:37:41.748061",
+    "confidence": 0.5644085081142636,
+    "date": "2025-08-21",
+    "time": "13:37:41",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur",
+        "partial_occlusion"
+      ],
+      "threshold_used": 0.1,
+      "quality": 0.3620508921274818,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.5644085081142636
+        ]
+      }
+    }
+  },
+  {
+    "name": "asd",
+    "timestamp": "2025-08-21T13:37:43.649653",
+    "confidence": 0.6815673376900382,
+    "date": "2025-08-21",
+    "time": "13:37:43",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur",
+        "partial_occlusion"
+      ],
+      "threshold_used": 0.1,
+      "quality": 0.293505284245552,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.6815673376900382
+        ]
+      }
+    }
+  }
+]
