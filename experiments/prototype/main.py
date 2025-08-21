@@ -227,6 +227,10 @@ class Main:
         # Store templates
         self.multi_templates[name] = templates[:5]  # Max 5 templates per person
         
+        # Initialize recognition stats for new person
+        if name not in self.recognition_stats:
+            self.recognition_stats[name] = {'attempts': 0, 'successes': 0}
+        
         # Also add to legacy database (best quality)
         best_idx = np.argmax(qualities)
         self.face_database[name] = {
@@ -310,7 +314,9 @@ class Main:
                     else:
                         final_sim = np.mean(similarities)
                 
-                # Update statistics
+                # Update statistics - initialize if needed
+                if person_name not in self.recognition_stats:
+                    self.recognition_stats[person_name] = {'attempts': 0, 'successes': 0}
                 self.recognition_stats[person_name]['attempts'] += 1
                 
                 if final_sim > best_similarity:
@@ -326,7 +332,9 @@ class Main:
             is_match = best_similarity >= adaptive_threshold
             
             if is_match and best_person:
-                # Update success statistics
+                # Update success statistics - ensure initialized
+                if best_person not in self.recognition_stats:
+                    self.recognition_stats[best_person] = {'attempts': 0, 'successes': 0}
                 self.recognition_stats[best_person]['successes'] += 1
                 
                 # Update template usage

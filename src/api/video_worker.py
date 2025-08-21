@@ -152,6 +152,8 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
     
     consecutive_fail = 0
     frame_count = 0
+    last_db_check = time.time()
+    db_check_interval = 2.0  # Check for database updates every 2 seconds
     
     while True:
         paused, req_stop, _ = ctrl.get()
@@ -197,6 +199,28 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
             continue
 
         consecutive_fail = 0
+        
+        # Check for database updates periodically
+        current_time = time.time()
+        if current_time - last_db_check > db_check_interval:
+            try:
+                # Reload face databases to pick up new people added via API
+                old_face_count = len(app.face_database)
+                old_template_count = sum(len(templates) for templates in app.multi_templates.values())
+                
+                app.load_face_database()
+                app.load_multi_templates()
+                
+                new_face_count = len(app.face_database)
+                new_template_count = sum(len(templates) for templates in app.multi_templates.values())
+                
+                if new_face_count != old_face_count or new_template_count != old_template_count:
+                    print(f"LOG Database reloaded: {new_face_count} faces, {new_template_count} templates", file=sys.stderr)
+                
+                last_db_check = current_time
+            except Exception as e:
+                print(f"LOG Database reload error: {e}", file=sys.stderr)
+                last_db_check = current_time  # Don't spam errors
         
         # Use prototype's exact processing logic
         orig = frame.copy()

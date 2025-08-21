@@ -794,54 +794,15 @@ async def add_person_multi_templates(
 async def add_person_from_camera(name: str = Form(...), device: Optional[int] = Form(None), multi_template: bool = Form(True)):
     """
     👤 Add person by capturing a frame from the live camera.
+    
+    Note: This endpoint requires the frontend to handle frame capture to avoid camera conflicts.
     """
-    try:
-        # Ensure camera is running
-        if not camera_manager.ensure_started(device):
-            raise HTTPException(status_code=503, detail="Camera not available")
-        # Try to grab a few frames to get a good one
-        frame = None
-        for _ in range(10):
-            frame = camera_manager.get_frame(timeout=0.3)
-            if frame is not None:
-                break
-        if frame is None:
-            raise HTTPException(status_code=500, detail="Failed to capture frame")
-        # Run detection on frame and pick largest face
-        h, w = frame.shape[:2]
-        input_blob, scale, dx, dy = preprocess_yolo(frame)
-        preds = yolo_sess.run(None, {'images': input_blob})[0]
-        faces = non_max_suppression(
-            preds, conf_thresh, iou_thresh,
-            img_shape=(h, w), input_shape=(input_size, input_size),
-            pad=(dx, dy), scale=scale
-        )
-        if not faces:
-            raise HTTPException(status_code=400, detail="No face detected in camera frame")
-        # pick largest
-        def area(b):
-            x1, y1, x2, y2, _ = b
-            return max(0, x2 - x1) * max(0, y2 - y1)
-        best = max(faces, key=area)
-        x1, y1, x2, y2, conf = best
-        if x2 <= x1 or y2 <= y1:
-            raise HTTPException(status_code=400, detail="Invalid detection bbox")
-        face_img = frame[y1:y2, x1:x2]
-        if face_img.size == 0:
-            raise HTTPException(status_code=400, detail="Empty face crop")
-        # Add to system
-        if multi_template:
-            success = attendance_system.add_new_face_enhanced([face_img], name)
-        else:
-            success = attendance_system.add_new_face(face_img, name)
-        if success:
-            return ApiResponse(success=True, message=f"Added {name} from camera")
-        else:
-            return ApiResponse(success=False, message=f"Failed to add {name}", error="ADD_PERSON_FAILED")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to add from camera: {str(e)}")
+    # This endpoint is now meant to be called with a pre-captured frame
+    # The frontend should capture the frame and upload it instead
+    raise HTTPException(
+        status_code=501, 
+        detail="Please use /person/add endpoint with a captured image instead. Camera capture from backend conflicts with video worker."
+    )
 
 @app.get("/person/{name}", response_model=Dict[str, Any])
 async def get_person_details(name: str):

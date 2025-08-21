@@ -143,14 +143,58 @@ export default function LiveCameraRecognition() {
     
     setIsAddingPerson(true)
     try {
+      // Capture current frame from the video stream
+      if (!imgRef.current) {
+        throw new Error('No video frame available')
+      }
+      
+      // Create a canvas to capture the current frame
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        throw new Error('Canvas context not available')
+      }
+      
+      // Set canvas size to match image
+      canvas.width = imgRef.current.naturalWidth
+      canvas.height = imgRef.current.naturalHeight
+      
+      // Draw the current video frame to canvas
+      ctx.drawImage(imgRef.current, 0, 0)
+      
+      // Convert canvas to blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob)
+          } else {
+            reject(new Error('Failed to capture frame'))
+          }
+        }, 'image/jpeg', 0.9)
+      })
+      
+      // Send the captured frame to the regular add person endpoint
       const form = new FormData()
       form.append('name', newPersonName.trim())
-      form.append('device', String(0))
-      form.append('multi_template', String(true))
-      const response = await fetch('http://127.0.0.1:8770/person/add-from-camera', {
+      form.append('file', blob, 'camera_capture.jpg')
+      
+      const response = await fetch('http://127.0.0.1:8770/person/add', {
         method: 'POST',
         body: form
       })
+      
+      if (!response.ok) {
+        // Handle HTTP errors
+        let errorMessage = `HTTP ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorData.message || errorMessage
+        } catch {
+          // Failed to parse JSON, use status text
+          errorMessage = response.statusText || errorMessage
+        }
+        throw new Error(errorMessage)
+      }
       
       const data = await response.json()
       if (data.success) {
@@ -159,11 +203,12 @@ export default function LiveCameraRecognition() {
         setShowAddPerson(false)
         fetchSystemStats()
       } else {
-        alert(`❌ Failed to add ${newPersonName}: ${data.message}`)
+        alert(`❌ Failed to add ${newPersonName}: ${data.message || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Add person error:', error)
-      alert('❌ Failed to add person due to connection error')
+      const errorMessage = error instanceof Error ? error.message : 'Connection error'
+      alert(`❌ Failed to add ${newPersonName}: ${errorMessage}`)
     } finally {
       setIsAddingPerson(false)
     }
