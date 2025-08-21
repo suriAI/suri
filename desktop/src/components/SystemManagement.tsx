@@ -589,23 +589,23 @@ export default function SystemManagement({ onBack }: SystemManagementProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-900 to-black text-white p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Glass Header */}
+        <div className="flex items-center justify-between mb-12">
+          <div className="flex items-center space-x-6">
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              className="px-6 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
             >
               ← Back
             </button>
-            <h1 className="text-3xl font-bold">⚙️ System Management</h1>
+            <h1 className="text-4xl font-extralight text-white tracking-tight">⚙️ System Management</h1>
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex flex-wrap gap-2 mb-8">
+        {/* Glass Navigation */}
+        <div className="flex flex-wrap gap-3 mb-12">
           {[
             { id: 'overview', label: '📊 Overview', icon: '📊' },
             { id: 'people', label: '👥 People', icon: '👥' },
@@ -616,10 +616,10 @@ export default function SystemManagement({ onBack }: SystemManagementProps) {
             <button
               key={tab.id}
               onClick={() => setActiveView(tab.id)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-6 py-3 rounded-xl font-light transition-all duration-300 ${
                 activeView === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-white/[0.08] backdrop-blur-xl border border-white/[0.15] text-white'
+                  : 'bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] text-white/70 hover:bg-white/[0.05] hover:text-white'
               }`}
             >
               {tab.label}
@@ -636,54 +636,50 @@ export default function SystemManagement({ onBack }: SystemManagementProps) {
           {activeView === 'maintenance' && renderMaintenance()}
         </div>
 
-        {/* Delete Confirmation Dialog */}
+        {/* Glass Delete Confirmation Dialog */}
         {showDeleteDialog && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50">
+            <div className="bg-white/[0.05] backdrop-blur-xl border border-white/[0.15] rounded-2xl p-8 w-full max-w-md mx-4">
               <div className="text-center">
-                <div className="text-4xl mb-4">
+                <div className="text-4xl mb-6">
                   {showDeleteDialog.type === 'complete' ? '💥' : '🗑️'}
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <h3 className="text-xl font-light text-white mb-4">
                   {showDeleteDialog.type === 'complete' ? 'Complete Deletion' : 'Delete Person'}
                 </h3>
-                <p className="text-slate-400 mb-4">
+                <p className="text-white/60 mb-6 font-light leading-relaxed">
                   {showDeleteDialog.type === 'complete' 
                     ? `This will permanently delete "${showDeleteDialog.person}" and ALL their attendance records. This action cannot be undone.`
                     : `This will delete "${showDeleteDialog.person}" from the recognition system but preserve their attendance records for historical data.`
                   }
                 </p>
                 
-                <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
-                  <h4 className="text-white font-medium mb-2">What will be deleted:</h4>
-                  <ul className="text-sm text-slate-300 space-y-1">
+                <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-5 mb-8">
+                  <h4 className="text-white/80 font-light mb-3">What will be deleted:</h4>
+                  <ul className="text-sm text-white/60 space-y-2 font-light">
                     <li>✓ Face recognition templates</li>
                     <li>✓ Legacy database entries</li>
                     <li>✓ Recognition statistics</li>
                     <li>✓ Face image files</li>
                     {showDeleteDialog.type === 'complete' && (
-                      <li className="text-red-400">✓ ALL attendance records</li>
+                      <li className="text-white/80">✓ ALL attendance records</li>
                     )}
                     {showDeleteDialog.type === 'normal' && (
-                      <li className="text-green-400">✗ Attendance records (preserved)</li>
+                      <li className="text-white/80">✗ Attendance records (preserved)</li>
                     )}
                   </ul>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                   <button
                     onClick={() => setShowDeleteDialog(null)}
-                    className="flex-1 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors"
+                    className="flex-1 px-6 py-3 bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl transition-all duration-300 font-light"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => deletePerson(showDeleteDialog.person, showDeleteDialog.type)}
-                    className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors ${
-                      showDeleteDialog.type === 'complete'
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : 'bg-orange-600 hover:bg-orange-700'
-                    }`}
+                    className="flex-1 px-6 py-3 bg-white/[0.08] hover:bg-white/[0.12] backdrop-blur-xl border border-white/[0.15] text-white rounded-xl font-light transition-all duration-300"
                   >
                     {showDeleteDialog.type === 'complete' ? 'Delete Everything' : 'Delete Person'}
                   </button>

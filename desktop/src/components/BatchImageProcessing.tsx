@@ -91,11 +91,11 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
           // Create summary
           const processingTime = Date.now() - startTime
           const summary: BatchSummary = {
-            totalImages: data.summary.total_images,
-            totalFaces: data.summary.total_faces_detected,
-            totalRecognized: data.summary.total_faces_recognized,
-            processingTime,
-            recognitionRate: data.summary.recognition_rate
+            total_images: data.summary.total_images,
+            total_faces: data.summary.total_faces_detected,
+            total_recognized: data.summary.total_faces_recognized,
+            processing_time,
+            recognition_rate: data.summary.recognition_rate
           }
           setSummary(summary)
         }
@@ -234,25 +234,25 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-black text-white p-8">
+      {/* Glass Header */}
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center space-x-6">
           <button
             onClick={onBack}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+            className="px-6 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
           >
             ← Back
           </button>
-          <h1 className="text-2xl font-bold text-white">📁 Batch Image Processing</h1>
+          <h1 className="text-4xl font-extralight text-white tracking-tight">📁 Batch Image Processing</h1>
         </div>
       </div>
 
-      {/* File Upload Section */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Select Images</h3>
+      {/* Glass File Upload Section */}
+      <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 mb-8">
+        <h3 className="text-xl font-light text-white mb-6">Select Images</h3>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex items-center space-x-4">
             <input
               ref={fileInputRef}
@@ -265,7 +265,7 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
             
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              className="px-8 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
             >
               📁 Select Multiple Images
             </button>
@@ -275,7 +275,7 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
                 <button
                   onClick={processBatchOptimized}
                   disabled={isProcessing}
-                  className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                  className="px-8 py-3 bg-white/[0.08] hover:bg-white/[0.12] disabled:bg-white/[0.02] disabled:cursor-not-allowed backdrop-blur-xl border border-white/[0.15] text-white rounded-xl font-light transition-all duration-300"
                 >
                   {isProcessing ? '⏳ Processing...' : '🔍 Process All Images'}
                 </button>
@@ -283,7 +283,7 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
                 <button
                   onClick={clearSelection}
                   disabled={isProcessing}
-                  className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                  className="px-6 py-3 bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
                 >
                   🗑️ Clear
                 </button>
@@ -291,7 +291,7 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
                 {results.length > 0 && (
                   <button
                     onClick={exportResults}
-                    className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                    className="px-6 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
                   >
                     📊 Export CSV
                   </button>
@@ -301,9 +301,9 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
           </div>
 
           {selectedFiles && (
-            <div className="text-sm text-slate-300">
-              <span className="font-medium text-white">Selected:</span> {selectedFiles.length} images
-              <span className="ml-4 text-slate-400">
+            <div className="text-sm text-white/60 bg-white/[0.02] p-4 rounded-xl">
+              <span className="font-light text-white/80">Selected:</span> {selectedFiles.length} images
+              <span className="ml-4 text-white/40">
                 ({(Array.from(selectedFiles).reduce((sum, file) => sum + file.size, 0) / 1024 / 1024).toFixed(2)} MB total)
               </span>
             </div>
@@ -311,91 +311,91 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
         </div>
       </div>
 
-      {/* Progress Section */}
+      {/* Glass Progress Section */}
       {isProcessing && (
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Processing Progress</h3>
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 mb-8">
+          <h3 className="text-xl font-light text-white mb-6">Processing Progress</h3>
           
-          <div className="space-y-4">
-            <div className="w-full bg-slate-700 rounded-full h-3">
+          <div className="space-y-6">
+            <div className="w-full bg-white/[0.05] rounded-full h-2">
               <div 
-                className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                className="bg-white/[0.20] h-2 rounded-full transition-all duration-300"
                 style={{ width: `${currentProgress}%` }}
               ></div>
             </div>
             
             <div className="flex justify-between text-sm">
-              <span className="text-slate-300">
+              <span className="text-white/60 font-light">
                 {currentProgress.toFixed(1)}% Complete
               </span>
-              <span className="text-slate-300">
+              <span className="text-white/60 font-light">
                 {results.length} / {selectedFiles?.length || 0} processed
               </span>
             </div>
             
             {currentFile && (
-              <div className="text-sm text-slate-400">
-                Currently processing: <span className="text-white">{currentFile}</span>
+              <div className="text-sm text-white/40 font-light">
+                Currently processing: <span className="text-white/80">{currentFile}</span>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Summary Section */}
+      {/* Glass Summary Section */}
       {summary && (
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">📊 Batch Summary</h3>
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 mb-8">
+          <h3 className="text-xl font-light text-white mb-6">📊 Batch Summary</h3>
           
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-slate-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-blue-400">{summary.total_images}</div>
-              <div className="text-xs text-slate-400 mt-1">Images Processed</div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-6 text-center">
+              <div className="text-3xl font-extralight text-white">{summary.total_images}</div>
+              <div className="text-xs text-white/50 mt-2 font-light uppercase tracking-widest">Images Processed</div>
             </div>
-            <div className="bg-slate-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-green-400">{summary.total_faces}</div>
-              <div className="text-xs text-slate-400 mt-1">Faces Detected</div>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-6 text-center">
+              <div className="text-3xl font-extralight text-white">{summary.total_faces}</div>
+              <div className="text-xs text-white/50 mt-2 font-light uppercase tracking-widest">Faces Detected</div>
             </div>
-            <div className="bg-slate-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-purple-400">{summary.total_recognized}</div>
-              <div className="text-xs text-slate-400 mt-1">Faces Recognized</div>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-6 text-center">
+              <div className="text-3xl font-extralight text-white">{summary.total_recognized}</div>
+              <div className="text-xs text-white/50 mt-2 font-light uppercase tracking-widest">Faces Recognized</div>
             </div>
-            <div className="bg-slate-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-yellow-400">{summary.recognition_rate.toFixed(1)}%</div>
-              <div className="text-xs text-slate-400 mt-1">Recognition Rate</div>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-6 text-center">
+              <div className="text-3xl font-extralight text-white">{summary.recognition_rate.toFixed(1)}%</div>
+              <div className="text-xs text-white/50 mt-2 font-light uppercase tracking-widest">Recognition Rate</div>
             </div>
-            <div className="bg-slate-700/50 rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-cyan-400">{summary.processing_time.toFixed(1)}s</div>
-              <div className="text-xs text-slate-400 mt-1">Total Time</div>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-6 text-center">
+              <div className="text-3xl font-extralight text-white">{summary.processing_time.toFixed(1)}s</div>
+              <div className="text-xs text-white/50 mt-2 font-light uppercase tracking-widest">Total Time</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Results Section */}
+      {/* Glass Results Section */}
       {results.length > 0 && (
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Processing Results</h3>
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 mb-8">
+          <h3 className="text-xl font-light text-white mb-6">Processing Results</h3>
           
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-4 max-h-96 overflow-y-auto">
             {results.map((result, index) => (
               <div
                 key={index}
-                className="bg-slate-700/50 rounded-lg p-4 border border-slate-600"
+                className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-xl p-6"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-white truncate mr-4">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-light text-white truncate mr-4">
                     {result.filename}
                   </span>
-                  <div className="flex space-x-2 text-sm">
-                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded">
+                  <div className="flex space-x-3 text-sm">
+                    <span className="px-3 py-1 bg-white/[0.05] text-white/80 rounded-full font-light">
                       {result.faces_detected} faces
                     </span>
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded">
+                    <span className="px-3 py-1 bg-white/[0.08] text-white rounded-full font-light">
                       {result.faces_recognized} recognized
                     </span>
                     {result.faces_detected > 0 && (
-                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
+                      <span className="px-3 py-1 bg-white/[0.10] text-white rounded-full font-light">
                         {((result.faces_recognized / result.faces_detected) * 100).toFixed(1)}%
                       </span>
                     )}
@@ -403,11 +403,11 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
                 </div>
                 
                 {result.faces.length > 0 && (
-                  <div className="mt-3 space-y-1">
+                  <div className="mt-4 space-y-2">
                     {result.faces.map((face, faceIndex) => (
-                      <div key={faceIndex} className="text-sm text-slate-300 flex justify-between">
+                      <div key={faceIndex} className="text-sm text-white/60 flex justify-between font-light">
                         <span>{face.name || `Unknown #${faceIndex + 1}`}</span>
-                        <span className={face.shouldLog ? 'text-green-400' : face.name ? 'text-yellow-400' : 'text-red-400'}>
+                        <span className={`${face.shouldLog ? 'text-white' : face.name ? 'text-white/80' : 'text-white/50'}`}>
                           {(face.confidence * 100).toFixed(1)}%
                         </span>
                       </div>
@@ -420,14 +420,14 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
         </div>
       )}
 
-      {/* Instructions */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-4">
-        <h3 className="text-lg font-semibold text-white mb-4">📝 Instructions</h3>
+      {/* Glass Instructions */}
+      <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8">
+        <h3 className="text-xl font-light text-white mb-6">📝 Instructions</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-white/60">
           <div>
-            <h4 className="font-medium text-white mb-2">How to Use:</h4>
-            <ul className="space-y-1">
+            <h4 className="font-light text-white/80 mb-4">How to Use:</h4>
+            <ul className="space-y-2 font-light">
               <li>• Select multiple images using the file picker</li>
               <li>• Click "Process All Images" to start batch recognition</li>
               <li>• Monitor progress in real-time</li>
@@ -436,8 +436,8 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
           </div>
           
           <div>
-            <h4 className="font-medium text-white mb-2">Performance Tips:</h4>
-            <ul className="space-y-1">
+            <h4 className="font-light text-white/80 mb-4">Performance Tips:</h4>
+            <ul className="space-y-2 font-light">
               <li>• Process images in smaller batches for better performance</li>
               <li>• Ensure stable internet connection</li>
               <li>• Use consistent image quality for best results</li>
