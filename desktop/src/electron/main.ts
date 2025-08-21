@@ -96,12 +96,12 @@ function startVideo(opts?: { device?: number, annotate?: boolean }) {
     const minIntervalMs = 1000 / 25 // throttle to ~25 fps to the renderer
 
     function handleData(chunk: Buffer) {
+        const maxSize = 1024 * 1024  // 1MB should be plenty for 640x480 JPEG
         try {
             acc = Buffer.concat([acc, chunk])
             while (acc.length >= 4) {
                 const len = acc.readUInt32LE(0)
                 // More strict sanity check for frame size
-                const maxSize = 1024 * 1024  // 1MB should be plenty for 640x480 JPEG
                 if (len <= 0 || len > maxSize) {
                     console.warn('[video] invalid frame length, resetting buffer', { len, bufferSize: acc.length })
                     acc = Buffer.alloc(0)
