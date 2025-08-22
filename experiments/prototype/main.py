@@ -103,6 +103,19 @@ class Main:
         with open(stats_file, 'w') as f:
             json.dump(stats_dict, f, indent=2)
     
+    def reload_databases(self):
+        """Reload all databases to ensure latest data is available"""
+        try:
+            # Reload legacy face database
+            self.load_face_database()
+            
+            # Reload multi-template database
+            self.load_multi_templates()
+            
+            print(f"[INFO] Databases reloaded - {len(self.face_database)} legacy, {len(self.multi_templates)} enhanced templates")
+        except Exception as e:
+            print(f"[WARNING] Error reloading databases: {e}")
+    
     def load_attendance_log(self):
         """Load attendance log with error recovery"""
         if os.path.exists(ATTENDANCE_LOG):
@@ -254,12 +267,20 @@ class Main:
         
         self.save_face_database()
         self.save_multi_templates()
+        
+        # Reload databases to ensure new face is immediately available
+        self.reload_databases()
+        
         print(f"[INFO] Added {len(templates)} enhanced templates for {name}")
         return True
     
     def add_new_face(self, face_img, name):
         """Legacy add face method for compatibility"""
-        return self.add_new_face_enhanced([face_img], name)
+        success = self.add_new_face_enhanced([face_img], name)
+        if success:
+            # Ensure immediate availability
+            self.reload_databases()
+        return success
     
     def identify_face_enhanced(self, face_img, bbox_conf=0.8, scene_crowding=1.0):
         """Enhanced identification with all advanced features"""
@@ -794,10 +815,11 @@ def system_management(app):
         print("4. 📊 Show system statistics")
         print("5. 🗑️  Clear attendance log")
         print("6. 🔍 Search person details")
-        print("7. 🔙 Back to main menu")
+        print("7. 🔄 Reload databases")
+        print("8. 🔙 Back to main menu")
         print("="*50)
         
-        choice = input("Enter choice (1-7): ").strip()
+        choice = input("Enter choice (1-8): ").strip()
         
         if choice == "1":
             add_person_single(app)
@@ -812,9 +834,11 @@ def system_management(app):
         elif choice == "6":
             search_person(app)
         elif choice == "7":
+            reload_databases_manual(app)
+        elif choice == "8":
             break
         else:
-            print("❌ Invalid choice. Please enter 1-7.")
+            print("❌ Invalid choice. Please enter 1-8.")
 
 def add_person_single(app):
     """Add a person using camera (single capture)"""
@@ -1049,6 +1073,30 @@ def search_person(app):
     else:
         print(f"❌ Person '{name}' not found in database.")
 
+def reload_databases_manual(app):
+    """Manually reload all databases"""
+    print("\n🔄 RELOADING DATABASES...")
+    print("-" * 30)
+    
+    # Store current counts
+    old_legacy_count = len(app.face_database)
+    old_template_count = sum(len(templates) for templates in app.multi_templates.values())
+    
+    # Reload databases
+    app.reload_databases()
+    
+    # Show changes
+    new_legacy_count = len(app.face_database)
+    new_template_count = sum(len(templates) for templates in app.multi_templates.values())
+    
+    print(f"✅ Legacy database: {old_legacy_count} → {new_legacy_count}")
+    print(f"✅ Enhanced templates: {old_template_count} → {new_template_count}")
+    
+    if new_legacy_count > old_legacy_count or new_template_count > old_template_count:
+        print("🎉 New faces detected and loaded!")
+    else:
+        print("📋 All databases up to date")
+
 def live_camera_recognition(app):
     """Live camera recognition mode"""
     cap = cv2.VideoCapture(0)
@@ -1064,6 +1112,7 @@ def live_camera_recognition(app):
     print("  't' - Show today's attendance")
     print("  's' - Show system statistics")
     print("  'c' - Clear attendance log")
+    print("  'r' - Reload databases")
     print("  'q' - Quit to main menu")
     print("="*50)
     
@@ -1245,6 +1294,11 @@ def live_camera_recognition(app):
         elif key == ord("c"):
             # Clear attendance log
             clear_attendance(app)
+        elif key == ord("r"):
+            # Reload databases
+            print("\n🔄 Reloading databases...")
+            app.reload_databases()
+            print("✅ Databases reloaded!")
 
     cap.release()
     cv2.destroyAllWindows()
