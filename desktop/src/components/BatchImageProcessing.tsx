@@ -70,33 +70,32 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
-          // Convert API response to our format
-          const batchResults: BatchResult[] = data.results.map((result: any) => ({
-            filename: result.filename,
-            faces_detected: result.faces_detected,
-            faces_recognized: result.faces_recognized,
-            processing_time: data.summary.processing_time_seconds * 1000, // Convert to ms
-            faces: result.faces.map((face: any) => ({
-              name: face.name,
-              confidence: face.confidence,
-              quality: face.quality,
-              method: face.method,
-              shouldLog: face.should_log
-            }))
-          }))
+                     // Convert API response to our format
+           const batchResults: BatchResult[] = data.results.map((result: { filename: string; faces_detected: number; faces_recognized: number; faces: Array<{ name: string; confidence: number; quality: number; method: string; should_log: boolean }> }) => ({
+             filename: result.filename,
+             faces_detected: result.faces_detected,
+             faces_recognized: result.faces_recognized,
+             processing_time: data.summary.processing_time_seconds * 1000, // Convert to ms
+             faces: result.faces.map((face: { name: string; confidence: number; quality: number; method: string; should_log: boolean }) => ({
+               name: face.name,
+               confidence: face.confidence,
+               quality: face.quality,
+               method: face.method,
+               shouldLog: face.should_log
+             }))
+           }))
 
           setResults(batchResults)
           setCurrentProgress(100)
 
-          // Create summary
-          const processingTime = Date.now() - startTime
-          const summary: BatchSummary = {
-            total_images: data.summary.total_images,
-            total_faces: data.summary.total_faces_detected,
-            total_recognized: data.summary.total_faces_recognized,
-            processing_time,
-            recognition_rate: data.summary.recognition_rate
-          }
+                     // Create summary
+           const summary: BatchSummary = {
+             total_images: data.summary.total_images,
+             total_faces: data.summary.total_faces_detected,
+             total_recognized: data.summary.total_faces_recognized,
+             processing_time: (Date.now() - startTime) / 1000, // Convert to seconds
+             recognition_rate: data.summary.recognition_rate
+           }
           setSummary(summary)
         }
       } else {
