@@ -236,16 +236,17 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
   return (
     <div className="min-h-screen bg-black text-white p-8">
       {/* Glass Header */}
-      <div className="flex items-center justify-between mb-12">
-        <div className="flex items-center space-x-6">
+      <div className="mb-12">
+        <div className="flex items-center space-x-6 mb-4">
           <button
             onClick={onBack}
             className="px-6 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
           >
             ← Back
           </button>
-          <h1 className="text-4xl font-extralight text-white tracking-tight">📁 Batch Image Processing</h1>
         </div>
+        <h1 className="text-4xl font-extralight text-white tracking-tight">Batch Image Processing</h1>
+        <p className="text-sm text-white/50 mt-3 font-light">Process multiple images for face recognition analysis</p>
       </div>
 
       {/* Glass File Upload Section */}
@@ -265,9 +266,12 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
             
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-8 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
+              className="px-8 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300 flex items-center space-x-2"
             >
-              📁 Select Multiple Images
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              <span>Select Multiple Images</span>
             </button>
             
             {selectedFiles && (
@@ -275,25 +279,45 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
                 <button
                   onClick={processBatchOptimized}
                   disabled={isProcessing}
-                  className="px-8 py-3 bg-white/[0.08] hover:bg-white/[0.12] disabled:bg-white/[0.02] disabled:cursor-not-allowed backdrop-blur-xl border border-white/[0.15] text-white rounded-xl font-light transition-all duration-300"
+                  className="px-8 py-3 bg-white/[0.08] hover:bg-white/[0.12] disabled:bg-white/[0.02] disabled:cursor-not-allowed backdrop-blur-xl border border-white/[0.15] text-white rounded-xl font-light transition-all duration-300 flex items-center space-x-2"
                 >
-                  {isProcessing ? '⏳ Processing...' : '🔍 Process All Images'}
+                  {isProcessing ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                      </svg>
+                      <span>Process All Images</span>
+                    </>
+                  )}
                 </button>
                 
                 <button
                   onClick={clearSelection}
                   disabled={isProcessing}
-                  className="px-6 py-3 bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
+                  className="px-6 py-3 bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300 flex items-center space-x-2"
                 >
-                  🗑️ Clear
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  <span>Clear</span>
                 </button>
 
                 {results.length > 0 && (
                   <button
                     onClick={exportResults}
-                    className="px-6 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300"
+                    className="px-6 py-3 bg-white/[0.05] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.10] text-white rounded-xl font-light transition-all duration-300 flex items-center space-x-2"
                   >
-                    📊 Export CSV
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                    <span>Export CSV</span>
                   </button>
                 )}
               </>
@@ -345,7 +369,7 @@ export default function BatchImageProcessing({ onBack }: BatchImageProcessingPro
       {/* Glass Summary Section */}
       {summary && (
         <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 mb-8">
-          <h3 className="text-xl font-light text-white mb-6">📊 Batch Summary</h3>
+          <h3 className="text-xl font-light text-white mb-6">Batch Summary</h3>
           
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-6 text-center">

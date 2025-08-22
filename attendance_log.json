@@ -118,5 +118,28 @@
         ]
       }
     }
+  },
+  {
+    "name": "JOHN RAIVEN OLAZO",
+    "timestamp": "2025-08-22T10:39:38.362399",
+    "confidence": 0.562861851943345,
+    "date": "2025-08-22",
+    "time": "10:39:38",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur"
+      ],
+      "threshold_used": 0.12000000000000002,
+      "quality": 0.27242510524665103,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.562861851943345
+        ]
+      }
+    }
   }
 ]
