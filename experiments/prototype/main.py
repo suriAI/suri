@@ -12,7 +12,8 @@ from experiments.prototype.utils import (
     enhance_face_preprocessing, 
     calculate_quality_score,
     get_adaptive_threshold,
-    detect_conditions
+    detect_conditions,
+    validate_face_region
 )
 
 YOLO_MODEL_PATH = "experiments/detection/models/wider300e+300e-unisets.onnx"
@@ -27,9 +28,9 @@ recog_sess = ort.InferenceSession(RECOG_MODEL_PATH, providers=["CPUExecutionProv
 # Configs
 input_size = 640
 face_size = 112
-conf_thresh = 0.4  # Lowered for better detection in difficult conditions
+conf_thresh = 0.6  # Higher for better quality detections
 iou_thresh = 0.45
-base_recognition_threshold = 0.20  # Will be dynamically adjusted
+base_recognition_threshold = 0.52  # Best of the best - optimal EdgeFace-S threshold
 
 class Main:
     def __init__(self):
@@ -170,8 +171,8 @@ class Main:
             embeddings.append(embedding)
             qualities.append(quality)
         
-        # Filter high-quality embeddings
-        good_indices = [i for i, q in enumerate(qualities) if q > 0.4]
+        # Filter BEST OF THE BEST quality embeddings
+        good_indices = [i for i, q in enumerate(qualities) if q > 0.60]
         
         if not good_indices:
             print(f"[WARNING] No good quality faces for {name}")
@@ -199,8 +200,17 @@ class Main:
                 if j == i or j in used_indices:
                     continue
                     
-                similarity = cosine_similarity([embedding], [other_embedding])[0][0]
-                if similarity > 0.7:  # Group similar faces
+                # EdgeFace-S optimized similarity for template clustering
+                try:
+                    # Ensure embeddings are normalized
+                    emb1 = embedding / np.linalg.norm(embedding) if np.linalg.norm(embedding) > 0 else embedding
+                    emb2 = other_embedding / np.linalg.norm(other_embedding) if np.linalg.norm(other_embedding) > 0 else other_embedding
+                    similarity = np.dot(emb1, emb2)
+                    similarity = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
+                except Exception:
+                    similarity = 0.0
+                
+                if similarity > 0.6:  # Group similar faces
                     cluster_indices.append(j)
                     cluster_embeddings.append(other_embedding)
                     cluster_qualities.append(good_qualities[j])
@@ -259,6 +269,10 @@ class Main:
             if face_img.size == 0:
                 return None, 0.0, False, {'method': 'error', 'error': 'empty_image'}
             
+            # Validate face region first
+            if not validate_face_region(face_img):
+                return None, 0.0, False, {'method': 'error', 'error': 'invalid_face_region'}
+            
             # Enhanced preprocessing
             enhanced_face, quality = enhance_face_preprocessing(face_img, bbox_conf)
             
@@ -289,7 +303,11 @@ class Main:
                 similarities = []
                 for template in templates:
                     try:
-                        similarity = cosine_similarity([query_embedding], [template['embedding']])[0][0]
+                        # EdgeFace-S optimized similarity computation
+                        # Use dot product since embeddings are already L2 normalized
+                        similarity = np.dot(query_embedding, template['embedding'])
+                        # Clamp to [0, 1] range for consistency
+                        similarity = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
                         similarities.append(similarity)
                     except Exception as e:
                         print(f"[WARNING] Error comparing with template for {person_name}: {e}")
@@ -380,7 +398,22 @@ class Main:
         # Compare with all faces in legacy database
         for name, data in self.face_database.items():
             stored_embedding = data['embedding']
-            similarity = cosine_similarity([embedding], [stored_embedding])[0][0]
+            
+            # EdgeFace-S optimized similarity (same as template matching)
+            try:
+                # Ensure both embeddings are L2 normalized
+                if np.linalg.norm(stored_embedding) > 0:
+                    stored_embedding = stored_embedding / np.linalg.norm(stored_embedding)
+                if np.linalg.norm(embedding) > 0:
+                    embedding = embedding / np.linalg.norm(embedding)
+                
+                # Use dot product for normalized embeddings
+                similarity = np.dot(embedding, stored_embedding)
+                # Transform to [0, 1] range
+                similarity = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
+            except Exception as e:
+                print(f"[WARNING] Error computing similarity with {name}: {e}")
+                similarity = 0.0
             
             if similarity > best_similarity:
                 best_similarity = similarity
@@ -388,11 +421,21 @@ class Main:
         
         # Return match if above threshold
         is_match = best_similarity >= threshold
-        return best_match, best_similarity, is_match, {
-            'method': 'legacy_database',
-            'threshold_used': threshold,
-            'quality': quality
-        }
+        if is_match:
+            return best_match, best_similarity, is_match, {
+                'method': 'legacy_database',
+                'threshold_used': threshold,
+                'quality': quality
+            }
+        else:
+            # Below threshold - return None for name
+            return None, best_similarity, False, {
+                'method': 'legacy_database',
+                'threshold_used': threshold,
+                'quality': quality,
+                'rejected_match': best_match,
+                'rejected_confidence': best_similarity
+            }
     
     def identify_face(self, face_img):
         """Legacy identify method for compatibility"""
@@ -649,9 +692,9 @@ def process_single_image(app, image_path):
             else:
                 print(f"❓ Unknown face #{i+1} (quality: {quality:.2f})")
             
-            # Visualize results
-            if identified_name and should_log:
-                color = (0, 255, 0)  # Green for recognized
+            # Visualize results with BEST OF THE BEST thresholds
+            if identified_name and should_log and similarity >= 0.45:
+                color = (0, 255, 0)  # Green for recognized (BEST OF THE BEST)
                 method_text = info.get('method', 'unknown')[:8]
                 
                 # Check data types
@@ -664,11 +707,11 @@ def process_single_image(app, image_path):
                 
                 data_indicator = "+".join(data_types) if data_types else "?"
                 label = f"{identified_name} ({similarity:.3f}) [{method_text}|{data_indicator}]"
-            elif identified_name:
-                color = (0, 255, 255)  # Yellow for low confidence
+            elif identified_name and similarity >= 0.35:
+                color = (0, 255, 255)  # Yellow for moderate confidence (optimized)
                 label = f"{identified_name}? ({similarity:.3f})"
             else:
-                color = (0, 0, 255)  # Red for unknown
+                color = (0, 0, 255)  # Red for unknown or too low confidence
                 label = f"Unknown #{i+1} (Q:{quality:.2f})"
             
             # Draw bounding box and label
@@ -917,7 +960,7 @@ def add_person_multi(app):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
                 
                 # Auto-capture good quality faces
-                if quality > 0.6 and frame_count % 15 == 0:  # Every 15 frames
+                if quality > 0.65 and frame_count % 15 == 0:  # Every 15 frames, BEST quality
                     captured_faces.append(face_img.copy())
                     print(f"📸 Captured {len(captured_faces)}/10 (Quality: {quality:.3f})")
         
@@ -1083,17 +1126,18 @@ def live_camera_recognition(app):
                     app.log_attendance(identified_name, similarity, info)
                 
                 # Visualization based on confidence and method
-                if identified_name and should_log:
-                    # High confidence - green box
+                # BEST OF THE BEST - Optimal display thresholds
+                if identified_name and should_log and similarity >= 0.45:
+                    # High confidence - green box (BEST OF THE BEST)
                     color = (0, 255, 0)
                     method_text = info.get('method', 'unknown')[:8]  # Truncate for display
                     label = f"{identified_name} ({similarity:.3f}) [{method_text}]"
-                elif identified_name:
-                    # Low confidence - yellow box
+                elif identified_name and similarity >= 0.35:
+                    # Moderate confidence - yellow box (optimized threshold)
                     color = (0, 255, 255)
                     label = f"{identified_name}? ({similarity:.3f})"
                 else:
-                    # Unknown - red box
+                    # Unknown or too low confidence - red box
                     color = (0, 0, 255)
                     label = f"Unknown (Q:{quality:.2f})"
                 
@@ -1140,7 +1184,7 @@ def live_camera_recognition(app):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 165, 0), 2)
                 
                 # Auto-capture high quality faces
-                if quality > 0.5 and frame_count % 10 == 0:  # Every 10 frames
+                if quality > 0.70 and frame_count % 10 == 0:  # Every 10 frames, BEST OF THE BEST quality
                     multi_capture_buffer.append(face_img.copy())
                     print(f"[INFO] Captured face {len(multi_capture_buffer)}/10 (Quality: {quality:.3f})")
                 
