@@ -141,5 +141,77 @@
         ]
       }
     }
+  },
+  {
+    "name": "JOHN RAIVEN OLAZO",
+    "timestamp": "2025-08-22T15:37:27.860729",
+    "confidence": 0.5068447606536994,
+    "date": "2025-08-22",
+    "time": "15:37:27",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur",
+        "partial_occlusion"
+      ],
+      "threshold_used": 0.1,
+      "quality": 0.25630688348329345,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.5068447606536994
+        ]
+      }
+    }
+  },
+  {
+    "name": "JOHN RAIVEN OLAZO",
+    "timestamp": "2025-08-22T15:48:43.668268",
+    "confidence": 0.6202873935214465,
+    "date": "2025-08-22",
+    "time": "15:48:43",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur",
+        "partial_occlusion"
+      ],
+      "threshold_used": 0.1,
+      "quality": 0.23250649538608115,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.6202873935214465
+        ]
+      }
+    }
+  },
+  {
+    "name": "JOHN RAIVEN OLAZO",
+    "timestamp": "2025-08-22T15:49:39.414043",
+    "confidence": 0.4629025702456191,
+    "date": "2025-08-22",
+    "time": "15:49:39",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur",
+        "partial_occlusion"
+      ],
+      "threshold_used": 0.1,
+      "quality": 0.27001904780236674,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.4629025702456191
+        ]
+      }
+    }
   }
 ]
