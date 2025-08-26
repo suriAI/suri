@@ -57,7 +57,94 @@ from experiments.prototype.main import (
     iou_thresh,
     Main,
 )
+import math
 from experiments.prototype.utils import calculate_quality_score
+
+
+def calculate_overlap(box1, box2):
+    """Calculate intersection over union (IoU) between two bounding boxes"""
+    x1_1, y1_1, x2_1, y2_1 = box1[:4]
+    x1_2, y1_2, x2_2, y2_2 = box2[:4]
+    
+    # Calculate intersection
+    x_left = max(x1_1, x1_2)
+    y_top = max(y1_1, y1_2)
+    x_right = min(x2_1, x2_2)
+    y_bottom = min(y2_1, y2_2)
+    
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+    
+    intersection = (x_right - x_left) * (y_bottom - y_top)
+    
+    # Calculate areas
+    area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+    area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+    union = area1 + area2 - intersection
+    
+    return intersection / union if union > 0 else 0.0
+
+
+def deduplicate_faces(faces, overlap_threshold=0.7):
+    """Remove duplicate face detections based on overlap"""
+    if len(faces) <= 1:
+        return faces
+    
+    # Sort by confidence (highest first)
+    faces_sorted = sorted(faces, key=lambda x: x[4], reverse=True)
+    keep_faces = []
+    
+    for current_face in faces_sorted:
+        is_duplicate = False
+        for kept_face in keep_faces:
+            overlap = calculate_overlap(current_face, kept_face)
+            if overlap > overlap_threshold:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            keep_faces.append(current_face)
+    
+    return keep_faces
+
+
+def optimized_non_max_suppression(predictions, conf_thres=0.65, iou_thres=0.75, img_shape=None, input_shape=(640, 640), pad=(0, 0), scale=1.0):
+    """Enhanced NMS with better parameters for face detection"""
+    # Use the original NMS but with optimized parameters
+    faces = non_max_suppression(predictions, conf_thres, iou_thres, img_shape, input_shape, pad, scale)
+    
+    # Apply additional deduplication
+    faces = deduplicate_faces(faces, overlap_threshold=0.6)
+    
+    return faces
+
+
+class AttendanceCooldown:
+    """Manages attendance logging cooldown to prevent duplicate entries"""
+    def __init__(self, cooldown_seconds=10):
+        self.cooldown_seconds = cooldown_seconds
+        self.last_logged = {}
+    
+    def can_log_attendance(self, person_name):
+        """Check if person can be logged for attendance"""
+        current_time = time.time()
+        last_time = self.last_logged.get(person_name, 0)
+        
+        if current_time - last_time >= self.cooldown_seconds:
+            self.last_logged[person_name] = current_time
+            return True
+        
+        return False
+    
+    def cleanup_old_entries(self):
+        """Clean up old entries to prevent memory growth"""
+        current_time = time.time()
+        expired_keys = [
+            name for name, last_time in self.last_logged.items()
+            if current_time - last_time > self.cooldown_seconds * 2
+        ]
+        for key in expired_keys:
+            del self.last_logged[key]
 
 
 @dataclass
@@ -233,6 +320,10 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
     target_fps = 25  # Target streaming FPS for smooth display
     frame_interval = 1.0 / target_fps
     
+    # Initialize attendance cooldown to prevent duplicate logging
+    attendance_cooldown = AttendanceCooldown(cooldown_seconds=8)
+    cleanup_counter = 0
+    
     while True:
         paused, req_stop, _ = ctrl.get()
         if req_stop:
@@ -321,11 +412,11 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
                 # Optimized preprocessing for continuous recognition
                 input_blob, scale, dx, dy = preprocess_yolo(frame)
                 
-                # Run YOLO inference (same as prototype)
+                # Run YOLO inference with optimized NMS to prevent duplicates
                 preds = yolo_sess.run(None, {'images': input_blob})[0]
-                faces = non_max_suppression(preds, conf_thresh, iou_thresh, 
-                                           img_shape=(h, w), input_shape=(input_size, input_size), 
-                                           pad=(dx, dy), scale=scale)
+                faces = optimized_non_max_suppression(preds, conf_thres=0.65, iou_thres=0.75, 
+                                                     img_shape=(h, w), input_shape=(input_size, input_size), 
+                                                     pad=(dx, dy), scale=scale)
 
                 scene_crowding = len(faces)
                 
@@ -349,16 +440,23 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
                         face_img, conf, scene_crowding
                     )
                     
-                    if identified_name and should_log:
-                        # Log attendance with enhanced info (same as prototype)
-                        app.log_attendance(identified_name, similarity, info)
+                    # Check if attendance can be logged (with cooldown protection)
+                    can_log = identified_name and should_log and attendance_cooldown.can_log_attendance(identified_name)
                     
-                    # Visualization based on confidence and method (same as prototype)
+                    if can_log:
+                        # Log attendance with enhanced info (with cooldown protection)
+                        app.log_attendance(identified_name, similarity, info)
+                        print(f"LOG Attendance logged: {identified_name} (confidence: {similarity:.3f})", file=sys.stderr)
+                    
+                    # Enhanced visualization with attendance status
+                    attendance_logged = can_log
+                    
                     if identified_name and should_log:
-                        # High confidence - green box
-                        color = (0, 255, 0)
+                        # High confidence - green box (brighter if attendance logged)
+                        color = (0, 255, 0) if attendance_logged else (0, 200, 100)
                         method_text = info.get('method', 'unknown')[:8]  # Truncate for display
-                        label = f"{identified_name} ({similarity:.3f}) [{method_text}]"
+                        status_indicator = "✓" if attendance_logged else "⏳"
+                        label = f"{status_indicator} {identified_name} ({similarity:.3f}) [{method_text}]"
                     elif identified_name:
                         # Low confidence - yellow box
                         color = (0, 255, 255)
@@ -385,12 +483,17 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
                     cv2.putText(orig, f"Q:{quality:.2f} T:{threshold_used:.2f}", (x1, y1 - 5), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
                 
-                # Enhanced UI overlay with continuous recognition indicator
-                cv2.putText(orig, "Mode: CONTINUOUS RECOGNITION", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                # Enhanced UI overlay with duplicate prevention info
+                cv2.putText(orig, "Mode: SMART RECOGNITION", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 
-                # Performance metrics showing continuous recognition
-                fps_text = f"Faces: {len(faces)} | Every Frame Analyzed"
+                # Performance metrics showing smart recognition
+                fps_text = f"Faces: {len(faces)} | Duplicate Prevention Active"
                 cv2.putText(orig, fps_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                
+                # Periodic cleanup of attendance cooldown
+                cleanup_counter += 1
+                if cleanup_counter % 150 == 0:  # Every ~5 seconds at 30fps
+                    attendance_cooldown.cleanup_old_entries()
                 
                 # Show today's attendance count (same as prototype)
                 today_count = len(app.get_today_attendance())
@@ -463,6 +566,10 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
     attendance = None
     models_loaded = False
     
+    # Initialize attendance cooldown for fast preview mode
+    attendance_cooldown = AttendanceCooldown(cooldown_seconds=8)
+    cleanup_counter = 0
+    
     while True:
         paused, req_stop, _ = ctrl.get()
         if req_stop:
@@ -512,12 +619,12 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
         # Only do recognition if models are loaded and we want annotation
         if models_loaded and attendance is not None and opts.annotate:
             try:
-                # Full recognition pipeline
+                # Optimized recognition pipeline with duplicate prevention
                 input_blob, scale, dx, dy = preprocess_yolo(frame)
                 preds = yolo_sess.run(None, {'images': input_blob})[0]
-                faces = non_max_suppression(preds, conf_thresh, iou_thresh, 
-                                           img_shape=(h, w), input_shape=(input_size, input_size), 
-                                           pad=(dx, dy), scale=scale)
+                faces = optimized_non_max_suppression(preds, conf_thres=0.65, iou_thres=0.75, 
+                                                     img_shape=(h, w), input_shape=(input_size, input_size), 
+                                                     pad=(dx, dy), scale=scale)
 
                 scene_crowding = len(faces)
                 for box in faces:
@@ -536,14 +643,22 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
                         face_img, conf, scene_crowding
                     )
                     
-                    if identified_name and should_log:
-                        attendance.log_attendance(identified_name, similarity, info)
+                    # Apply attendance cooldown to prevent duplicate logging
+                    can_log = identified_name and should_log and attendance_cooldown.can_log_attendance(identified_name)
                     
-                    # Draw recognition results
+                    if can_log:
+                        attendance.log_attendance(identified_name, similarity, info)
+                        print(f"LOG Attendance logged: {identified_name} (confidence: {similarity:.3f})", file=sys.stderr)
+                    
+                    # Enhanced visualization with attendance status
+                    attendance_logged = can_log
+                    
                     if identified_name and should_log:
-                        color = (0, 255, 0)
+                        # Color coding: bright green if logged, darker if cooldown
+                        color = (0, 255, 0) if attendance_logged else (0, 200, 100)
                         method_text = info.get('method', 'unknown')[:8]
-                        label = f"{identified_name} ({similarity:.3f}) [{method_text}]"
+                        status_indicator = "✓" if attendance_logged else "⏳"
+                        label = f"{status_indicator} {identified_name} ({similarity:.3f}) [{method_text}]"
                     elif identified_name:
                         color = (0, 255, 255)
                         label = f"{identified_name}? ({similarity:.3f})"
@@ -555,11 +670,16 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
                     cv2.putText(orig, label, (x1, y1 - 10), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                 
-                # Status overlay for continuous recognition mode
-                cv2.putText(orig, "Mode: CONTINUOUS RECOGNITION", (10, 30), 
+                # Status overlay for smart recognition mode
+                cv2.putText(orig, "Mode: SMART RECOGNITION", (10, 30), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(orig, f"Faces: {len(faces)} | Every Frame Analyzed", (10, 60), 
+                cv2.putText(orig, f"Faces: {len(faces)} | Duplicate Prevention Active", (10, 60), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                
+                # Periodic cleanup of attendance cooldown
+                cleanup_counter += 1
+                if cleanup_counter % 150 == 0:  # Every ~5 seconds at 30fps
+                    attendance_cooldown.cleanup_old_entries()
                 
             except Exception as e:
                 print(f"LOG Recognition error: {e}", file=sys.stderr)

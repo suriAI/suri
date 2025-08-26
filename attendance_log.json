@@ -1,459 +1,88 @@
 [
   {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:48:23.874118",
-    "confidence": 0.8183507208194091,
-    "date": "2025-08-23",
-    "time": "18:48:23",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.31136966292230045,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.8183507208194091
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:48:54.311272",
-    "confidence": 0.9326509412420765,
-    "date": "2025-08-23",
-    "time": "18:48:54",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.4367302738887099,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9326509412420765
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:49:24.628690",
-    "confidence": 0.9770753619461764,
-    "date": "2025-08-23",
-    "time": "18:49:24",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.4140746148986,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9770753619461764
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:49:54.939389",
-    "confidence": 0.9284544329809943,
-    "date": "2025-08-23",
-    "time": "18:49:54",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.42231137060167,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9284544329809943
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:50:25.236370",
-    "confidence": 0.9664333987039594,
-    "date": "2025-08-23",
-    "time": "18:50:25",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.43542181728548746,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9664333987039594
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:50:55.526649",
-    "confidence": 0.9536866381839516,
-    "date": "2025-08-23",
-    "time": "18:50:55",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.44258406874346695,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9536866381839516
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:51:25.808371",
-    "confidence": 0.9444746210510435,
-    "date": "2025-08-23",
-    "time": "18:51:25",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.43797873399897264,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9444746210510435
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:51:56.743374",
-    "confidence": 0.931924033580789,
-    "date": "2025-08-23",
-    "time": "18:51:56",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.3407926215206694,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.931924033580789
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:52:35.157868",
-    "confidence": 0.8184885913540801,
-    "date": "2025-08-23",
-    "time": "18:52:35",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.3969275626730946,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.8184885913540801
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:53:06.856627",
-    "confidence": 0.926997373564033,
-    "date": "2025-08-23",
-    "time": "18:53:06",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.43872165543608677,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.926997373564033
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:53:38.846149",
-    "confidence": 0.9680538296998716,
-    "date": "2025-08-23",
-    "time": "18:53:38",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.4078243281489499,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9680538296998716
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:54:10.672790",
-    "confidence": 0.9263903121479011,
-    "date": "2025-08-23",
-    "time": "18:54:10",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "motion_blur"
-      ],
-      "threshold_used": 0.775,
-      "quality": 0.5451795425254129,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9263903121479011
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-23T18:54:41.002359",
-    "confidence": 0.9666929949558757,
-    "date": "2025-08-23",
-    "time": "18:54:41",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.40877309921491334,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9666929949558757
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-26T08:56:56.414632",
-    "confidence": 0.9172613963532895,
+    "name": "gg",
+    "timestamp": "2025-08-26T10:50:42.444023",
+    "confidence": 0.9632638213167288,
     "date": "2025-08-26",
-    "time": "08:56:56",
+    "time": "10:50:42",
     "recognition_info": {
       "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.27990692065140804,
+      "conditions": [],
+      "threshold_used": 0.75,
+      "quality": 0.736505476643449,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.9172613963532895
+          0.9632638213167288
         ]
       }
     }
   },
   {
-    "name": "raiven",
-    "timestamp": "2025-08-26T10:23:06.812980",
-    "confidence": 0.955870677547847,
+    "name": "gg",
+    "timestamp": "2025-08-26T10:51:16.816815",
+    "confidence": 0.8821618836663385,
     "date": "2025-08-26",
-    "time": "10:23:06",
+    "time": "10:51:16",
     "recognition_info": {
       "method": "enhanced_templates",
       "conditions": [
         "low_light",
-        "motion_blur"
+        "crowded_scene"
       ],
-      "threshold_used": 0.805,
-      "quality": 0.4554295567457163,
+      "threshold_used": 0.795,
+      "quality": 0.6657227649956158,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.955870677547847
+          0.8821618836663385
         ]
       }
     }
   },
   {
-    "name": "raiven",
-    "timestamp": "2025-08-26T10:25:10.267333",
-    "confidence": 0.9584985678983067,
+    "name": "gg",
+    "timestamp": "2025-08-26T10:51:49.239502",
+    "confidence": 0.9357741638990353,
     "date": "2025-08-26",
-    "time": "10:25:10",
+    "time": "10:51:49",
     "recognition_info": {
       "method": "enhanced_templates",
       "conditions": [
-        "low_light",
-        "motion_blur"
+        "low_light"
       ],
-      "threshold_used": 0.805,
-      "quality": 0.4361021562924371,
+      "threshold_used": 0.78,
+      "quality": 0.6098692494345206,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.9584985678983067
+          0.9357741638990353
         ]
       }
     }
   },
   {
-    "name": "raiven",
-    "timestamp": "2025-08-26T10:30:24.577938",
-    "confidence": 0.971449940707628,
+    "name": "gg",
+    "timestamp": "2025-08-26T10:52:21.819689",
+    "confidence": 0.976371387434974,
     "date": "2025-08-26",
-    "time": "10:30:24",
+    "time": "10:52:21",
     "recognition_info": {
       "method": "enhanced_templates",
       "conditions": [
         "low_light",
-        "motion_blur"
+        "crowded_scene"
       ],
-      "threshold_used": 0.805,
-      "quality": 0.51374720105679,
+      "threshold_used": 0.795,
+      "quality": 0.6529031346983267,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.971449940707628
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-26T10:30:55.095699",
-    "confidence": 0.957573405254063,
-    "date": "2025-08-26",
-    "time": "10:30:55",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.5464897949152842,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.957573405254063
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-26T10:31:52.198462",
-    "confidence": 0.9227497834815241,
-    "date": "2025-08-26",
-    "time": "10:31:52",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.4578229837590355,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.9227497834815241
-        ]
-      }
-    }
-  },
-  {
-    "name": "raiven",
-    "timestamp": "2025-08-26T10:33:28.186666",
-    "confidence": 0.974653708901507,
-    "date": "2025-08-26",
-    "time": "10:33:28",
-    "recognition_info": {
-      "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.4204227299343748,
-      "template_info": {
-        "best_template_idx": 0,
-        "num_templates": 1,
-        "individual_similarities": [
-          0.974653708901507
+          0.976371387434974
         ]
       }
     }
