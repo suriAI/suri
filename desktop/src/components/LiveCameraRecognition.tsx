@@ -49,24 +49,26 @@ export default function LiveCameraRecognition() {
   const wsUnsubRef = useRef<(() => void) | null>(null)
   const cameraSelectorRef = useRef<HTMLDivElement>(null)
 
-  const connectWebSocket = useCallback(() => {
+    const connectWebSocket = useCallback(() => {
     try {
-      // Use preload-exposed client so it reconnects automatically
-      if (window.suriWS) {
-        window.suriWS.connect('ws://127.0.0.1:8770/ws')
-        const isAttendance = (m: Record<string, unknown>): m is { type: string; records: AttendanceRecord[] } => {
-          const maybeType = m?.['type']
-          const maybeRecs = (m as unknown as { records?: unknown }).records
-          return maybeType === 'attendance_logged' && Array.isArray(maybeRecs)
+      // Use the video API's WebSocket broadcast handler
+      if (window.suriVideo) {
+        const isAttendance = (m: Record<string, unknown>): m is { type: string; event: { type: string; data: { person_name: string; confidence: number; record: AttendanceRecord; timestamp: number } } } => {
+          const event = m?.event as Record<string, unknown>
+          const eventType = event?.type
+          const data = event?.data as Record<string, unknown>
+          return eventType === 'attendance_logged' && Boolean(data?.person_name) && Boolean(data?.record)
         }
-        wsUnsubRef.current = window.suriWS.onMessage((msg) => {
+        wsUnsubRef.current = window.suriVideo.onWebSocketBroadcast((msg) => {
           if (isAttendance(msg)) {
-            setTodayAttendance(prev => [...prev, ...msg.records])
+            const record = msg.event.data.record
+            setTodayAttendance(prev => [...prev, record])
+            setSystemStats(prev => ({ ...prev, today_records: prev.today_records + 1 }))
           }
         })
       }
     } catch (error) {
-      console.error('WebSocket connection failed:', error)
+      console.error('WebSocket broadcast connection failed:', error)
     }
   }, [])
 
@@ -596,11 +598,11 @@ export default function LiveCameraRecognition() {
           <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl h-[70vh] flex flex-col">
             <div className="p-4 border-b border-white/[0.05]">
               <h3 className="text-[10px] font-light text-white/60 uppercase tracking-[0.15em]">Today's Activity</h3>
-              <div className="text-2xl font-extralight text-white mt-2">{todayAttendance.length}</div>
+              <div className="text-2xl font-extralight text-white mt-2">{systemStats.today_records}</div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-3">
-              {todayAttendance.length > 0 ? (
+                             {systemStats.today_records > 0 ? (
                 <div className="space-y-2">
                   {todayAttendance.slice().reverse().map((record, index) => (
                     <div key={index} className="group">

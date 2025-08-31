@@ -18,6 +18,7 @@ declare global {
     setDevice: (device: number) => Promise<boolean>
     onFrame: (handler: (buf: ArrayBuffer | Uint8Array) => void) => () => void
     onEvent: (handler: (evt: Record<string, unknown>) => void) => () => void
+    onWebSocketBroadcast: (handler: (evt: Record<string, unknown>) => void) => () => void
   }
 
   interface SuriElectronAPI {

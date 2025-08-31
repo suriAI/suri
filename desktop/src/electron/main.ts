@@ -160,6 +160,13 @@ function startVideo(opts?: { device?: number, annotate?: boolean, fastPreview?: 
                 } catch (e) {
                     console.error('[video][evt-parse]', e)
                 }
+            } else if (line.startsWith('WS_BROADCAST ')) {
+                try {
+                    const wsEvent = JSON.parse(line.slice(13)) // Remove 'WS_BROADCAST ' prefix
+                    if (mainWindowRef) mainWindowRef.webContents.send('websocket:broadcast', wsEvent)
+                } catch (e) {
+                    console.error('[video][ws-parse]', e)
+                }
             } else {
                 console.log('[video][err]', line)
             }

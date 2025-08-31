@@ -1,1 +1,48 @@
-[]
+[
+  {
+    "name": "raiven",
+    "timestamp": "2025-08-31T15:24:51.884674",
+    "confidence": 0.8072371993805841,
+    "date": "2025-08-31",
+    "time": "15:24:51",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur"
+      ],
+      "threshold_used": 0.805,
+      "quality": 0.45620210736594496,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.8072371993805841
+        ]
+      }
+    }
+  },
+  {
+    "name": "raiven",
+    "timestamp": "2025-08-31T15:25:25.140162",
+    "confidence": 0.9752808562564452,
+    "date": "2025-08-31",
+    "time": "15:25:25",
+    "recognition_info": {
+      "method": "enhanced_templates",
+      "conditions": [
+        "low_light",
+        "motion_blur"
+      ],
+      "threshold_used": 0.805,
+      "quality": 0.5008711161540914,
+      "template_info": {
+        "best_template_idx": 0,
+        "num_templates": 1,
+        "individual_similarities": [
+          0.9752808562564452
+        ]
+      }
+    }
+  }
+]
