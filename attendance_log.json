@@ -1,66 +1,60 @@
 [
   {
-    "name": "RAIVEN",
-    "timestamp": "2025-08-31T16:55:54.122931",
-    "confidence": 0.9694394103897163,
+    "name": "raiven",
+    "timestamp": "2025-08-31T17:50:53.537501",
+    "confidence": 0.8362917090814078,
     "date": "2025-08-31",
-    "time": "16:55:54",
+    "time": "17:50:53",
     "recognition_info": {
       "method": "enhanced_templates",
       "conditions": [],
       "threshold_used": 0.75,
-      "quality": 0.6383585819735427,
+      "quality": 0.6516195025308603,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.9694394103897163
+          0.8362917090814078
         ]
       }
     }
   },
   {
-    "name": "RAIVEN",
-    "timestamp": "2025-08-31T16:56:29.731473",
-    "confidence": 0.8363609695538291,
+    "name": "raiven",
+    "timestamp": "2025-08-31T17:52:05.592844",
+    "confidence": 0.783863989991448,
     "date": "2025-08-31",
-    "time": "16:56:29",
+    "time": "17:52:05",
     "recognition_info": {
       "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.5403478568157952,
+      "conditions": [],
+      "threshold_used": 0.75,
+      "quality": 0.7341552153393935,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.8363609695538291
+          0.783863989991448
         ]
       }
     }
   },
   {
-    "name": "RAIVEN",
-    "timestamp": "2025-08-31T16:57:03.379390",
-    "confidence": 0.9221794072461679,
+    "name": "raiven",
+    "timestamp": "2025-08-31T17:53:20.127157",
+    "confidence": 0.9406788158026294,
     "date": "2025-08-31",
-    "time": "16:57:03",
+    "time": "17:53:20",
     "recognition_info": {
       "method": "enhanced_templates",
-      "conditions": [
-        "low_light",
-        "motion_blur"
-      ],
-      "threshold_used": 0.805,
-      "quality": 0.5057870549896277,
+      "conditions": [],
+      "threshold_used": 0.75,
+      "quality": 0.6302105895444249,
       "template_info": {
         "best_template_idx": 0,
         "num_templates": 1,
         "individual_similarities": [
-          0.9221794072461679
+          0.9406788158026294
         ]
       }
     }

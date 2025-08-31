@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 from datetime import datetime
-import os, json, pickle, sys
+import os, json, pickle, sys, time
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import defaultdict
 
@@ -28,9 +28,9 @@ recog_sess = ort.InferenceSession(RECOG_MODEL_PATH, providers=["CPUExecutionProv
 # Configs
 input_size = 640
 face_size = 112
-conf_thresh = 0.6  # Higher for better quality detections
+conf_thresh = 0.5  # More permissive for adding faces, still good quality
 iou_thresh = 0.45
-base_recognition_threshold = 0.75  # Balanced threshold for real-world scenarios
+base_recognition_threshold = 0.75  # BALANCED: Reasonable threshold for accurate recognition while preventing false positives
 
 class Main:
     def __init__(self):
@@ -39,6 +39,7 @@ class Main:
         self.last_recognition = {}  # To prevent duplicate entries
         self.multi_templates = defaultdict(list)  # Enhanced multi-template storage
         self.recognition_stats = {}  # Changed from defaultdict to regular dict
+        self.active_recognitions = {}  # Track active recognitions per person to prevent duplicates
         self.setup_directories()
         self.load_face_database()
         self.load_multi_templates()
@@ -184,11 +185,11 @@ class Main:
             embeddings.append(embedding)
             qualities.append(quality)
         
-        # Filter BEST OF THE BEST quality embeddings
-        good_indices = [i for i, q in enumerate(qualities) if q > 0.60]
+        # Filter good quality embeddings (lowered threshold for better acceptance)
+        good_indices = [i for i, q in enumerate(qualities) if q > 0.40]
         
         if not good_indices:
-            print(f"[WARNING] No good quality faces for {name}")
+            print(f"[WARNING] No good quality faces for {name}. Quality scores: {qualities}")
             return False
         
         # Create templates from good embeddings
@@ -283,7 +284,7 @@ class Main:
         return success
     
     def identify_face_enhanced(self, face_img, bbox_conf=0.8, scene_crowding=1.0):
-        """Enhanced identification with all advanced features"""
+        """Enhanced identification with all advanced features - ENTERPRISE GRADE"""
         
         try:
             # Validate input
@@ -308,8 +309,14 @@ class Main:
             # Detect conditions for adaptive thresholding
             conditions = detect_conditions(enhanced_face, quality, bbox_conf, scene_crowding)
             
-            # Get adaptive threshold
+            # Get adaptive threshold - ENTERPRISE GRADE: Higher threshold for crowded scenes
             adaptive_threshold = get_adaptive_threshold(conditions, base_recognition_threshold)
+            
+            # BALANCED: Reasonable thresholds for multiple faces
+            if scene_crowding > 2:
+                adaptive_threshold = max(adaptive_threshold, 0.85)  # Higher for crowded scenes
+            elif scene_crowding > 1:
+                adaptive_threshold = max(adaptive_threshold, 0.80)  # Moderate for multiple faces
             
             # Try enhanced template matching first
             best_person = None
@@ -368,10 +375,28 @@ class Main:
                         'individual_similarities': similarities
                     }
             
-            # Check if match is confident enough
+            # BALANCED: Check if match is confident enough
+            # EdgeFace-S can reach high similarities for genuine matches
             is_match = best_similarity >= adaptive_threshold
             
             if is_match and best_person:
+                # ENTERPRISE FIX: Check for duplicate recognition prevention
+                current_time = time.time()
+                if best_person in self.active_recognitions:
+                    time_diff = current_time - self.active_recognitions[best_person]
+                    if time_diff < 10.0:  # CRITICAL FIX: 10 second cooldown to prevent rapid false positives
+                        return best_person, best_similarity, False, {
+                            'method': 'enhanced_templates',
+                            'conditions': conditions,
+                            'threshold_used': adaptive_threshold,
+                            'quality': quality,
+                            'template_info': best_template_info,
+                            'duplicate_prevented': True
+                        }
+                
+                # Update active recognition timestamp
+                self.active_recognitions[best_person] = current_time
+                
                 # Update success statistics - ensure initialized
                 if best_person not in self.recognition_stats:
                     self.recognition_stats[best_person] = {'attempts': 0, 'successes': 0}
@@ -710,9 +735,9 @@ def process_single_image(app, image_path):
             else:
                 print(f"❓ Unknown face #{i+1} (quality: {quality:.2f})")
             
-            # Visualize results with BEST OF THE BEST thresholds
-            if identified_name and should_log and similarity >= 0.45:
-                color = (0, 255, 0)  # Green for recognized (BEST OF THE BEST)
+            # BALANCED: Visualize results with reasonable thresholds
+            if identified_name and should_log and similarity >= 0.75:
+                color = (0, 255, 0)  # Green for recognized
                 method_text = info.get('method', 'unknown')[:8]
                 
                 # Check data types
@@ -725,8 +750,8 @@ def process_single_image(app, image_path):
                 
                 data_indicator = "+".join(data_types) if data_types else "?"
                 label = f"{identified_name} ({similarity:.3f}) [{method_text}|{data_indicator}]"
-            elif identified_name and similarity >= 0.35:
-                color = (0, 255, 255)  # Yellow for moderate confidence (optimized)
+            elif identified_name and similarity >= 0.70:
+                color = (0, 255, 255)  # Yellow for high confidence but not logged
                 label = f"{identified_name}? ({similarity:.3f})"
             else:
                 color = (0, 0, 255)  # Red for unknown or too low confidence
@@ -1171,15 +1196,14 @@ def live_camera_recognition(app):
                     # Log attendance with enhanced info
                     app.log_attendance(identified_name, similarity, info)
                 
-                # Visualization based on confidence and method
-                # BEST OF THE BEST - Optimal display thresholds
-                if identified_name and should_log and similarity >= 0.45:
-                    # High confidence - green box (BEST OF THE BEST)
+                # BALANCED: Visualization with reasonable thresholds
+                if identified_name and should_log and similarity >= 0.75:
+                    # High confidence - green box
                     color = (0, 255, 0)
                     method_text = info.get('method', 'unknown')[:8]  # Truncate for display
                     label = f"{identified_name} ({similarity:.3f}) [{method_text}]"
-                elif identified_name and similarity >= 0.35:
-                    # Moderate confidence - yellow box (optimized threshold)
+                elif identified_name and similarity >= 0.70:
+                    # Medium confidence - yellow box
                     color = (0, 255, 255)
                     label = f"{identified_name}? ({similarity:.3f})"
                 else:

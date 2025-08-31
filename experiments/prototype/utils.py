@@ -203,13 +203,13 @@ def enhance_face_preprocessing(face_img, bbox_conf):
     return enhanced_img, quality_score
 
 def get_adaptive_threshold(conditions, base_threshold=0.75):
-    """BEST OF THE BEST - Optimal EdgeFace-S adaptive threshold"""
+    """BALANCED - EdgeFace-S adaptive threshold for accurate recognition"""
     condition_modifiers = {
-        'low_light': +0.03,      # Precise adjustment for low light
-        'motion_blur': +0.025,   # Fine-tuned for motion blur
-        'partial_occlusion': +0.05,  # Optimal occlusion handling
-        'high_quality': -0.015,  # Refined high quality bonus
-        'crowded_scene': +0.015  # Precise crowd scene adjustment
+        'low_light': +0.05,      # Moderate increase for low light
+        'motion_blur': +0.04,    # Moderate increase for motion blur
+        'partial_occlusion': +0.05,  # Moderate increase for occlusion
+        'high_quality': -0.02,   # Small bonus for high quality
+        'crowded_scene': +0.03   # Moderate increase for crowded scenes
     }
     
     threshold = base_threshold
@@ -218,8 +218,8 @@ def get_adaptive_threshold(conditions, base_threshold=0.75):
         if condition in condition_modifiers:
             threshold += condition_modifiers[condition]
     
-    # BEST OF THE BEST range - balanced for real-world use
-    return max(0.65, min(0.85, threshold))
+    # BALANCED range - reasonable for accurate recognition
+    return max(0.65, min(0.90, threshold))
 
 def validate_face_region(face_img):
     """Validate if the extracted region actually contains a face - RELAXED for better recognition"""

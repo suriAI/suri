@@ -577,18 +577,19 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
                     # Enhanced visualization with attendance status
                     attendance_logged = can_log
                     
-                    if identified_name and should_log:
-                        # High confidence - green box (brighter if attendance logged)
+                    # BALANCED: Reasonable visualization thresholds
+                    if identified_name and should_log and similarity >= 0.75:
+                        # High confidence - green box
                         color = (0, 255, 0) if attendance_logged else (0, 200, 100)
                         method_text = info.get('method', 'unknown')[:8]  # Truncate for display
                         status_indicator = "✓" if attendance_logged else "⏳"
                         label = f"{status_indicator} {identified_name} ({similarity:.3f}) [{method_text}]"
-                    elif identified_name:
-                        # Low confidence - yellow box
+                    elif identified_name and similarity >= 0.70:
+                        # Medium confidence - yellow box
                         color = (0, 255, 255)
                         label = f"{identified_name}? ({similarity:.3f})"
                     else:
-                        # Unknown - red box
+                        # Unknown or too low confidence - red box
                         color = (0, 0, 255)
                         label = f"Unknown (Q:{quality:.2f})"
                     

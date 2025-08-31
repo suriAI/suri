@@ -7,8 +7,9 @@ import sys
 if sys.platform.startswith('win'):
     os.environ['PYTHONIOENCODING'] = 'utf-8'
 
-# Add the parent directory to the path so we can import from experiments
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add the workspace root directory to the path so we can import from experiments
+workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, workspace_root)
 
 import base64
 import json
@@ -1130,20 +1131,11 @@ async def add_person(
         largest_face = max(faces, key=lambda x: (x[2] - x[0]) * (x[3] - x[1]))
         x1, y1, x2, y2, conf = largest_face
         
-        # Add padding around the face to include more context
-        face_width = x2 - x1
-        face_height = y2 - y1
-        padding_x = int(face_width * 0.2)  # 20% padding horizontally
-        padding_y = int(face_height * 0.3)  # 30% padding vertically (more for top/bottom)
+        # Crop the face region tightly - NO PADDING for maximum EdgeFace-S accuracy
+        # EdgeFace-S works best with clean, tightly cropped face images
+        face_img = full_image[y1:y2, x1:x2]
         
-        # Apply padding with bounds checking
-        x1_padded = max(0, x1 - padding_x)
-        y1_padded = max(0, y1 - padding_y)
-        x2_padded = min(w, x2 + padding_x)
-        y2_padded = min(h, y2 + padding_y)
-        
-        # Crop the face region with padding
-        face_img = full_image[y1_padded:y2_padded, x1_padded:x2_padded]
+        # Validate cropped face size
         if face_img.size == 0:
             return ApiResponse(
                 success=False,
@@ -1151,8 +1143,23 @@ async def add_person(
                 error="FACE_CROP_FAILED"
             )
         
-        # Add to system
-        success = attendance_system.add_new_face(face_img, name)
+        # Check minimum face size for EdgeFace-S (should be at least 80x80 pixels)
+        face_h, face_w = face_img.shape[:2]
+        if face_h < 80 or face_w < 80:
+            return ApiResponse(
+                success=False,
+                message=f"Face too small ({face_w}x{face_h}). Minimum size is 80x80 pixels. Try uploading a higher resolution image or getting closer to the camera.",
+                error="FACE_TOO_SMALL"
+            )
+        
+        # Add to system with better error handling
+        try:
+            success = attendance_system.add_new_face(face_img, name)
+            if not success:
+                logger.error(f"add_new_face returned False for {name}")
+        except Exception as e:
+            logger.error(f"Exception in add_new_face for {name}: {e}")
+            success = False
         
         if success:
             # Broadcast WebSocket event for new person addition
@@ -1231,25 +1238,25 @@ async def add_person_multi_templates(
             largest_face = max(faces, key=lambda x: (x[2] - x[0]) * (x[3] - x[1]))
             x1, y1, x2, y2, conf = largest_face
             
-            # Add padding around the face to include more context
-            face_width = x2 - x1
-            face_height = y2 - y1
-            padding_x = int(face_width * 0.2)  # 20% padding horizontally
-            padding_y = int(face_height * 0.3)  # 30% padding vertically (more for top/bottom)
+            # Crop the face region tightly - NO PADDING for maximum EdgeFace-S accuracy
+            # EdgeFace-S works best with clean, tightly cropped face images
+            face_img = full_image[y1:y2, x1:x2]
             
-            # Apply padding with bounds checking
-            x1_padded = max(0, x1 - padding_x)
-            y1_padded = max(0, y1 - padding_y)
-            x2_padded = min(w, x2 + padding_x)
-            y2_padded = min(h, y2 + padding_y)
-            
-            # Crop the face region with padding
-            face_img = full_image[y1_padded:y2_padded, x1_padded:x2_padded]
+            # Validate cropped face size
             if face_img.size == 0:
                 return ApiResponse(
                     success=False,
                     message=f"Failed to crop face from image {i+1}",
                     error="FACE_CROP_FAILED"
+                )
+            
+            # Check minimum face size for EdgeFace-S (should be at least 80x80 pixels)
+            face_h, face_w = face_img.shape[:2]
+            if face_h < 80 or face_w < 80:
+                return ApiResponse(
+                    success=False,
+                    message=f"Face too small in image {i+1} ({face_w}x{face_h}). Minimum size is 80x80 pixels. Try uploading a higher resolution image or getting closer to the camera.",
+                    error="FACE_TOO_SMALL"
                 )
             
             face_images.append(face_img)
