@@ -383,36 +383,19 @@ def open_camera(prefer: Optional[int] = None, api_pref: Optional[int] = None) ->
     return cap
 
 def configure_camera_settings(cap: cv2.VideoCapture) -> None:
-    """Configure camera settings for maximum streaming performance with fixed color handling."""
     try:
-        # Optimized buffer size for low latency streaming
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
-        
-        # Set target FPS for smooth streaming
         cap.set(cv2.CAP_PROP_FPS, 30)
-        
-        # Optimize resolution for streaming performance
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
-        # Fix color space and camera settings to prevent weird display issues
         try:
-            # Force MJPG format for better color compatibility
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-            
-            # Use auto-exposure (1.0) instead of manual (0.25) to prevent color issues
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)  # Auto exposure
-            
-            # Set proper default values for color properties (0.5 = neutral, not 0)
-            cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)  # Neutral brightness (0.5, not 0)
-            cap.set(cv2.CAP_PROP_CONTRAST, 0.5)    # Neutral contrast (0.5, not 0)
-            cap.set(cv2.CAP_PROP_SATURATION, 0.5)  # Neutral saturation
-            
-            print(f"[DEBUG] Camera color settings fixed - preventing grayscale/negative issues")
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)
+            print(f"[DEBUG] Camera essential settings applied (preserving user color settings)")
         except Exception as e:
-            print(f"[DEBUG] Could not set color properties: {e}")
+            print(f"[DEBUG] Could not set essential properties: {e}")
         
-        # Enable auto-focus if available
         try:
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
         except:

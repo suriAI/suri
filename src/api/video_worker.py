@@ -1,30 +1,3 @@
-"""
-Video Worker: Real-time OpenCV inference over stdout for Electron child_process
-
-Design
-- Opens the camera once (prefers DirectShow on Windows), sets low-latency options.
-- Runs detection + recognition using the same prototype pipeline.
-- Annotates frames and writes them as length-prefixed JPEG to stdout:
-  [uint32_le length][JPEG bytes]
-- Logs diagnostics and JSON events (e.g., errors) to stderr (never stdout).
-- Listens for optional JSON control commands on stdin (device switch, pause, resume, stop).
-
-Why
-- Avoids WebSocket overhead for video streaming. Meant to be spawned from Electron main.
-
-Usage
-  python -m src.api.video_worker --device 0 --width 640 --height 480 --fps 30 --annotate
-
-Protocol
-- Frames: stdout stream with length-prefixed JPEGs (uint32 little-endian)
-- Control: newline-delimited JSON commands on stdin, e.g.
-    {"action":"set_device","device":1}
-    {"action":"pause"}
-    {"action":"resume"}
-    {"action":"stop"}
-  Responses and logs are written to stderr as JSON lines prefixed with EVT or LOG for easy parsing.
-"""
-
 from __future__ import annotations
 
 import os
@@ -183,69 +156,105 @@ class ControlState:
             return d
 
 
-def open_camera_robust(device: int) -> cv2.VideoCapture:
-    """
-    Open camera with robust fallback methods to avoid obsensor/UVC conflicts.
-    Uses DirectShow on Windows to prevent obsensor_uvc_stream_channel errors.
-    """
-    cap = None
+@dataclass
+class CameraState:
+    original_brightness: Optional[float] = None
+    original_contrast: Optional[float] = None
+    original_saturation: Optional[float] = None
+    original_auto_exposure: Optional[float] = None
+    original_fourcc: Optional[int] = None
+    device: int = 0
+
+
+def store_original_camera_properties(cap: cv2.VideoCapture, device: int) -> CameraState:
+    state = CameraState(device=device)
+    try:
+        state.original_brightness = cap.get(cv2.CAP_PROP_BRIGHTNESS)
+        state.original_contrast = cap.get(cv2.CAP_PROP_CONTRAST)
+        state.original_saturation = cap.get(cv2.CAP_PROP_SATURATION)
+        state.original_auto_exposure = cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)
+        state.original_fourcc = cap.get(cv2.CAP_PROP_FOURCC)
+        print(f"LOG Stored original camera properties for device {device}", file=sys.stderr)
+        print(f"LOG Original: brightness={state.original_brightness:.3f}, contrast={state.original_contrast:.3f}, saturation={state.original_saturation:.3f}", file=sys.stderr)
+    except Exception as e:
+        print(f"LOG Could not store original camera properties: {e}", file=sys.stderr)
+    return state
+
+
+def restore_original_camera_properties(cap: cv2.VideoCapture, state: CameraState):
+    if not cap or not cap.isOpened():
+        return
     
     try:
-        # Method 1: Try DirectShow on Windows (most reliable)
+        print(f"LOG Restoring original camera properties for device {state.device}", file=sys.stderr)
+        
+        if state.original_brightness is not None:
+            cap.set(cv2.CAP_PROP_BRIGHTNESS, state.original_brightness)
+        if state.original_contrast is not None:
+            cap.set(cv2.CAP_PROP_CONTRAST, state.original_contrast)
+        if state.original_saturation is not None:
+            cap.set(cv2.CAP_PROP_SATURATION, state.original_saturation)
+        if state.original_auto_exposure is not None:
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, state.original_auto_exposure)
+        if state.original_fourcc is not None:
+            cap.set(cv2.CAP_PROP_FOURCC, int(state.original_fourcc))
+        
+        print(f"LOG Original camera properties restored successfully", file=sys.stderr)
+    except Exception as e:
+        print(f"LOG Could not restore original camera properties: {e}", file=sys.stderr)
+
+
+def open_camera_robust(device: int) -> tuple[cv2.VideoCapture, Optional[CameraState]]:
+    cap = None
+    original_state = None
+    
+    try:
         if os.name == 'nt':
             print(f"LOG Trying camera {device} with DirectShow backend", file=sys.stderr)
             cap = cv2.VideoCapture(device, cv2.CAP_DSHOW)
             if cap and cap.isOpened():
-                # Test if we can actually read a frame
                 ret, frame = cap.read()
                 if ret and frame is not None:
-                    # Force reset camera properties to prevent color issues
+                    original_state = store_original_camera_properties(cap, device)
+                    
                     try:
                         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
                         cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)
-                        cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
-                        cap.set(cv2.CAP_PROP_CONTRAST, 0.5)
-                        cap.set(cv2.CAP_PROP_SATURATION, 0.5)
-                        print(f"LOG Camera {device} color properties reset", file=sys.stderr)
+                        print(f"LOG Camera {device} essential properties set (preserving user settings)", file=sys.stderr)
                     except Exception as e:
-                        print(f"LOG Could not reset camera properties: {e}", file=sys.stderr)
+                        print(f"LOG Could not set essential camera properties: {e}", file=sys.stderr)
                     
                     print(f"LOG Camera {device} opened successfully with DirectShow", file=sys.stderr)
-                    return cap
+                    return cap, original_state
                 else:
                     print(f"LOG Camera {device} opened but no frame with DirectShow", file=sys.stderr)
                     cap.release()
                     cap = None
         
-        # Method 2: Try default backend as fallback
         if cap is None:
             print(f"LOG Trying camera {device} with default backend", file=sys.stderr)
             cap = cv2.VideoCapture(device)
             if cap and cap.isOpened():
-                # Test if we can actually read a frame
                 ret, frame = cap.read()
                 if ret and frame is not None:
-                    # Force reset camera properties to prevent color issues
+                    original_state = store_original_camera_properties(cap, device)
+                    
                     try:
                         cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)
-                        cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
-                        cap.set(cv2.CAP_PROP_CONTRAST, 0.5)
-                        cap.set(cv2.CAP_PROP_SATURATION, 0.5)
-                        print(f"LOG Camera {device} color properties reset (default backend)", file=sys.stderr)
+                        print(f"LOG Camera {device} essential properties set (preserving user settings)", file=sys.stderr)
                     except Exception as e:
-                        print(f"LOG Could not reset camera properties: {e}", file=sys.stderr)
+                        print(f"LOG Could not set essential camera properties: {e}", file=sys.stderr)
                     
                     print(f"LOG Camera {device} opened successfully with default backend", file=sys.stderr)
-                    return cap
+                    return cap, original_state
                 else:
                     print(f"LOG Camera {device} opened but no frame with default backend", file=sys.stderr)
                     cap.release()
                     cap = None
         
-        # Method 3: If all else fails, return a non-working capture for error handling
         if cap is None:
             print(f"LOG All methods failed for camera {device}, returning empty capture", file=sys.stderr)
-            return cv2.VideoCapture()
+            return cv2.VideoCapture(), None
         
     except Exception as e:
         print(f"LOG Camera {device} opening failed with error: {e}", file=sys.stderr)
@@ -254,9 +263,9 @@ def open_camera_robust(device: int) -> cv2.VideoCapture:
                 cap.release()
             except Exception:
                 pass
-        return cv2.VideoCapture()
+        return cv2.VideoCapture(), None
     
-    return cap
+    return cap, original_state
 
 
 def control_loop(ctrl: ControlState):
@@ -355,53 +364,35 @@ def notify_database_updated(stats):
 
 
 def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
-    """Optimized streaming with intelligent frame processing"""
-    # Use robust camera opening with DirectShow on Windows to avoid obsensor conflicts
-    cap = open_camera_robust(opts.device)
+    cap, original_state = open_camera_robust(opts.device)
     if not cap.isOpened():
         print(f"EVT {json.dumps({'type': 'video.error', 'message': f'Could not open camera {opts.device}'})}", file=sys.stderr)
         return 2
 
-    # Configure camera for maximum performance
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # Slightly larger buffer for stability
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
-    # Fix color space and camera settings to prevent weird display issues
     try:
-        # Force BGR color format (default for OpenCV)
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-        
-        # Reset auto-exposure to default (value 1 = auto, 0.25 can cause issues)
-        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)  # Enable auto exposure
-        
-        # Reset other properties that might cause color issues
-        cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)  # Neutral brightness
-        cap.set(cv2.CAP_PROP_CONTRAST, 0.5)    # Neutral contrast
-        cap.set(cv2.CAP_PROP_SATURATION, 0.5)  # Neutral saturation
-        
-        print(f"LOG Camera properties reset to prevent color issues", file=sys.stderr)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        print(f"LOG Camera performance settings applied (preserving user color settings)", file=sys.stderr)
     except Exception as e:
-        print(f"LOG Could not reset camera properties: {e}", file=sys.stderr)
+        print(f"LOG Could not set performance settings: {e}", file=sys.stderr)
 
     print(f"EVT {json.dumps({'type': 'video.started', 'device': opts.device, 'fast_preview': opts.fast_preview})}", file=sys.stderr)
     
-    # In fast preview mode, start sending frames immediately without model loading
+
     if opts.fast_preview:
         print(f"EVT {json.dumps({'type': 'video.fast_preview_ready'})}", file=sys.stderr)
     
     consecutive_fail = 0
     frame_count = 0
     last_db_check = time.time()
-    db_check_interval = 2.0  # Check for database updates every 2 seconds
+    db_check_interval = 2.0
     
-    # Performance optimization variables
     last_frame_time = time.time()
-    target_fps = 25  # Target streaming FPS for smooth display
+    target_fps = 25
     frame_interval = 1.0 / target_fps
     
-    # Initialize attendance cooldown to prevent duplicate logging
     attendance_cooldown = AttendanceCooldown(cooldown_seconds=8)
     cleanup_counter = 0
     
@@ -418,8 +409,11 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
         if nd is not None:
             try:
                 if cap is not None:
+
+                    if original_state:
+                        restore_original_camera_properties(cap, original_state)
                     cap.release()
-                cap = open_camera_robust(nd)
+                cap, original_state = open_camera_robust(nd)
                 if not cap or not cap.isOpened():
                     print(f"EVT {json.dumps({'type': 'video.error', 'message': f'Failed to switch to camera {nd}'})}", file=sys.stderr)
                 else:
@@ -439,10 +433,13 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
             if consecutive_fail >= 10:
                 try:
                     if cap:
+    
+                        if original_state:
+                            restore_original_camera_properties(cap, original_state)
                         cap.release()
                 except Exception:
                     pass
-                cap = open_camera_robust(opts.device)
+                cap, original_state = open_camera_robust(opts.device)
                 consecutive_fail = 0
             else:
                 time.sleep(0.005)
@@ -656,41 +653,27 @@ def streaming_camera_recognition(app, opts: Options, ctrl: ControlState):
         else:
             time.sleep(0.005)
 
+    if original_state:
+        restore_original_camera_properties(cap, original_state)
     cap.release()
     print(f"EVT {json.dumps({'type': 'video.stopped'})}", file=sys.stderr)
     return 0
 
 
 def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: ControlState):
-    """Fast preview mode - start camera immediately, add recognition when models load"""
-    # Use robust camera opening with DirectShow on Windows to avoid obsensor conflicts
-    cap = open_camera_robust(opts.device)
+    cap, original_state = open_camera_robust(opts.device)
     if not cap.isOpened():
         print(f"EVT {json.dumps({'type': 'video.error', 'message': f'Could not open camera {opts.device}'})}", file=sys.stderr)
         return 2
 
-    # Configure camera for maximum performance
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
-    # Fix color space and camera settings to prevent weird display issues
     try:
-        # Force BGR color format (default for OpenCV)
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-        
-        # Reset auto-exposure to default (value 1 = auto, 0.25 can cause issues)
-        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)  # Enable auto exposure
-        
-        # Reset other properties that might cause color issues
-        cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)  # Neutral brightness
-        cap.set(cv2.CAP_PROP_CONTRAST, 0.5)    # Neutral contrast
-        cap.set(cv2.CAP_PROP_SATURATION, 0.5)  # Neutral saturation
-        
-        print(f"LOG Camera properties reset to prevent color issues", file=sys.stderr)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        print(f"LOG Camera performance settings applied (preserving user color settings)", file=sys.stderr)
     except Exception as e:
-        print(f"LOG Could not reset camera properties: {e}", file=sys.stderr)
+        print(f"LOG Could not set performance settings: {e}", file=sys.stderr)
 
     print(f"EVT {json.dumps({'type': 'video.started', 'device': opts.device, 'fast_preview': True})}", file=sys.stderr)
     print(f"EVT {json.dumps({'type': 'video.fast_preview_ready'})}", file=sys.stderr)
@@ -699,7 +682,6 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
     attendance = None
     models_loaded = False
     
-    # Initialize attendance cooldown for fast preview mode
     attendance_cooldown = AttendanceCooldown(cooldown_seconds=8)
     cleanup_counter = 0
     
@@ -711,7 +693,7 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
             time.sleep(0.02)
             continue
 
-        # Check if models are loaded
+
         if not models_loaded and model_future.done():
             try:
                 attendance = model_future.result()
@@ -719,15 +701,18 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
                 print(f"EVT {json.dumps({'type': 'video.recognition_ready'})}", file=sys.stderr)
             except Exception as e:
                 print(f"LOG Model loading error: {e}", file=sys.stderr)
-                models_loaded = True  # Prevent endless checking
+                models_loaded = True
 
-        # Handle device switching
+
         nd = ctrl.consume_device_switch()
         if nd is not None:
             try:
                 if cap is not None:
+
+                    if original_state:
+                        restore_original_camera_properties(cap, original_state)
                     cap.release()
-                cap = open_camera_robust(nd)
+                cap, original_state = open_camera_robust(nd)
                 if not cap or not cap.isOpened():
                     print(f"EVT {json.dumps({'type': 'video.error', 'message': f'Failed to switch to camera {nd}'})}", file=sys.stderr)
                 else:
@@ -871,6 +856,8 @@ def streaming_camera_recognition_fast(model_future, opts: Options, ctrl: Control
         except Exception as e:
             print(f"LOG Frame send error: {e}", file=sys.stderr)
 
+    if original_state:
+        restore_original_camera_properties(cap, original_state)
     cap.release()
     print(f"EVT {json.dumps({'type': 'video.stopped'})}", file=sys.stderr)
     return 0
