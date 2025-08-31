@@ -51,6 +51,7 @@ export default function LiveCameraRecognition() {
 
     const connectWebSocket = useCallback(() => {
     try {
+      console.log('Setting up WebSocket broadcast handler...')
       // Use the video API's WebSocket broadcast handler
       if (window.suriVideo) {
         const isAttendance = (m: Record<string, unknown>): m is { type: string; event: { type: string; data: { person_name: string; confidence: number; record: AttendanceRecord; timestamp: number } } } => {
@@ -60,12 +61,17 @@ export default function LiveCameraRecognition() {
           return eventType === 'attendance_logged' && Boolean(data?.person_name) && Boolean(data?.record)
         }
         wsUnsubRef.current = window.suriVideo.onWebSocketBroadcast((msg) => {
+          console.log('WebSocket broadcast received:', msg)
           if (isAttendance(msg)) {
             const record = msg.event.data.record
+            console.log('Attendance record received:', record)
             setTodayAttendance(prev => [...prev, record])
             setSystemStats(prev => ({ ...prev, today_records: prev.today_records + 1 }))
           }
         })
+        console.log('WebSocket broadcast handler set up successfully')
+      } else {
+        console.error('suriVideo API not available for WebSocket setup')
       }
     } catch (error) {
       console.error('WebSocket broadcast connection failed:', error)
@@ -74,13 +80,19 @@ export default function LiveCameraRecognition() {
 
   const fetchTodayAttendance = useCallback(async () => {
     try {
-  const response = await fetch('http://127.0.0.1:8770/attendance/today')
+      console.log('Fetching today\'s attendance...')
+      const response = await fetch('http://127.0.0.1:8770/attendance/today')
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
+          console.log('Attendance data received:', data.records.length, 'records')
           setTodayAttendance(data.records)
           setSystemStats(prev => ({ ...prev, today_records: data.records.length }))
+        } else {
+          console.error('Attendance fetch failed:', data.message)
         }
+      } else {
+        console.error('Attendance fetch HTTP error:', response.status)
       }
     } catch (error) {
       console.error('Failed to fetch attendance:', error)
@@ -175,9 +187,21 @@ export default function LiveCameraRecognition() {
   }, [stopStream, currentCamera])
 
   useEffect(() => {
+    console.log('LiveCameraRecognition component mounted')
     connectWebSocket()
-    fetchTodayAttendance()
-    fetchAvailableCameras()
+    
+    // Fetch data immediately and then set up periodic refresh
+    const initialFetch = async () => {
+      await fetchTodayAttendance()
+      await fetchAvailableCameras()
+    }
+    initialFetch()
+    
+    // Set up periodic refresh to keep data in sync
+    const refreshInterval = setInterval(() => {
+      console.log('Periodic attendance refresh...')
+      fetchTodayAttendance()
+    }, 3000) // Refresh every 3 seconds for more responsive updates
     
     // Listen for video events to update camera status
     const handleVideoEvent = (evt: Record<string, unknown>) => {
@@ -197,6 +221,8 @@ export default function LiveCameraRecognition() {
     const offVideoEvent = window.suriVideo?.onEvent?.(handleVideoEvent)
     
     return () => {
+      console.log('LiveCameraRecognition component unmounting')
+      clearInterval(refreshInterval)
       if (wsUnsubRef.current) wsUnsubRef.current()
       if (offVideoEvent) offVideoEvent()
       stopStream()
@@ -216,6 +242,29 @@ export default function LiveCameraRecognition() {
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showCameraSelector])
+
+  // Refresh data when component becomes visible/focused
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Component became visible, refreshing data...')
+        fetchTodayAttendance()
+      }
+    }
+
+    const handleFocus = () => {
+      console.log('Window focused, refreshing data...')
+      fetchTodayAttendance()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [fetchTodayAttendance])
 
   const addPersonFromCamera = async () => {
     if (!newPersonName.trim()) return
