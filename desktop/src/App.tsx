@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import MainMenu from './components/MainMenu.tsx'
-import LiveCameraRecognition from './components/LiveCameraRecognitionNew.tsx'
+import LiveCameraRecognition from './components/LiveCameraRecognition.tsx'
 import SingleImageRecognition from './components/SingleImageRecognition.tsx'
 import BatchImageProcessing from './components/BatchImageProcessing.tsx'
 import SystemManagement from './components/SystemManagement.tsx'
 import AddPerson from './components/AddPerson.tsx'
 import AppDropdown from './components/AppDropdown.tsx'
 import TitleBar from './components/TitleBar.tsx'
-import './App.css'
 
 export type MenuOption = 
   | 'main'

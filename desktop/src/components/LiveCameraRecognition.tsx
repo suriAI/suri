@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-
-
-interface RecognitionResult {
-  name: string | null
-  confidence: number
-  bbox: [number, number, number, number]
-  quality: number
-  method: string
-  shouldLog: boolean
+interface DetectionResult {
+  bbox: [number, number, number, number];
+  confidence: number;
+  landmarks: number[][];
+  recognition?: {
+    personId: string | null;
+    similarity: number;
+  };
 }
 
 interface AttendanceRecord {
@@ -18,345 +17,376 @@ interface AttendanceRecord {
   time: string
 }
 
-interface CameraDevice {
-  index: number
-  name: string
-  backend: string
-  backend_id?: number
-  works: boolean
-  width: number
-  height: number
-  fps: number
-}
-
 export default function LiveCameraRecognition() {
   const [isStreaming, setIsStreaming] = useState(false)
-  const [recognitionResults] = useState<RecognitionResult[]>([])
-  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([])
-
+  const [detectionResults, setDetectionResults] = useState<DetectionResult[]>([])
+  const [todayAttendance] = useState<AttendanceRecord[]>([])
   const [systemStats, setSystemStats] = useState({ today_records: 0, total_people: 0 })
   const [cameraStatus, setCameraStatus] = useState<'stopped' | 'starting' | 'preview' | 'recognition'>('stopped')
-  const [availableCameras, setAvailableCameras] = useState<CameraDevice[]>([])
-  const [currentCamera, setCurrentCamera] = useState<number>(0)
-  const [showCameraSelector, setShowCameraSelector] = useState(false)
-  const [isLoadingCameras, setIsLoadingCameras] = useState(false)
-  
-  const imgRef = useRef<HTMLImageElement>(null)
-  const frameUrlRef = useRef<string | null>(null)
-  const streamingRef = useRef(false)
-  const wsUnsubRef = useRef<(() => void) | null>(null)
-  const cameraSelectorRef = useRef<HTMLDivElement>(null)
+  const [fps, setFps] = useState(0)
+  const [processingTime, setProcessingTime] = useState(0)
+  const [registrationMode, setRegistrationMode] = useState(false)
+  const [newPersonId, setNewPersonId] = useState('')
 
-    const connectWebSocket = useCallback(() => {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const animationFrameRef = useRef<number | undefined>(undefined)
+  const fpsCounterRef = useRef({ frames: 0, lastTime: 0 })
+  const canvasInitializedRef = useRef(false)
+  const lastCaptureRef = useRef(0)
+  const captureIntervalRef = useRef<number | undefined>(undefined)
+
+  // Define startProcessing first (will be defined later with useCallback)
+  const startProcessingRef = useRef<(() => void) | null>(null)
+
+  // Initialize face recognition pipeline
+  const initializePipeline = useCallback(async () => {
     try {
-      console.log('Setting up WebSocket broadcast handler...')
-      // Use the video API's WebSocket broadcast handler
-      if (window.suriVideo) {
-        const isAttendance = (m: Record<string, unknown>): m is { type: string; event: { type: string; data: { person_name: string; confidence: number; record: AttendanceRecord; timestamp: number } } } => {
-          const event = m?.event as Record<string, unknown>
-          const eventType = event?.type
-          const data = event?.data as Record<string, unknown>
-          return eventType === 'attendance_logged' && Boolean(data?.person_name) && Boolean(data?.record)
-        }
-        wsUnsubRef.current = window.suriVideo.onWebSocketBroadcast((msg) => {
-          console.log('WebSocket broadcast received:', msg)
-          if (isAttendance(msg)) {
-            const record = msg.event.data.record
-            console.log('Attendance record received:', record)
-            setTodayAttendance(prev => [...prev, record])
-            setSystemStats(prev => ({ ...prev, today_records: prev.today_records + 1 }))
-          }
-        })
-        console.log('WebSocket broadcast handler set up successfully')
-      } else {
-        console.error('suriVideo API not available for WebSocket setup')
-      }
-    } catch (error) {
-      console.error('WebSocket broadcast connection failed:', error)
-    }
-  }, [])
-
-  const fetchTodayAttendance = useCallback(async () => {
-    try {
-      console.log('Fetching today\'s attendance...')
-      const response = await fetch('http://127.0.0.1:8770/attendance/today')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          console.log('Attendance data received:', data.records.length, 'records')
-          setTodayAttendance(data.records)
-          setSystemStats(prev => ({ ...prev, today_records: data.records.length }))
-        } else {
-          console.error('Attendance fetch failed:', data.message)
-        }
-      } else {
-        console.error('Attendance fetch HTTP error:', response.status)
-      }
-    } catch (error) {
-      console.error('Failed to fetch attendance:', error)
-    }
-  }, [])
-
-  const stopStream = useCallback(async () => {
-    try {
-      setIsStreaming(false)
-      streamingRef.current = false
-      setCameraStatus('stopped')
-      // Clean up blob URL if exists
-      if (imgRef.current && imgRef.current.src) {
-        if (imgRef.current.src.startsWith('blob:')) URL.revokeObjectURL(imgRef.current.src)
-        imgRef.current.src = ''
-        frameUrlRef.current = null
-      }
-      // unsubscribe frame listener if any
-      if (window.__suriOffFrame) {
-        try { window.__suriOffFrame() } catch (e) { console.warn('offFrame cleanup error', e) }
-        window.__suriOffFrame = undefined
-      }
-      if (window.suriVideo) await window.suriVideo.stop()
-    } catch (error) {
-      console.error('Failed to stop stream:', error)
-    }
-  }, [])
-
-  const startStream = useCallback(async () => {
-    try {
-      await stopStream()
-    if (!window.suriVideo) throw new Error('suriVideo API not available')
-    
-    // Set UI to streaming immediately for instant feedback
-    setIsStreaming(true)
-    streamingRef.current = true
-    setCameraStatus('preview')  // Skip 'starting' status for instant feel
-    
-    // Set up optimized frame handler for smooth real-time display
-    let lastSet = 0
-    const frameQueue: string[] = []
-    const offFrame = window.suriVideo.onFrame((buf) => {
-        try {
-          const u8 = (buf instanceof ArrayBuffer) ? new Uint8Array(buf) : (buf as Uint8Array)
-          const ab = new ArrayBuffer(u8.byteLength)
-          new Uint8Array(ab).set(u8)
-          const blob = new Blob([ab], { type: 'image/jpeg' })
-          const url = URL.createObjectURL(blob)
-          
-          if (imgRef.current) {
-            const now = performance.now()
-            // Optimized frame rate limiting for smooth 25-30 FPS display
-            if (now - lastSet < 33) { // ~30 fps max, prevents overwhelming browser
-              URL.revokeObjectURL(url)
-              return
-            }
-            
-            // Clean up old frames to prevent memory leaks
-            if (frameUrlRef.current) {
-              URL.revokeObjectURL(frameUrlRef.current)
-            }
-            
-            // Clean up frame queue if it gets too long
-            while (frameQueue.length > 2) {
-              const oldUrl = frameQueue.shift()
-              if (oldUrl) URL.revokeObjectURL(oldUrl)
-            }
-            
-            frameUrlRef.current = url
-            frameQueue.push(url)
-            imgRef.current.src = url
-            lastSet = now
-            
-            // Auto-upgrade to preview on first frame
-            if (streamingRef.current) setCameraStatus('preview')
-          }
-        } catch (e) {
-          console.error('onFrame error', e)
-        }
-      })
-    window.__suriOffFrame = offFrame
-    
-    // Start camera with fast startup (this should trigger frames immediately)
-    await window.suriVideo.startFast({ device: currentCamera, annotate: true })
-    
-    } catch (error) {
-      console.error('Failed to start stream:', error)
-      setIsStreaming(false)
-      streamingRef.current = false
-      setCameraStatus('stopped')
-    }
-  }, [stopStream, currentCamera])
-
-  useEffect(() => {
-    console.log('LiveCameraRecognition component mounted')
-    connectWebSocket()
-    
-    // Fetch data immediately and then set up periodic refresh
-    const initialFetch = async () => {
-      await fetchTodayAttendance()
-      await fetchAvailableCameras()
-    }
-    initialFetch()
-    
-    // Set up periodic refresh to keep data in sync
-    const refreshInterval = setInterval(() => {
-      console.log('Periodic attendance refresh...')
-      fetchTodayAttendance()
-    }, 15000) // Refresh every 15 seconds to avoid conflicts with real-time updates
-    
-    // Listen for video events to update camera status
-    const handleVideoEvent = (evt: Record<string, unknown>) => {
-      if (evt.type === 'video.fast_preview_ready') {
-        setCameraStatus('preview')
-      } else if (evt.type === 'video.recognition_ready') {
-        setCameraStatus('recognition')
-      } else if (evt.type === 'video.models_loaded') {
-        setCameraStatus('recognition')
-      } else if (evt.type === 'video.error') {
-        setCameraStatus('stopped')
-        setIsStreaming(false)
-        streamingRef.current = false
-      }
-    }
-    
-    const offVideoEvent = window.suriVideo?.onEvent?.(handleVideoEvent)
-    
-    return () => {
-      console.log('LiveCameraRecognition component unmounting')
-      clearInterval(refreshInterval)
-      if (wsUnsubRef.current) wsUnsubRef.current()
-      if (offVideoEvent) offVideoEvent()
-      stopStream()
-    }
-  }, [connectWebSocket, fetchTodayAttendance, stopStream])
-
-  // Close camera selector when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (cameraSelectorRef.current && !cameraSelectorRef.current.contains(event.target as Node)) {
-        setShowCameraSelector(false)
-      }
-    }
-
-    if (showCameraSelector) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showCameraSelector])
-
-  // Refresh data when component becomes visible/focused
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('Component became visible, refreshing data...')
-        fetchTodayAttendance()
-      }
-    }
-
-    const handleFocus = () => {
-      console.log('Window focused, refreshing data...')
-      fetchTodayAttendance()
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [fetchTodayAttendance])
-
-
-
-
-
-  const clearAttendance = async () => {
-    if (!confirm('⚠️ Clear ALL attendance records? This cannot be undone.')) return
-    
-    try {
-  const response = await fetch('http://127.0.0.1:8770/attendance/clear', {
-        method: 'DELETE'
-      })
+      console.log('Initializing face recognition pipeline...')
       
-      if (response.ok) {
-        setTodayAttendance([])
-        alert('✅ Attendance log cleared!')
-      }
-    } catch (error) {
-      console.error('Failed to clear attendance:', error)
-    }
-  }
-
-  const fetchAvailableCameras = async () => {
-    setIsLoadingCameras(true)
-    try {
-      const response = await fetch('http://127.0.0.1:8770/video/devices')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setAvailableCameras(data.devices)
-          setCurrentCamera(data.current_device)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch cameras:', error)
-    } finally {
-      setIsLoadingCameras(false)
-    }
-  }
-
-  const switchCamera = async (deviceIndex: number) => {
-    try {
-      // Stop current stream if running
-      if (isStreaming) {
-        await stopStream()
-        // Small delay to ensure clean shutdown
-        await new Promise(resolve => setTimeout(resolve, 200))
+      // Check if electronAPI is available
+      if (!window.electronAPI) {
+        throw new Error('electronAPI not available')
       }
       
-      const response = await fetch('http://127.0.0.1:8770/video/set_device', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      // Initialize the pipeline via IPC
+      const result = await window.electronAPI.initializeFaceRecognition({
+        similarityThreshold: 0.6
+      })
+      
+      console.log('Pipeline initialization result:', result)
+      
+      if (result.success) {
+        setCameraStatus('recognition')
+        console.log('Face recognition pipeline ready')
+        
+        // Start processing now that everything is ready
+        setTimeout(() => {
+          console.log('Starting processing after status update')
+          if (startProcessingRef.current) {
+            startProcessingRef.current()
+          }
+        }, 100)
+      } else {
+        throw new Error(result.error || 'Pipeline initialization failed')
+      }
+    } catch (error) {
+      console.error('Failed to initialize pipeline:', error)
+      setCameraStatus('stopped')
+    }
+  }, [])
+
+  const startCamera = useCallback(async () => {
+    try {
+      console.log('Starting camera...')
+      setIsStreaming(true)
+      setCameraStatus('starting')
+
+      // Get user media with low-latency settings for real-time recognition
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { exact: 30 },
+          facingMode: 'user',
+          // Disable video processing that can cause delays and bounce-back effect
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
         },
-        body: JSON.stringify({ device_index: deviceIndex })
+        audio: false
       })
-      
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setCurrentCamera(deviceIndex)
-          setShowCameraSelector(false)
+
+      console.log('Camera stream obtained')
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        streamRef.current = stream
+        
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded, starting playback')
           
-          // If we were streaming before, restart with new camera
-          if (streamingRef.current) {
-            // Small delay before restarting
-            setTimeout(() => {
-              startStream()
-            }, 300)
+          // Configure video for ultra-minimal latency
+          if (videoRef.current) {
+            const video = videoRef.current
+            
+            // Ultra-low latency settings
+            video.currentTime = 0
+            
+            // Critical low-latency attributes
+            video.setAttribute('playsinline', 'true')
+            video.setAttribute('webkit-playsinline', 'true')
+            video.muted = true
+            
+            // Minimize buffering completely
+            video.setAttribute('x5-video-player-type', 'h5')
+            if ('mozInputLatency' in video) {
+              (video as any).mozInputLatency = 0.01
+            }
+            
+            // Start playback immediately
+            video.play()
           }
           
-          // Show success message
-          const camera = availableCameras.find(c => c.index === deviceIndex)
-          alert(`✅ Switched to: ${camera?.name || `Camera ${deviceIndex}`}`)
-        } else {
-          alert(`❌ Failed to switch camera: ${data.message || 'Unknown error'}`)
+          setCameraStatus('preview')
+          
+          // Initialize canvas size once when video loads
+          if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current
+            const canvas = canvasRef.current
+            
+            // Use video's natural resolution for canvas - more performant
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+            canvasInitializedRef.current = true
+            console.log('Canvas initialized with video resolution:', canvas.width, 'x', canvas.height)
+          }
+          
+          // Initialize pipeline (it will start processing automatically)
+          initializePipeline()
         }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        alert(`❌ Failed to switch camera: ${errorData.detail || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Failed to switch camera:', error)
-      alert('❌ Failed to switch camera: Network error')
+      console.error('Failed to start camera:', error)
+      setIsStreaming(false)
+      setCameraStatus('stopped')
     }
-  }
+  }, [initializePipeline])
+
+  const stopCamera = useCallback(() => {
+    setIsStreaming(false)
+    setCameraStatus('stopped')
+    
+    // Clean up any remaining intervals and frames
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = undefined
+    }
+    if (captureIntervalRef.current) {
+      clearInterval(captureIntervalRef.current)
+      captureIntervalRef.current = undefined
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    
+    // Reset canvas initialization flag for next session
+    canvasInitializedRef.current = false
+  }, [])
+
+  const captureFrame = useCallback((): ImageData | null => {
+    if (!videoRef.current || !canvasRef.current) return null
+    
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    
+    if (!ctx || video.videoWidth === 0) return null
+    
+    // Only set canvas size if not already initialized (prevents flickering)
+    if (!canvasInitializedRef.current) {
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvasInitializedRef.current = true
+      console.log('Canvas initialized during capture with video resolution:', canvas.width, 'x', canvas.height)
+    }
+    
+    // Draw video frame to canvas (scale from video resolution to canvas size)
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    
+    // Get image data
+    return ctx.getImageData(0, 0, canvas.width, canvas.height)
+  }, [])
+
+  const processFrameThrottled = useCallback(() => {
+    if (!isStreaming || cameraStatus !== 'recognition') {
+      return
+    }
+
+    const now = performance.now()
+    // Throttle frame capture to reduce video element conflicts - 15 FPS for processing
+    if (now - lastCaptureRef.current < 67) { // ~15 FPS
+      return
+    }
+
+    lastCaptureRef.current = now
+
+    try {
+      const imageData = captureFrame()
+      if (!imageData) {
+        return
+      }
+
+      // Process frame through face recognition pipeline
+      if (window.electronAPI?.processFrame) {
+        // Process frame without await to prevent blocking
+        window.electronAPI.processFrame(imageData).then(result => {
+          setDetectionResults(result.detections)
+          setProcessingTime(result.processingTime)
+          
+          // Update FPS counter
+          fpsCounterRef.current.frames++
+          
+          if (now - fpsCounterRef.current.lastTime >= 1000) {
+            setFps(fpsCounterRef.current.frames)
+            fpsCounterRef.current.frames = 0
+            fpsCounterRef.current.lastTime = now
+          }
+        }).catch(error => {
+          console.error('Frame processing error:', error)
+        })
+      }
+      
+    } catch (error) {
+      console.error('Frame capture error:', error)
+    }
+  }, [isStreaming, cameraStatus, captureFrame])
+
+  const startProcessing = useCallback(() => {
+    // Clean up any existing intervals
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = undefined
+    }
+    if (captureIntervalRef.current) {
+      clearInterval(captureIntervalRef.current)
+      captureIntervalRef.current = undefined
+    }
+    
+    fpsCounterRef.current = { frames: 0, lastTime: performance.now() }
+    lastCaptureRef.current = 0
+    
+    // Use interval-based processing to reduce video element conflicts
+    // 15 FPS processing allows smooth 30+ FPS preview
+    captureIntervalRef.current = window.setInterval(processFrameThrottled, 67) // ~15 FPS
+  }, [processFrameThrottled])
+
+  // Set the ref after the function is defined
+  useEffect(() => {
+    startProcessingRef.current = startProcessing
+  }, [startProcessing])
+
+  const registerFace = useCallback(async () => {
+    if (!newPersonId.trim()) {
+      alert('Please enter a person ID')
+      return
+    }
+    
+    try {
+      const imageData = captureFrame()
+      if (!imageData) {
+        alert('Failed to capture frame')
+        return
+      }
+      
+      // Find the largest face detection for registration
+      const largestDetection = detectionResults.reduce((largest, current) => {
+        const currentArea = (current.bbox[2] - current.bbox[0]) * (current.bbox[3] - current.bbox[1])
+        const largestArea = largest ? (largest.bbox[2] - largest.bbox[0]) * (largest.bbox[3] - largest.bbox[1]) : 0
+        return currentArea > largestArea ? current : largest
+      }, null as DetectionResult | null)
+      
+      if (!largestDetection || !largestDetection.landmarks) {
+        alert('No face detected for registration')
+        return
+      }
+      
+      const success = await window.electronAPI?.registerPerson(newPersonId.trim(), imageData, largestDetection.landmarks)
+      
+      if (success) {
+        alert(`Successfully registered ${newPersonId}`)
+        setNewPersonId('')
+        setRegistrationMode(false)
+        setSystemStats(prev => ({ ...prev, total_people: prev.total_people + 1 }))
+      } else {
+        alert('Failed to register face')
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      alert('Registration failed')
+    }
+  }, [newPersonId, detectionResults, captureFrame])
+
+  const drawDetections = useCallback(() => {
+    if (!canvasRef.current || !videoRef.current) return
+    
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+    
+    // Clear previous drawings
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    
+    // Draw detections
+    detectionResults.forEach((detection) => {
+      const [x1, y1, x2, y2] = detection.bbox
+      
+      // Scale coordinates properly for canvas display
+      const scaleX = canvas.width / videoRef.current!.videoWidth
+      const scaleY = canvas.height / videoRef.current!.videoHeight
+      
+      const scaledX1 = x1 * scaleX
+      const scaledY1 = y1 * scaleY
+      const scaledX2 = x2 * scaleX
+      const scaledY2 = y2 * scaleY
+      
+      // Draw bounding box
+      ctx.strokeStyle = detection.recognition?.personId ? '#00ff00' : '#ff0000'
+      ctx.lineWidth = 2
+      ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1)
+      
+      // Draw label
+      const label = detection.recognition?.personId 
+        ? `${detection.recognition.personId} (${(detection.recognition.similarity * 100).toFixed(1)}%)`
+        : `Unknown (${(detection.confidence * 100).toFixed(1)}%)`
+      
+      ctx.fillStyle = detection.recognition?.personId ? '#00ff00' : '#ff0000'
+      ctx.font = '14px Arial'
+      ctx.fillText(label, scaledX1, scaledY1 - 5)
+      
+      // Draw landmarks
+      if (detection.landmarks) {
+        ctx.fillStyle = '#ffff00'
+        detection.landmarks.forEach(([x, y]) => {
+          ctx.beginPath()
+          ctx.arc(x, y, 3, 0, 2 * Math.PI)
+          ctx.fill()
+        })
+      }
+    })
+  }, [detectionResults])
+
+  // Draw detections overlay
+  useEffect(() => {
+    if (isStreaming) {
+      drawDetections()
+    }
+  }, [detectionResults, drawDetections, isStreaming])
+
+  // Note: Removed resize handler to improve performance
+  // Canvas size is set once based on video resolution for optimal performance
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera()
+    }
+  }, [stopCamera])
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Glass Morphism Control Bar */}
+      {/* Control Bar */}
       <div className="px-8 py-6 flex items-center justify-between">
         <div className="flex items-center space-x-6">
           <button
-            onClick={isStreaming ? stopStream : startStream}
+            onClick={isStreaming ? stopCamera : startCamera}
             className={`px-8 py-3 rounded-xl text-sm font-light backdrop-blur-xl border transition-all duration-500 ${
               isStreaming 
                 ? 'bg-white/[0.08] border-white/[0.15] text-white hover:bg-white/[0.12]'
@@ -366,22 +396,12 @@ export default function LiveCameraRecognition() {
             {isStreaming ? '⏹ Stop Camera' : '▶ Start Camera'}
           </button>
           
-          {isStreaming && (
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => { window.suriVideo?.pause() }}
-                className="px-4 py-2 rounded-xl text-xs font-light text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] transition-all duration-300"
-              >
-                ⏸ Pause
-              </button>
-              <button
-                onClick={() => { window.suriVideo?.resume() }}
-                className="px-4 py-2 rounded-xl text-xs font-light text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] transition-all duration-300"
-              >
-                ▶ Resume
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => setRegistrationMode(!registrationMode)}
+            className="px-6 py-3 rounded-xl text-sm font-light bg-blue-600/20 border border-blue-400/30 text-blue-300 hover:bg-blue-600/30 transition-all duration-300"
+          >
+            {registrationMode ? 'Cancel Registration' : '👤 Register Face'}
+          </button>
         </div>
         
         <div className="flex items-center space-x-6">
@@ -389,147 +409,96 @@ export default function LiveCameraRecognition() {
             <div className="text-[10px] text-white/50 uppercase tracking-[0.1em] font-light">Status</div>
             <div className={`text-sm font-extralight ${isStreaming ? 'text-white' : 'text-white/40'}`}>
               {cameraStatus === 'stopped' && '○ Stopped'}
+              {cameraStatus === 'starting' && '⟳ Starting'}
               {cameraStatus === 'preview' && '📹 Preview'}
               {cameraStatus === 'recognition' && '● Recognition'}
             </div>
           </div>
           
           <div className="text-center px-4 py-2 bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-xl">
+            <div className="text-[10px] text-white/50 uppercase tracking-[0.1em] font-light">FPS</div>
+            <div className="text-sm font-extralight text-white">{fps}</div>
+          </div>
+          
+          <div className="text-center px-4 py-2 bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-xl">
+            <div className="text-[10px] text-white/50 uppercase tracking-[0.1em] font-light">Processing</div>
+            <div className="text-sm font-extralight text-white">{processingTime.toFixed(1)}ms</div>
+          </div>
+          
+          <div className="text-center px-4 py-2 bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-xl">
             <div className="text-[10px] text-white/50 uppercase tracking-[0.1em] font-light">Today</div>
             <div className="text-sm font-extralight text-white">{systemStats.today_records}</div>
           </div>
-          
-          <div className="relative" ref={cameraSelectorRef}>
-            <button
-              onClick={() => setShowCameraSelector(!showCameraSelector)}
-              className="px-4 py-2 rounded-xl text-xs font-light text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] transition-all duration-300 flex items-center gap-2"
-            >
-              📷 {availableCameras.find(c => c.index === currentCamera)?.name?.split(' ')[0] || `Camera ${currentCamera}`}
-              <span className="text-white/40">▼</span>
-            </button>
-            
-            {showCameraSelector && (
-              <div className="absolute top-full left-0 mt-2 min-w-[280px] bg-black/80 backdrop-blur-xl border border-white/[0.15] rounded-xl overflow-hidden z-50">
-                <div className="p-3 border-b border-white/[0.10]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/70 font-light">Select Camera</span>
-                    <button
-                      onClick={fetchAvailableCameras}
-                      disabled={isLoadingCameras}
-                      className="text-xs text-white/50 hover:text-white/80 transition-colors"
-                    >
-                      {isLoadingCameras ? '⟳' : '↻'}
-                    </button>
-                  </div>
-                </div>
-                
-                {isLoadingCameras ? (
-                  <div className="p-4 text-center">
-                    <div className="text-sm text-white/60">Scanning cameras...</div>
-                  </div>
-                ) : availableCameras.length === 0 ? (
-                  <div className="p-4 text-center">
-                    <div className="text-sm text-white/60">No cameras found</div>
-                    <div className="text-xs text-white/40 mt-1">Check camera connections</div>
-                  </div>
-                ) : (
-                  <div className="max-h-64 overflow-y-auto">
-                    {availableCameras.map((camera) => (
-                      <button
-                        key={camera.index}
-                        onClick={() => switchCamera(camera.index)}
-                        className={`w-full p-3 text-left hover:bg-white/[0.05] transition-colors border-b border-white/[0.05] last:border-b-0 ${
-                          camera.index === currentCamera ? 'bg-white/[0.08] text-white' : 'text-white/80'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-light">{camera.name}</div>
-                            <div className="text-xs text-white/50 mt-1">
-                              {camera.width}x{camera.height} • {camera.backend}
-                              {camera.index === currentCamera && ' • Active'}
-                            </div>
-                          </div>
-                          <div className={`w-2 h-2 rounded-full ${camera.works ? 'bg-green-400' : 'bg-red-400'}`} />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          
-          
-          <button
-            onClick={fetchTodayAttendance}
-            className="px-4 py-2 rounded-xl text-xs font-light text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] transition-all duration-300"
-          >
-            ↻ Refresh
-          </button>
-          
-          <button
-            onClick={clearAttendance}
-            className="px-4 py-2 rounded-xl text-xs font-light text-white/40 hover:text-white/80 bg-white/[0.02] hover:bg-white/[0.05] backdrop-blur-xl border border-white/[0.05] transition-all duration-300"
-          >
-            🗑 Clear Log
-          </button>
         </div>
       </div>
 
+      {/* Registration Panel */}
+      {registrationMode && (
+        <div className="px-8 pb-4">
+          <div className="bg-blue-900/20 border border-blue-400/30 rounded-xl p-4 backdrop-blur-xl">
+            <div className="flex items-center space-x-4">
+              <input
+                type="text"
+                placeholder="Enter person ID/name"
+                value={newPersonId}
+                onChange={(e) => setNewPersonId(e.target.value)}
+                className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.10] rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-400/50"
+                onKeyPress={(e) => e.key === 'Enter' && registerFace()}
+              />
+              <button
+                onClick={registerFace}
+                disabled={!newPersonId.trim() || detectionResults.length === 0}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 rounded-lg text-white font-medium transition-colors"
+              >
+                Register
+              </button>
+            </div>
+            <div className="text-xs text-blue-300/70 mt-2">
+              {detectionResults.length > 0 ? 'Face detected - ready to register' : 'Position your face in the camera view'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex flex-1 px-8 pb-8 gap-6">
-        {/* Glass Video Feed */}
+        {/* Video Feed */}
         <div className="flex-1">
-          <div className="h-[70vh] bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="relative h-[70vh] bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden flex items-center justify-center">
             {isStreaming ? (
-              <div className="relative h-full">
-                {/* Camera feed image */}
-                <img
-                  ref={imgRef}
-                  className="w-full h-full object-contain bg-black rounded-2xl"
+              <>
+                <div className="relative w-full max-w-4xl aspect-video">
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 rounded-2xl w-full h-full"
+                  playsInline
+                  muted
+                  autoPlay
+                  preload="none"
+                  disablePictureInPicture
+                  controls={false}
+                  style={{ 
+                    objectFit: 'contain'
+                  }}
                 />
+                <canvas
+                  ref={canvasRef}
+                  className="absolute inset-0 pointer-events-none rounded-2xl w-full h-full"
+                  style={{ 
+                    objectFit: 'contain'
+                  }}
+                />
+              </div>
                 
-
-                
-                {/* Centered loader when image hasn't rendered yet */}
-                {cameraStatus === 'preview' && !imgRef.current?.src && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-                    <div className="text-center">
-                      
-                      <div className="flex items-center justify-center mb-2">
-                        <svg className="w-8 h-8 text-white/60 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      </div>
-
-                      <p className="text-sm text-white/80 font-light">Loading...</p>
-                      <p className="text-xs text-white/50 mt-1 font-light">will activate shortly</p>
+                {/* Detection Count Overlay */}
+                {detectionResults.length > 0 && (
+                  <div className="absolute top-4 left-4 px-4 py-2 bg-black/50 backdrop-blur-sm rounded-lg">
+                    <div className="text-white text-sm">
+                      {detectionResults.length} face{detectionResults.length !== 1 ? 's' : ''} detected
                     </div>
                   </div>
                 )}
-                
-                {/* Glass Recognition Overlays */}
-                {recognitionResults.length > 0 && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    {recognitionResults.map((result, index) => (
-                      <div
-                        key={index}
-                        className="absolute top-6 left-6 px-4 py-3 rounded-xl backdrop-blur-xl text-xs bg-white/[0.08] border border-white/[0.15]"
-                      >
-                        <div className="font-light text-white">
-                          {result.name || 'Unknown'} ({(result.confidence * 100).toFixed(1)}%)
-                        </div>
-                        <div className="text-xs text-white/60 mt-1">
-                          Quality: {result.quality.toFixed(2)} • {result.method}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              </>
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center text-white/60">
@@ -545,7 +514,7 @@ export default function LiveCameraRecognition() {
           </div>
         </div>
         
-        {/* Narrow Glass Attendance Panel */}
+        {/* Attendance Panel */}
         <div className="w-64">
           <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl h-[70vh] flex flex-col">
             <div className="p-4 border-b border-white/[0.05]">
@@ -554,7 +523,7 @@ export default function LiveCameraRecognition() {
             </div>
             
             <div className="flex-1 overflow-y-auto p-3">
-                             {systemStats.today_records > 0 ? (
+              {todayAttendance.length > 0 ? (
                 <div className="space-y-2">
                   {todayAttendance.slice().reverse().map((record, index) => (
                     <div key={index} className="group">
@@ -586,9 +555,6 @@ export default function LiveCameraRecognition() {
           </div>
         </div>
       </div>
-
-      
     </div>
-  )
+  );
 }
-

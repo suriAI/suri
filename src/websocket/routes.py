@@ -23,24 +23,19 @@ from .manager import connection_manager, create_success_response, create_error_r
 # Set up logging
 logger = logging.getLogger("suri.websocket.routes")
 
-# Import prototype utilities and system components
-# We need to adjust imports based on the current structure
+# Import the new SCRFD + EdgeFace system components
+# No more prototype dependencies!
 try:
-    # Import from prototype for core functionality
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from experiments.prototype.main import Main
-    from experiments.prototype.utils import calculate_quality_score
-    
-    # Initialize the attendance system (shared instance)
+    # The attendance system will be passed from api_server.py
     attendance_system = None  # Will be set from api_server.py
     
 except ImportError as e:
-    logger.error(f"Failed to import prototype modules: {e}")
+    logger.error(f"Failed to initialize: {e}")
     attendance_system = None
 
 
-def set_attendance_system(system: Main):
-    """Set the shared attendance system instance."""
+def set_attendance_system(system):
+    """Set the shared attendance system instance (now uses SCRFD + EdgeFace)."""
     global attendance_system
     attendance_system = system
 
@@ -139,17 +134,14 @@ async def handle_sync_data(request_id: str, payload: Dict[str, Any]) -> Dict[str
         )
     
     try:
-        # Reload face database
-        attendance_system.load_face_database()
-        attendance_system.load_multi_templates()
-        attendance_system.load_attendance_log()
+        # Reload face database for the new system
+        attendance_system._load_attendance_log()
         
-        # Get current stats
+        # Get current stats for SCRFD + EdgeFace system
         stats = {
-            "legacy_faces": len(attendance_system.face_database),
-            "enhanced_templates": sum(len(templates) for templates in attendance_system.multi_templates.values()),
-            "total_people": len(attendance_system.multi_templates),
+            "total_people": len(attendance_system.get_all_persons()),
             "attendance_records": len(attendance_system.attendance_log),
+            "pipeline": "SCRFD + EdgeFace",
             "synced_at": datetime.now().isoformat()
         }
         
@@ -185,38 +177,28 @@ async def handle_get_system_status(request_id: str, payload: Dict[str, Any]) -> 
         )
     
     try:
-        # Get comprehensive system status
-        legacy_count = len(attendance_system.face_database)
-        template_count = sum(len(t) for t in attendance_system.multi_templates.values())
-        people_count = len(attendance_system.multi_templates)
+        # Get comprehensive system status for SCRFD + EdgeFace
+        people_count = len(attendance_system.get_all_persons())
         
         # Get today's attendance
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        today_records = [
-            record for record in attendance_system.attendance_log 
-            if record.get("date") == today_str
-        ]
+        today_records = attendance_system.get_today_attendance()
         
         total_records = len(attendance_system.attendance_log)
-        total_attempts = sum(stats['attempts'] for stats in attendance_system.recognition_stats.values())
-        total_successes = sum(stats['successes'] for stats in attendance_system.recognition_stats.values())
-        overall_success_rate = total_successes / max(total_attempts, 1)
         
         status_info = {
             "database_stats": {
-                "legacy_faces": legacy_count,
-                "enhanced_templates": template_count,
-                "total_people": people_count
+                "total_people": people_count,
+                "pipeline": "SCRFD + EdgeFace"
             },
             "attendance_stats": {
                 "today_records": len(today_records),
                 "total_records": total_records,
-                "unique_people_today": len({r['name'] for r in today_records})
+                "unique_people_today": len(set(r['person_id'] for r in today_records))
             },
-            "recognition_stats": {
-                "total_attempts": total_attempts,
-                "total_successes": total_successes,
-                "success_rate": overall_success_rate
+            "system_info": {
+                "detection_model": "SCRFD",
+                "recognition_model": "EdgeFace-S",
+                "api_version": "2.0.0"
             },
             "connections": connection_manager.get_connection_info(),
             "timestamp": datetime.now().isoformat()
@@ -255,7 +237,7 @@ async def handle_get_today_attendance(request_id: str, payload: Dict[str, Any]) 
         today_records = attendance_system.get_today_attendance()
         
         # Get additional stats
-        unique_people = set(record['name'] for record in today_records)
+        unique_people = set(record['person_id'] for record in today_records)
         
         attendance_data = {
             "date": datetime.now().strftime('%Y-%m-%d'),
@@ -263,6 +245,7 @@ async def handle_get_today_attendance(request_id: str, payload: Dict[str, Any]) 
             "unique_people": len(unique_people),
             "people_present": list(unique_people),
             "records": today_records,
+            "pipeline": "SCRFD + EdgeFace",
             "last_updated": datetime.now().isoformat()
         }
         

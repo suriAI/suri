@@ -289,41 +289,47 @@ ipcMain.handle('window:close', () => {
 async function preloadModels() {
     try {
         const pythonCmd = resolvePythonCmd()
-        console.log('[main] Starting comprehensive model preload...')
+        console.log('[main] Starting SCRFD + EdgeFace model preload...')
         
         const preloadScript = `
 import sys
 import os
 sys.path.append('.')
 
-print("Loading YOLO detection model...")
-from experiments.prototype.main import yolo_sess, input_size, Main
-print("Loading face recognition model...")
-app = Main()
+print("Loading SCRFD detection model...")
+from models import SCRFD, EdgeFace, FaceDatabase
+print("Loading EdgeFace recognition model...")
+
+# Initialize models
+detector = SCRFD(
+    model_path="weights/det_500m.onnx",
+    conf_thres=0.5,
+    iou_thres=0.4
+)
+
+recognizer = EdgeFace(model_path="weights/edgeface-recognition.onnx")
+face_db = FaceDatabase(similarity_threshold=0.6)
+
 print("Warming up models with dummy data...")
 
 import numpy as np
 import cv2
 
-# Warm up YOLO
+# Warm up SCRFD detection
 dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
-from experiments.prototype.main import preprocess_yolo, non_max_suppression, conf_thresh, iou_thresh
-input_blob, scale, dx, dy = preprocess_yolo(dummy_img)
-preds = yolo_sess.run(None, {'images': input_blob})[0]
-faces = non_max_suppression(preds, conf_thresh, iou_thresh, 
-                          img_shape=(480, 640), input_shape=(input_size, input_size), 
-                          pad=(dx, dy), scale=scale)
+detections, keypoints = detector.detect(dummy_img)
 
-# Warm up face recognition if we have a small dummy face
-if len(faces) == 0:
-    # Create a synthetic face region for recognition warmup
-    dummy_face = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+# Warm up EdgeFace recognition if we have keypoints
+if keypoints is not None and len(keypoints) > 0:
     try:
-        app.identify_face_enhanced(dummy_face, 0.8, 1)
+        # Create dummy keypoints for warmup
+        dummy_kps = np.array([[30, 30], [80, 30], [55, 55], [35, 75], [75, 75]], dtype=np.float32)
+        embedding = recognizer(dummy_img, dummy_kps)
+        face_db.identify_face(embedding)
     except:
         pass  # Expected to fail, just warming up the models
 
-print(f"Models preloaded successfully! YOLO ready, Recognition ready.")
+print(f"Models preloaded successfully! SCRFD + EdgeFace ready.")
 `
         
         const preloadProc = spawn(pythonCmd, ['-c', preloadScript], {
