@@ -139,19 +139,6 @@ function createWindow(): void {
     // Load the app
     if (isDev()) {
         mainWindow.loadURL('http://localhost:5123')
-        // Open DevTools with autofill disabled to prevent autofill errors
-        mainWindow.webContents.once('did-finish-load', () => {
-            mainWindow.webContents.openDevTools({ mode: 'detach' })
-            // Disable autofill to prevent DevTools autofill errors
-            mainWindow.webContents.executeJavaScript(`
-                if (window.chrome && window.chrome.runtime) {
-                    // Disable autofill in DevTools context
-                    Object.defineProperty(window.chrome, 'autofill', { value: undefined });
-                }
-            `).catch(() => {
-                // Ignore errors - this is just for DevTools cleanup
-            })
-        })
     } else {
         mainWindow.loadFile(path.join(__dirname, '../index.html'))
     }
