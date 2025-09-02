@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import MainMenu from './components/MainMenu.tsx'
-import LiveCameraRecognition from './components/LiveCameraRecognition.tsx'
+import LiveCameraRecognition from './components/LiveCameraRecognitionNew.tsx'
 import SingleImageRecognition from './components/SingleImageRecognition.tsx'
 import BatchImageProcessing from './components/BatchImageProcessing.tsx'
 import SystemManagement from './components/SystemManagement.tsx'

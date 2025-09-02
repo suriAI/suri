@@ -29,10 +29,30 @@ declare global {
     onUnmaximize: (callback: () => void) => () => void
   }
 
+  interface FaceRecognitionAPI {
+    initializeFaceRecognition: (options?: { similarityThreshold?: number }) => Promise<{ success: boolean; error?: string }>
+    processFrame: (imageData: ImageData) => Promise<{
+      detections: Array<{
+        bbox: [number, number, number, number];
+        confidence: number;
+        landmarks: number[][];
+        recognition?: {
+          personId: string | null;
+          similarity: number;
+        };
+      }>;
+      processingTime: number;
+    }>
+    registerPerson: (personId: string, imageData: ImageData, landmarks: number[][]) => Promise<boolean>
+    getAllPersons: () => Promise<string[]>
+    removePerson: (personId: string) => Promise<boolean>
+  }
+
   interface Window {
     suriWS?: SuriWSClientAPI
     suriVideo?: SuriVideoAPI
     suriElectron?: SuriElectronAPI
+    electronAPI?: FaceRecognitionAPI
     __suriOffFrame?: () => void
   }
 }

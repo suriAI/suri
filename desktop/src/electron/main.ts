@@ -4,10 +4,12 @@ import isDev from "./util.js";
 import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import fs from 'fs'
+import { FaceRecognitionPipeline } from "../services/FaceRecognitionPipeline.js";
 
 let backendProc: ChildProcessWithoutNullStreams | null = null
 let videoProc: ChildProcessWithoutNullStreams | null = null
 let mainWindowRef: BrowserWindow | null = null
+let faceRecognitionPipeline: FaceRecognitionPipeline | null = null
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
@@ -91,10 +93,8 @@ function startVideo(opts?: { device?: number, annotate?: boolean, fastPreview?: 
     })
     console.log('[video] spawned', pythonCmd, args.join(' '))
 
-    // Optimized frame handling for smooth real-time performance
+    // Uncapped frame handling for maximum performance
     let acc: Buffer = Buffer.alloc(0)
-    let lastSent = 0
-    const minIntervalMs = 1000 / 30 // Optimized to 30 fps for smooth performance
     let frameDropped = 0
 
     function handleData(chunk: Buffer) {
@@ -115,20 +115,12 @@ function startVideo(opts?: { device?: number, annotate?: boolean, fastPreview?: 
                     // Copy to detach from the underlying accumulator memory
                     const frame = Buffer.from(acc.subarray(4, 4 + len))
                     acc = acc.subarray(4 + len)
-                    const now = Date.now()
-                    if (now - lastSent >= minIntervalMs) {
-                        lastSent = now
-                        frameDropped = 0 // Reset dropped counter on successful send
-                        if (mainWindowRef) {
-                            // send as Buffer to avoid base64 overhead
-                            mainWindowRef.webContents.send('video:frame', frame)
-                        }
-                    } else {
-                        frameDropped++
-                        // Log performance info occasionally
-                        if (frameDropped % 50 === 0) {
-                            console.log(`[video] Performance: ${frameDropped} frames skipped for smooth playback`)
-                        }
+                    
+                    // Send all frames immediately - uncapped FPS
+                    if (mainWindowRef) {
+                        setImmediate(() => {
+                            mainWindowRef?.webContents.send('video:frame', frame)
+                        })
                     }
                 } catch (e) {
                     console.error('[video] frame processing error:', e)
@@ -207,6 +199,70 @@ ipcMain.handle('video:stop', () => { stopVideo(); return true })
 ipcMain.handle('video:pause', () => { if (videoProc) videoProc.stdin.write(JSON.stringify({ action: 'pause' }) + '\n'); return true })
 ipcMain.handle('video:resume', () => { if (videoProc) videoProc.stdin.write(JSON.stringify({ action: 'resume' }) + '\n'); return true })
 ipcMain.handle('video:setDevice', (_evt, device: number) => { if (videoProc) videoProc.stdin.write(JSON.stringify({ action: 'set_device', device }) + '\n'); return true })
+
+// Face Recognition IPC Handlers
+ipcMain.handle('face-recognition:initialize', async (_evt, options) => {
+  try {
+    if (!faceRecognitionPipeline) {
+      faceRecognitionPipeline = new FaceRecognitionPipeline()
+    }
+    
+    const weightsDir = path.join(__dirname, '../../weights')
+    await faceRecognitionPipeline.initialize({
+      detectionModelPath: path.join(weightsDir, 'det_500m.onnx'),
+      recognitionModelPath: path.join(weightsDir, 'edgeface-recognition.onnx'),
+      similarityThreshold: options?.similarityThreshold || 0.6
+    })
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to initialize face recognition:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+})
+
+ipcMain.handle('face-recognition:process-frame', async (_evt, imageData) => {
+  try {
+    if (!faceRecognitionPipeline) {
+      throw new Error('Face recognition pipeline not initialized')
+    }
+    
+    // Process frame with minimal overhead for real-time performance
+    const result = await faceRecognitionPipeline.processFrame(imageData)
+    return result
+  } catch (error) {
+    // Reduced error logging for performance
+    return { detections: [], processingTime: 0 }
+  }
+})
+
+ipcMain.handle('face-recognition:register-person', async (_evt, personId, imageData, landmarks) => {
+  try {
+    if (!faceRecognitionPipeline) {
+      throw new Error('Face recognition pipeline not initialized')
+    }
+    
+    const success = await faceRecognitionPipeline.registerPerson(personId, imageData, landmarks)
+    return success
+  } catch (error) {
+    console.error('Person registration error:', error)
+    return false
+  }
+})
+
+ipcMain.handle('face-recognition:get-persons', () => {
+  if (!faceRecognitionPipeline) {
+    return []
+  }
+  return faceRecognitionPipeline.getAllPersons()
+})
+
+ipcMain.handle('face-recognition:remove-person', (_evt, personId) => {
+  if (!faceRecognitionPipeline) {
+    return false
+  }
+  return faceRecognitionPipeline.removePerson(personId)
+})
 
 // Window control handlers
 ipcMain.handle('window:minimize', () => {
@@ -429,4 +485,10 @@ app.on("ready", async () => {
 app.on('before-quit', () => {
     stopBackend()
     stopVideo()
+    
+    if (faceRecognitionPipeline) {
+        console.log('[main] Disposing face recognition pipeline...')
+        faceRecognitionPipeline.dispose()
+        faceRecognitionPipeline = null
+    }
 })

@@ -4,8 +4,12 @@
     "module": "NodeNext",
     "skipLibCheck": true,
     "strict": true,
-    "outDir": "../../dist-electron"
+    "outDir": "../../dist-electron",
+    "baseUrl": "..",
+    "paths": {
+      "../services/*": ["../services/*"]
+    }
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../services/**/*.ts"],
   "exclude": ["../../dist-electron"]
 }
