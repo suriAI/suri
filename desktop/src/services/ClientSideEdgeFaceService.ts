@@ -186,40 +186,53 @@ export class ClientSideEdgeFaceService {
 
   // ================== PRIVATE METHODS ==================
 
+  // Reuse canvases for better performance
+  private alignCanvas: HTMLCanvasElement | null = null;
+  private sourceCanvas: HTMLCanvasElement | null = null;
+  
   /**
    * Align face using facial landmarks (matching Python implementation)
    */
   private alignFace(imageData: ImageData, landmarks: Float32Array): ImageData {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
+    // Create reusable canvases
+    if (!this.alignCanvas) {
+      this.alignCanvas = document.createElement('canvas');
+      this.alignCanvas.width = this.INPUT_SIZE;
+      this.alignCanvas.height = this.INPUT_SIZE;
+    }
     
-    canvas.width = this.INPUT_SIZE;
-    canvas.height = this.INPUT_SIZE;
+    if (!this.sourceCanvas) {
+      this.sourceCanvas = document.createElement('canvas');
+    }
     
-    // Create source image canvas
-    const sourceCanvas = document.createElement('canvas');
-    const sourceCtx = sourceCanvas.getContext('2d')!;
-    sourceCanvas.width = imageData.width;
-    sourceCanvas.height = imageData.height;
+    const canvas = this.alignCanvas;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    
+    // Reuse source canvas but update dimensions if needed
+    const sourceCanvas = this.sourceCanvas;
+    if (sourceCanvas.width !== imageData.width || sourceCanvas.height !== imageData.height) {
+      sourceCanvas.width = imageData.width;
+      sourceCanvas.height = imageData.height;
+    }
+    const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true })!;
     sourceCtx.putImageData(imageData, 0, 0);
     
-    // Calculate similarity transform matrix (simplified version)
-    // For production, you'd want to implement the full similarity transform
-    // For now, using a simplified approach that focuses on eye alignment
+    // Clear the alignment canvas for reuse
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Calculate eye positions (optimized)
     const leftEye = [landmarks[0], landmarks[1]];
     const rightEye = [landmarks[2], landmarks[3]];
-    // const nose = [landmarks[4], landmarks[5]]; // For future use
     
-    // Calculate eye center and angle
+    // Calculate eye center and angle (no change)
     const eyeCenterX = (leftEye[0] + rightEye[0]) / 2;
     const eyeCenterY = (leftEye[1] + rightEye[1]) / 2;
     const eyeAngle = Math.atan2(rightEye[1] - leftEye[1], rightEye[0] - leftEye[0]);
     
-    // Calculate scale based on eye distance
-    const eyeDistance = Math.sqrt(
-      Math.pow(rightEye[0] - leftEye[0], 2) + Math.pow(rightEye[1] - leftEye[1], 2)
-    );
+    // Calculate scale (simplified)
+    const dx = rightEye[0] - leftEye[0];
+    const dy = rightEye[1] - leftEye[1];
+    const eyeDistance = Math.sqrt(dx * dx + dy * dy);
     const targetEyeDistance = 40; // Target distance in 112x112 image
     const scale = targetEyeDistance / eyeDistance;
     
@@ -235,36 +248,55 @@ export class ClientSideEdgeFaceService {
     return ctx.getImageData(0, 0, this.INPUT_SIZE, this.INPUT_SIZE);
   }
 
+  // Reuse Float32Arrays to avoid memory allocations
+  private rgbData: Float32Array | null = null;
+  private chwData: Float32Array | null = null;
+  
   /**
-   * Preprocess aligned face for EdgeFace model input
+   * Preprocess aligned face for EdgeFace model input - optimized for speed
    */
   private preprocessImage(alignedFace: ImageData): ort.Tensor {
     const { width, height, data } = alignedFace;
+    const imageSize = width * height;
+    const channels = 3;
     
-    // Convert RGBA to RGB and normalize
-    const rgbData = new Float32Array(3 * width * height);
-    
-    for (let i = 0; i < width * height; i++) {
-      const rgbaIndex = i * 4;
-      const rgbIndex = i * 3;
-      
-      // Convert to RGB and normalize (0-255 -> -1 to 1)
-      rgbData[rgbIndex] = (data[rgbaIndex] - this.INPUT_MEAN) / this.INPUT_STD;         // R
-      rgbData[rgbIndex + 1] = (data[rgbaIndex + 1] - this.INPUT_MEAN) / this.INPUT_STD; // G  
-      rgbData[rgbIndex + 2] = (data[rgbaIndex + 2] - this.INPUT_MEAN) / this.INPUT_STD; // B
+    // Create or reuse RGB data array
+    if (!this.rgbData || this.rgbData.length !== channels * imageSize) {
+      this.rgbData = new Float32Array(channels * imageSize);
     }
     
-    // Rearrange to CHW format (Channel-Height-Width)
-    const chwData = new Float32Array(3 * width * height);
-    const channelSize = width * height;
+    // Create or reuse CHW data array
+    if (!this.chwData || this.chwData.length !== channels * imageSize) {
+      this.chwData = new Float32Array(channels * imageSize);
+    }
     
-    for (let c = 0; c < 3; c++) {
-      for (let h = 0; h < height; h++) {
-        for (let w = 0; w < width; w++) {
-          const srcIndex = (h * width + w) * 3 + c;
-          const dstIndex = c * channelSize + h * width + w;
-          chwData[dstIndex] = rgbData[srcIndex];
-        }
+    // Get reference to reused array
+    const chwData = this.chwData;
+    const channelSize = imageSize;
+    
+    // Direct RGBA to CHW conversion - skips intermediate RGB array
+    // This combines two operations (RGB conversion and CHW arrangement) into one
+    const rOffset = 0;
+    const gOffset = channelSize;
+    const bOffset = channelSize * 2;
+    
+    // Process in batches of pixels for better cache locality
+    const BATCH_SIZE = 128;
+    for (let batch = 0; batch < imageSize; batch += BATCH_SIZE) {
+      const batchEnd = Math.min(batch + BATCH_SIZE, imageSize);
+      
+      for (let i = batch; i < batchEnd; i++) {
+        const rgbaIndex = i * 4;
+        
+        // Convert to RGB and normalize in one step
+        const r = (data[rgbaIndex] - this.INPUT_MEAN) / this.INPUT_STD;         // R
+        const g = (data[rgbaIndex + 1] - this.INPUT_MEAN) / this.INPUT_STD;     // G
+        const b = (data[rgbaIndex + 2] - this.INPUT_MEAN) / this.INPUT_STD;     // B
+        
+        // Store directly in CHW format
+        chwData[rOffset + i] = r;
+        chwData[gOffset + i] = g;
+        chwData[bOffset + i] = b;
       }
     }
     

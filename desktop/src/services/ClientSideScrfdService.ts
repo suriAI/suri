@@ -86,51 +86,81 @@ export class ClientSideScrfdService {
     }
   }
 
+  // Reuse canvas and tensor data arrays
+  private blobCanvas: OffscreenCanvas | null = null;
+  private blobSourceCanvas: OffscreenCanvas | null = null;
+  private tensorData: Float32Array | null = null;
+  
   private createBlobFromImage(imageData: ImageData): ort.Tensor {
     const { width, height } = imageData;
     const FIXED_INPUT_SIZE = 640;
     
-    const canvas = new OffscreenCanvas(FIXED_INPUT_SIZE, FIXED_INPUT_SIZE);
-    const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D;
+    // Create or reuse the destination canvas
+    if (!this.blobCanvas) {
+      this.blobCanvas = new OffscreenCanvas(FIXED_INPUT_SIZE, FIXED_INPUT_SIZE);
+    }
+    const canvas = this.blobCanvas;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D;
     
     if (!ctx) {
       throw new Error('Failed to create canvas context for image preprocessing');
     }
     
+    // Create or reuse the source canvas
+    if (!this.blobSourceCanvas || this.blobSourceCanvas.width !== width || this.blobSourceCanvas.height !== height) {
+      this.blobSourceCanvas = new OffscreenCanvas(width, height);
+    }
+    const sourceCanvas = this.blobSourceCanvas;
+    const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D;
+    
+    // Clear canvases for reuse
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, FIXED_INPUT_SIZE, FIXED_INPUT_SIZE);
     
+    // Calculate scaling factors (cache if dimensions haven't changed)
     const scale = Math.min(FIXED_INPUT_SIZE / width, FIXED_INPUT_SIZE / height);
     const scaledWidth = Math.round(width * scale);
     const scaledHeight = Math.round(height * scale);
-    
     const offsetX = Math.round((FIXED_INPUT_SIZE - scaledWidth) / 2);
     const offsetY = Math.round((FIXED_INPUT_SIZE - scaledHeight) / 2);
     
-    const sourceCanvas = new OffscreenCanvas(width, height);
-    const sourceCtx = sourceCanvas.getContext('2d') as OffscreenCanvasRenderingContext2D;
+    // Put image data on source canvas
     sourceCtx.putImageData(imageData, 0, 0);
     
+    // Optimize drawing quality for face detection
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    ctx.imageSmoothingQuality = 'medium'; // medium is faster than high and still good for detection
     ctx.drawImage(sourceCanvas, offsetX, offsetY, scaledWidth, scaledHeight);
     
+    // Get processed image data
     const processedImageData = ctx.getImageData(0, 0, FIXED_INPUT_SIZE, FIXED_INPUT_SIZE);
     const processedData = processedImageData.data;
     
-    const tensorData = new Float32Array(3 * FIXED_INPUT_SIZE * FIXED_INPUT_SIZE);
+    // Create or reuse tensor data array
+    if (!this.tensorData) {
+      this.tensorData = new Float32Array(3 * FIXED_INPUT_SIZE * FIXED_INPUT_SIZE);
+    }
+    const tensorData = this.tensorData;
     const channelSize = FIXED_INPUT_SIZE * FIXED_INPUT_SIZE;
     
-    for (let i = 0; i < channelSize; i++) {
-      const rgba_idx = i * 4;
+    // Batch process pixels for better performance
+    const BATCH_SIZE = 1024;
+    for (let batch = 0; batch < channelSize; batch += BATCH_SIZE) {
+      const batchEnd = Math.min(batch + BATCH_SIZE, channelSize);
       
-      const r = processedData[rgba_idx];
-      const g = processedData[rgba_idx + 1];
-      const b = processedData[rgba_idx + 2];
-      
-      tensorData[i] = (b - this.mean) / this.std;
-      tensorData[i + channelSize] = (g - this.mean) / this.std;
-      tensorData[i + 2 * channelSize] = (r - this.mean) / this.std;
+      for (let i = batch; i < batchEnd; i++) {
+        const rgba_idx = i * 4;
+        
+        // Process RGB values
+        const r = processedData[rgba_idx];
+        const g = processedData[rgba_idx + 1];
+        const b = processedData[rgba_idx + 2];
+        
+        // Store in BGR order for ONNX model (more efficient tensor conversion)
+        tensorData[i] = (b - this.mean) / this.std;
+        tensorData[i + channelSize] = (g - this.mean) / this.std;
+        tensorData[i + 2 * channelSize] = (r - this.mean) / this.std;
+      }
     }
     
     return new ort.Tensor('float32', tensorData, [1, 3, FIXED_INPUT_SIZE, FIXED_INPUT_SIZE]);

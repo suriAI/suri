@@ -102,20 +102,20 @@ export default function LiveCameraRecognition() {
       setIsStreaming(true)
       setCameraStatus('starting')
 
-                // Get user media with ultra-low-latency settings for real-time recognition
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 1280, min: 640 },
-              height: { ideal: 720, min: 480 },
-              frameRate: { ideal: 60, min: 30 }, // Maximum FPS for real-time
-              facingMode: 'user',
-              // Disable ALL video processing that can cause delays
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false
-            },
-            audio: false
-          })
+      // Get user media with ultra-low-latency settings for real-time recognition
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 60, min: 30 }, // Maximum FPS for real-time
+          facingMode: 'user',
+          // Disable ALL video processing that can cause delays
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        },
+        audio: false
+      })
 
       console.log('Camera stream obtained')
 
@@ -126,31 +126,35 @@ export default function LiveCameraRecognition() {
         videoRef.current.onloadedmetadata = () => {
           console.log('Video metadata loaded, starting playback')
           
-          // Configure video for ultra-minimal latency
-          if (videoRef.current) {
-            const video = videoRef.current
-            
-            // Ultra-low latency settings
-            video.currentTime = 0
-            
-            // Critical low-latency attributes
-            video.setAttribute('playsinline', 'true')
-            video.setAttribute('webkit-playsinline', 'true')
-            video.muted = true
-            
-            // Minimize buffering completely
-            video.setAttribute('x5-video-player-type', 'h5')
-            video.setAttribute('x5-video-player-fullscreen', 'false')
-            video.setAttribute('x5-video-orientation', 'portraint')
-            
-            // Set playback rate for minimal latency
-            video.playbackRate = 1.0
-            
-            // Start playback immediately
-            video.play()
-          }
-          
-          setCameraStatus('preview')
+            // Configure video for ultra-minimal latency
+            if (videoRef.current) {
+              const video = videoRef.current
+              
+              try {
+                // Ultra-low latency settings
+                video.currentTime = 0
+                
+                // Critical low-latency attributes
+                video.setAttribute('playsinline', 'true')
+                video.setAttribute('webkit-playsinline', 'true')
+                video.muted = true
+                
+                // Minimize buffering completely
+                video.setAttribute('x5-video-player-type', 'h5')
+                video.setAttribute('x5-video-player-fullscreen', 'false')
+                video.setAttribute('x5-video-orientation', 'portrait') // Fixed typo: portraint → portrait
+                
+                // Set playback rate for minimal latency
+                video.playbackRate = 1.0
+                
+                // Start playback immediately
+                video.play().catch(err => {
+                  console.error('Video playback failed:', err)
+                })
+              } catch (err) {
+                console.error('Error configuring video:', err)
+              }
+            }          setCameraStatus('preview')
           
           // Initialize canvas size once when video loads - delay to ensure video is rendered
           setTimeout(() => {
@@ -213,28 +217,36 @@ export default function LiveCameraRecognition() {
     canvasInitializedRef.current = false
   }, [])
 
+  // Reuse canvases for better performance
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  
   const captureFrame = useCallback((): ImageData | null => {
-    if (!videoRef.current || !canvasRef.current) return null
+    if (!videoRef.current || videoRef.current.videoWidth === 0) return null
     
     const video = videoRef.current
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     
-    if (!ctx || video.videoWidth === 0) return null
     
-    // Create a temporary canvas for capturing at video's natural resolution
-    const tempCanvas = document.createElement('canvas')
-    const tempCtx = tempCanvas.getContext('2d')
+    // Create a reusable canvas only once
+    if (!captureCanvasRef.current) {
+      captureCanvasRef.current = document.createElement('canvas')
+      captureCanvasRef.current.width = video.videoWidth
+      captureCanvasRef.current.height = video.videoHeight
+    }
+    
+    const tempCanvas = captureCanvasRef.current
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })
     if (!tempCtx) return null
     
-    // Set temp canvas to video's natural resolution for processing
-    tempCanvas.width = video.videoWidth
-    tempCanvas.height = video.videoHeight
+    // Update canvas size if video dimensions changed
+    if (tempCanvas.width !== video.videoWidth || tempCanvas.height !== video.videoHeight) {
+      tempCanvas.width = video.videoWidth
+      tempCanvas.height = video.videoHeight
+    }
     
     // Draw video frame to temp canvas at full resolution
     tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height)
     
-    // Get image data from temp canvas
+    // Get image data from temp canvas (reuse existing buffer if possible)
     return tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height)
   }, [])
 
@@ -260,59 +272,67 @@ export default function LiveCameraRecognition() {
         return
       }
       
-      // Only run EdgeFace recognition if we have face detections
-      const detections: DetectionResult[] = await Promise.all(
-        scrfdDetections.map(async (det) => {
-          try {
-            // Only run recognition if we have sufficient landmarks (5 points minimum)
-            if (det.landmarks && det.landmarks.length >= 5) {
-              const recognitionResult = await edgeFaceServiceRef.current!.recognizeFace(imageData, det.landmarks)
-              
-              return {
-                bbox: det.bbox,
-                confidence: det.confidence,
-                landmarks: det.landmarks,
-                recognition: {
-                  personId: recognitionResult.personId,
-                  similarity: recognitionResult.similarity
-                }
-              }
-            } else {
-              // Fallback for detections without sufficient landmarks
-              return {
-                bbox: det.bbox,
-                confidence: det.confidence,
-                landmarks: det.landmarks,
-                recognition: {
-                  personId: null,
-                  similarity: 0
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Recognition error for detection:', error)
-            return {
-              bbox: det.bbox,
-              confidence: det.confidence,
-              landmarks: det.landmarks,
-              recognition: {
-                personId: null,
-                similarity: 0
-              }
+      // For real-time performance, prioritize processing the largest face only
+      // Find the largest face (which is likely the closest/most important)
+      let largestDetection = scrfdDetections[0]
+      let largestArea = 0
+      
+      for (const det of scrfdDetections) {
+        const [x1, y1, x2, y2] = det.bbox
+        const area = (x2 - x1) * (y2 - y1)
+        if (area > largestArea) {
+          largestArea = area
+          largestDetection = det
+        }
+      }
+      
+      // Create initial detection results with all faces but no recognition
+      const detections: DetectionResult[] = scrfdDetections.map(det => ({
+        bbox: det.bbox,
+        confidence: det.confidence,
+        landmarks: det.landmarks,
+        recognition: {
+          personId: null,
+          similarity: 0
+        }
+      }))
+      
+      // Only run recognition on the largest face for real-time performance
+      if (largestDetection.landmarks && largestDetection.landmarks.length >= 5) {
+        try {
+          // Process only the largest face for recognition
+          const recognitionResult = await edgeFaceServiceRef.current.recognizeFace(imageData, largestDetection.landmarks)
+          
+          // Find the index of the largest detection
+          const largestIndex = scrfdDetections.indexOf(largestDetection)
+          
+          // Update only that detection with recognition results
+          if (largestIndex >= 0) {
+            detections[largestIndex].recognition = {
+              personId: recognitionResult.personId,
+              similarity: recognitionResult.similarity
             }
           }
-        })
-      )
+        } catch {
+          // Silent fail - already have default recognition values
+        }
+      }
       
       const processingTime = performance.now() - startTime
       
+      setDetectionResults(detections)
+      setProcessingTime(processingTime)
+      
       // Attendance tracking logic - enhanced with real recognition
       if (attendanceMode && detections.length > 0) {
+        // Use null as initial value and handle the null case
         const largestDetection = detections.reduce((largest, current) => {
+          if (!current) return largest
+          
           const currentArea = (current.bbox[2] - current.bbox[0]) * (current.bbox[3] - current.bbox[1])
           const largestArea = largest ? (largest.bbox[2] - largest.bbox[0]) * (largest.bbox[3] - largest.bbox[1]) : 0
           return currentArea > largestArea ? current : largest
-        })
+        }, detections[0]) // Initialize with first detection to avoid null
         
         // Check if face is centered and stable
         if (imageData && largestDetection) {
@@ -368,9 +388,6 @@ export default function LiveCameraRecognition() {
         setCurrentDetectedPerson(null)
       }
       
-      setDetectionResults(detections)
-      setProcessingTime(processingTime)
-      
       // Update FPS counter for real-time monitoring
       fpsCounterRef.current.frames++
       
@@ -400,17 +417,30 @@ export default function LiveCameraRecognition() {
     fpsCounterRef.current = { frames: 0, lastTime: performance.now() }
     lastCaptureRef.current = 0
     
-    // Use setInterval for more controlled frame rate (15 FPS for smooth performance)
-    const processFrame = async () => {
+    // Use adaptive frame processing with requestAnimationFrame instead of fixed interval
+    const processNextFrame = async () => {
       if (isStreaming && cameraStatus === 'recognition') {
+        const startTime = performance.now()
         await processFrameRealTime()
+        
+        // Adaptive timing - ensure minimum 33ms between frames (max ~30fps)
+        // This creates a self-regulating system that won't overwhelm the CPU
+        const processingDuration = performance.now() - startTime
+        const delayTime = Math.max(0, 33 - processingDuration)
+        
+        setTimeout(() => {
+          animationFrameRef.current = requestAnimationFrame(processNextFrame)
+        }, delayTime)
+      } else {
+        // If not streaming or not in recognition mode, check again soon
+        animationFrameRef.current = requestAnimationFrame(processNextFrame)
       }
     }
     
-    // Process at 15 FPS for better performance and smoother canvas updates
-    captureIntervalRef.current = setInterval(processFrame, 66) // ~15 FPS
+    // Start the adaptive processing loop
+    animationFrameRef.current = requestAnimationFrame(processNextFrame)
     
-    console.log('Real-time CLIENT-SIDE processing started at 15 FPS for optimal performance')
+    console.log('Real-time CLIENT-SIDE processing started with adaptive frame rate')
   }, [processFrameRealTime, isStreaming, cameraStatus])
 
   // Set the ref after the function is defined
@@ -437,11 +467,17 @@ export default function LiveCameraRecognition() {
       }
       
       // Find the largest face detection for registration
+      // First check if we have any detections at all
+      if (detectionResults.length === 0) {
+        alert('No faces detected for registration')
+        return
+      }
+      
       const largestDetection = detectionResults.reduce((largest, current) => {
         const currentArea = (current.bbox[2] - current.bbox[0]) * (current.bbox[3] - current.bbox[1])
         const largestArea = largest ? (largest.bbox[2] - largest.bbox[0]) * (largest.bbox[3] - largest.bbox[1]) : 0
         return currentArea > largestArea ? current : largest
-      }, null as DetectionResult | null)
+      }, detectionResults[0]) // Initialize with first detection to avoid null
       
       if (!largestDetection || !largestDetection.landmarks || largestDetection.landmarks.length < 5) {
         alert('No face with sufficient landmarks detected for registration')
@@ -475,6 +511,14 @@ export default function LiveCameraRecognition() {
     }
   }, [newPersonId, detectionResults, captureFrame])
 
+  // Cache for storing pre-calculated values
+  const drawCacheRef = useRef({
+    lastVideoWidth: 0,
+    lastVideoHeight: 0,
+    scaleX: 1,
+    scaleY: 1
+  })
+  
   const drawDetections = useCallback(() => {
     if (!canvasRef.current || !videoRef.current) return
     
@@ -483,76 +527,87 @@ export default function LiveCameraRecognition() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
     
-    // Use requestAnimationFrame for smooth drawing
-    requestAnimationFrame(() => {
+    // Check if video dimensions changed, recalculate only if needed
+    if (video.videoWidth !== drawCacheRef.current.lastVideoWidth || 
+        video.videoHeight !== drawCacheRef.current.lastVideoHeight) {
+      drawCacheRef.current.lastVideoWidth = video.videoWidth
+      drawCacheRef.current.lastVideoHeight = video.videoHeight
+      
       // Get current video display size
       const rect = video.getBoundingClientRect()
-      const displayWidth = Math.round(rect.width)  // Round to prevent fractional sizes
+      const displayWidth = Math.round(rect.width)
       const displayHeight = Math.round(rect.height)
       
       // Only resize canvas if there's a significant size change (prevent micro-adjustments)
-      const sizeDiffThreshold = 2 // pixels
+      const sizeDiffThreshold = 5 // increased threshold
       const widthDiff = Math.abs(canvas.width - displayWidth)
       const heightDiff = Math.abs(canvas.height - displayHeight)
       
       if (widthDiff > sizeDiffThreshold || heightDiff > sizeDiffThreshold) {
-        console.log(`Canvas size adjustment: ${canvas.width}x${canvas.height} → ${displayWidth}x${displayHeight}`)
         canvas.width = displayWidth
         canvas.height = displayHeight
       }
       
-      // Clear previous drawings
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // Pre-calculate scale factors only when dimensions change
+      drawCacheRef.current.scaleX = canvas.width / video.videoWidth
+      drawCacheRef.current.scaleY = canvas.height / video.videoHeight
+    }
+    
+    // Clear previous drawings
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    
+    // Get cached scale factors
+    const { scaleX, scaleY } = drawCacheRef.current
+    
+    // Draw detections with optimized rendering
+    for (const detection of detectionResults) {
+      const [x1, y1, x2, y2] = detection.bbox
       
-      // Calculate scale factors from video natural size to display size
-      // Use current canvas size instead of rect to ensure consistency
-      const scaleX = canvas.width / video.videoWidth
-      const scaleY = canvas.height / video.videoHeight
+      // Scale coordinates from video natural size to display size
+      const scaledX1 = x1 * scaleX
+      const scaledY1 = y1 * scaleY
+      const scaledX2 = x2 * scaleX
+      const scaledY2 = y2 * scaleY
       
-      // Draw detections with optimized rendering
-      detectionResults.forEach((detection) => {
-        const [x1, y1, x2, y2] = detection.bbox
-        
-        // Scale coordinates from video natural size to display size
-        const scaledX1 = x1 * scaleX
-        const scaledY1 = y1 * scaleY
-        const scaledX2 = x2 * scaleX
-        const scaledY2 = y2 * scaleY
-        
-        // Draw bounding box with better styling
-        ctx.strokeStyle = detection.recognition?.personId ? '#00ff00' : '#ff0000'
-        ctx.lineWidth = 2
-        ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1)
-        
-        // Draw label with better background
-        const label = detection.recognition?.personId 
-          ? `${detection.recognition.personId} (${(detection.recognition.similarity * 100).toFixed(1)}%)`
-          : `Unknown (${(detection.confidence * 100).toFixed(1)}%)`
-        
-        ctx.font = '14px Arial'
-        const textMetrics = ctx.measureText(label)
-        
-        // Draw text background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
-        ctx.fillRect(scaledX1, scaledY1 - 20, textMetrics.width + 8, 18)
-        
-        // Draw text
-        ctx.fillStyle = detection.recognition?.personId ? '#00ff00' : '#ff0000'
-        ctx.fillText(label, scaledX1 + 4, scaledY1 - 6)
-        
-        // Draw landmarks if available
-        if (detection.landmarks && detection.landmarks.length > 0) {
-          ctx.fillStyle = '#ffff00'
-          detection.landmarks.forEach(([x, y]) => {
-            const scaledLandmarkX = x * scaleX
-            const scaledLandmarkY = y * scaleY
-            ctx.beginPath()
-            ctx.arc(scaledLandmarkX, scaledLandmarkY, 2, 0, 2 * Math.PI)
-            ctx.fill()
-          })
+      // Draw bounding box with better styling
+      ctx.strokeStyle = detection.recognition?.personId ? '#00ff00' : '#ff0000'
+      ctx.lineWidth = 2
+      ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1)
+      
+      // Draw label with better background
+      const label = detection.recognition?.personId 
+        ? `${detection.recognition.personId} (${(detection.recognition.similarity * 100).toFixed(1)}%)`
+        : `Unknown (${(detection.confidence * 100).toFixed(1)}%)`
+      
+      ctx.font = '14px Arial'
+      const textMetrics = ctx.measureText(label)
+      
+      // Draw text background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+      ctx.fillRect(scaledX1, scaledY1 - 20, textMetrics.width + 8, 18)
+      
+      // Draw text
+      ctx.fillStyle = detection.recognition?.personId ? '#00ff00' : '#ff0000'
+      ctx.fillText(label, scaledX1 + 4, scaledY1 - 6)
+      
+      // Draw only first 5 landmarks for performance
+      if (detection.landmarks && detection.landmarks.length > 0) {
+        ctx.fillStyle = '#ffff00'
+        const maxLandmarks = Math.min(detection.landmarks.length, 5)
+        for (let i = 0; i < maxLandmarks; i++) {
+          if (!detection.landmarks[i] || detection.landmarks[i].length < 2) continue
+          
+          const [x, y] = detection.landmarks[i]
+          if (isNaN(x) || isNaN(y)) continue
+          
+          const scaledLandmarkX = x * scaleX
+          const scaledLandmarkY = y * scaleY
+          ctx.beginPath()
+          ctx.arc(scaledLandmarkX, scaledLandmarkY, 2, 0, 2 * Math.PI)
+          ctx.fill()
         }
-      })
-    })
+      }
+    }
   }, [detectionResults])
 
   // Draw detections overlay
@@ -606,6 +661,21 @@ export default function LiveCameraRecognition() {
   useEffect(() => {
     return () => {
       stopCamera()
+      
+      // Clean up any canvas references
+      if (captureCanvasRef.current) {
+        captureCanvasRef.current = null
+      }
+      
+      // Release services to help with garbage collection
+      if (scrfdServiceRef.current) {
+        // Ideally these services would have a dispose method
+        scrfdServiceRef.current = null
+      }
+      
+      if (edgeFaceServiceRef.current) {
+        edgeFaceServiceRef.current = null
+      }
     }
   }, [stopCamera])
 
