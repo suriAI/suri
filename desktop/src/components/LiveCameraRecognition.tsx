@@ -881,14 +881,6 @@ export default function LiveCameraRecognition() {
               </div>
             </div>
           </div>
-
-          {/* Performance Info */}
-          <div className="text-xs text-white/50 space-y-2">
-            <div>• Client-side EdgeFace recognition</div>
-            <div>• Research-grade accuracy (512D embeddings)</div>
-            <div>• SCRFD detection + EdgeFace recognition</div>
-            <div>• Zero server latency - All in browser</div>
-          </div>
         </div>
       </div>
     </div>
