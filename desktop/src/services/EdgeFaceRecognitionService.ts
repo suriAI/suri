@@ -14,12 +14,19 @@ export interface RecognitionResult {
   embedding: Float32Array;
 }
 
-// Reference facial landmarks for alignment (same as Python implementation)
+// Reference facial landmarks for alignment (from EdgeFace paper - optimized for pose variations)
+const REFERENCE_FACIAL_POINTS = [
+  [38.2946, 51.6963],   // Left eye
+  [73.5318, 51.5014],   // Right eye  
+  [56.0252, 71.7366],   // Nose tip
+  [41.5493, 92.3655],   // Left mouth corner
+  [70.7299, 92.2041]    // Right mouth corner
+];
 
 export class EdgeFaceRecognitionService {
   private session: ort.InferenceSession | null = null;
   private faceDatabase = new Map<string, Float32Array>();
-  private similarityThreshold = 0.6;
+  private similarityThreshold = 0.65; // Increased for better precision with pose variations
   
   private readonly inputMean = 127.5;
   private readonly inputStd = 127.5;
@@ -55,19 +62,46 @@ export class EdgeFaceRecognitionService {
       throw new Error('EdgeFace model not initialized');
     }
 
-    // Align face using landmarks
+    // Align face using landmarks with improved similarity transform
     const alignedFace = this.alignFace(imageData, landmarks);
     
-    // Preprocess for model input
-    const tensor = this.preprocessFace(alignedFace);
+    // For better pose robustness, extract embeddings at multiple scales
+    const embeddings = [];
     
-    // Run inference
-    const feeds = { [this.session.inputNames[0]]: tensor };
-    const outputs = await this.session.run(feeds);
+    // Main embedding at standard size (112x112)
+    const mainTensor = this.preprocessFace(alignedFace);
+    const mainFeeds = { [this.session.inputNames[0]]: mainTensor };
+    const mainOutputs = await this.session.run(mainFeeds);
+    const mainEmbedding = mainOutputs[this.session.outputNames[0]].data as Float32Array;
+    embeddings.push(this.normalizeEmbedding(mainEmbedding));
     
-    // Get embedding and normalize
-    const embedding = outputs[this.session.outputNames[0]].data as Float32Array;
-    return this.normalizeEmbedding(embedding);
+    // Additional embedding at slightly larger crop (if pose quality is low)
+    const poseQuality = this.calculatePoseQuality(landmarks);
+    if (poseQuality < 0.95) {
+      // Create slightly larger crop for better context in tilted faces
+      const enlargedFace = this.createEnlargedCrop(imageData, landmarks);
+      const enlargedTensor = this.preprocessFace(enlargedFace);
+      const enlargedFeeds = { [this.session.inputNames[0]]: enlargedTensor };
+      const enlargedOutputs = await this.session.run(enlargedFeeds);
+      const enlargedEmbedding = enlargedOutputs[this.session.outputNames[0]].data as Float32Array;
+      embeddings.push(this.normalizeEmbedding(enlargedEmbedding));
+    }
+    
+    // Return average of embeddings (ensemble approach)
+    if (embeddings.length === 1) {
+      return embeddings[0];
+    }
+    
+    const avgEmbedding = new Float32Array(embeddings[0].length);
+    for (let i = 0; i < avgEmbedding.length; i++) {
+      let sum = 0;
+      for (const embedding of embeddings) {
+        sum += embedding[i];
+      }
+      avgEmbedding[i] = sum / embeddings.length;
+    }
+    
+    return this.normalizeEmbedding(avgEmbedding);
   }
 
   async recognizeFace(imageData: SerializableImageData, landmarks: number[][]): Promise<RecognitionResult> {
@@ -84,11 +118,15 @@ export class EdgeFaceRecognitionService {
     let bestMatch: string | null = null;
     let bestSimilarity = 0.0;
     
+    // Calculate pose quality factor for adaptive thresholding
+    const poseQuality = this.calculatePoseQuality(landmarks);
+    const adaptiveThreshold = this.similarityThreshold * poseQuality;
+    
     // Compare with all stored embeddings
     for (const [personId, storedEmbedding] of this.faceDatabase) {
       const similarity = this.cosineSimilarity(embedding, storedEmbedding);
       
-      if (similarity > bestSimilarity && similarity >= this.similarityThreshold) {
+      if (similarity > bestSimilarity && similarity >= adaptiveThreshold) {
         bestSimilarity = similarity;
         bestMatch = personId;
       }
@@ -134,38 +172,105 @@ export class EdgeFaceRecognitionService {
     return this.warpAffine(imageData, matrix, this.inputSize, this.inputSize);
   }
 
+  private createEnlargedCrop(imageData: SerializableImageData, landmarks: number[][]): SerializableImageData {
+    // Create a larger crop for tilted faces to capture more facial context
+    const enlargeFactor = 1.2; // 20% larger crop
+    
+    // Calculate enlarged reference points
+    const enlargedRefPoints = REFERENCE_FACIAL_POINTS.map(point => [
+      point[0] * enlargeFactor + (this.inputSize * (1 - enlargeFactor)) / 2,
+      point[1] * enlargeFactor + (this.inputSize * (1 - enlargeFactor)) / 2
+    ]);
+    
+    // Estimate transformation for enlarged crop
+    const srcPoints = landmarks.map(point => [point[0], point[1]]);
+    const transform = this.estimateSimilarityTransform(srcPoints, enlargedRefPoints);
+    
+    // Apply transformation with enlarged context
+    return this.warpAffine(imageData, transform, this.inputSize, this.inputSize);
+  }
+
   private estimateNorm(landmarks: number[][]): { matrix: number[][]; index: number } {
-    // Simplified transformation estimation
-    // In a full implementation, you would use proper similarity transform
+    if (landmarks.length !== 5) {
+      throw new Error('Expected exactly 5 facial landmarks for proper alignment');
+    }
     
-    // For now, use a simple scaling and translation based on eye distance
-    const leftEye = landmarks[0];
-    const rightEye = landmarks[1];
+    // Convert landmarks to matrix format
+    const srcPoints = landmarks.map(point => [point[0], point[1]]);
     
-    const eyeDistance = Math.sqrt(
-      Math.pow(rightEye[0] - leftEye[0], 2) + 
-      Math.pow(rightEye[1] - leftEye[1], 2)
-    );
-    
-    const targetEyeDistance = 73.5318 - 38.2946; // From reference alignment
-    const scale = targetEyeDistance / eyeDistance;
-    
-    const eyeCenterX = (leftEye[0] + rightEye[0]) / 2;
-    const eyeCenterY = (leftEye[1] + rightEye[1]) / 2;
-    
-    const targetCenterX = (38.2946 + 73.5318) / 2;
-    const targetCenterY = (51.6963 + 51.5014) / 2;
-    
-    const tx = targetCenterX - eyeCenterX * scale;
-    const ty = targetCenterY - eyeCenterY * scale;
+    // Use proper similarity transform with all 5 landmarks for better pose handling
+    const transform = this.estimateSimilarityTransform(srcPoints, REFERENCE_FACIAL_POINTS);
     
     return {
-      matrix: [
-        [scale, 0, tx],
-        [0, scale, ty]
-      ],
+      matrix: transform,
       index: 0
     };
+  }
+
+  private estimateSimilarityTransform(srcPoints: number[][], dstPoints: number[][]): number[][] {
+    // Implement least squares similarity transform estimation
+    // This handles rotation, translation, and uniform scaling - crucial for pose variations
+    
+    const n = srcPoints.length;
+    if (n < 2) {
+      throw new Error('Need at least 2 points for similarity transform');
+    }
+    
+    // Calculate centroids
+    let srcCentroidX = 0, srcCentroidY = 0;
+    let dstCentroidX = 0, dstCentroidY = 0;
+    
+    for (let i = 0; i < n; i++) {
+      srcCentroidX += srcPoints[i][0];
+      srcCentroidY += srcPoints[i][1];
+      dstCentroidX += dstPoints[i][0];
+      dstCentroidY += dstPoints[i][1];
+    }
+    
+    srcCentroidX /= n;
+    srcCentroidY /= n;
+    dstCentroidX /= n;
+    dstCentroidY /= n;
+    
+    // Center the points
+    const srcCentered = srcPoints.map(p => [p[0] - srcCentroidX, p[1] - srcCentroidY]);
+    const dstCentered = dstPoints.map(p => [p[0] - dstCentroidX, p[1] - dstCentroidY]);
+    
+    // Calculate similarity transform parameters
+    let num = 0, den = 0;
+    let a = 0;
+    
+    for (let i = 0; i < n; i++) {
+      const srcX = srcCentered[i][0];
+      const srcY = srcCentered[i][1];
+      const dstX = dstCentered[i][0];
+      const dstY = dstCentered[i][1];
+      
+      num += srcX * dstX + srcY * dstY;
+      den += srcX * srcX + srcY * srcY;
+      a += srcX * dstY - srcY * dstX;
+    }
+    
+    if (den === 0) {
+      // Fallback to identity transform
+      return [
+        [1, 0, 0],
+        [0, 1, 0]
+      ];
+    }
+    
+    const scale = num / den;
+    const rotation = a / den;
+    
+    // Calculate translation
+    const tx = dstCentroidX - scale * srcCentroidX - rotation * srcCentroidY;
+    const ty = dstCentroidY + rotation * srcCentroidX - scale * srcCentroidY;
+    
+    // Return transformation matrix [scale*cos(θ), -scale*sin(θ), tx; scale*sin(θ), scale*cos(θ), ty]
+    return [
+      [scale, -rotation, tx],
+      [rotation, scale, ty]
+    ];
   }
 
   private warpAffine(imageData: SerializableImageData, matrix: number[][], width: number, height: number): SerializableImageData {
@@ -281,6 +386,41 @@ export class EdgeFaceRecognitionService {
 
     // Since embeddings are already normalized, the dot product is the cosine similarity
     return dotProduct;
+  }
+
+  private calculatePoseQuality(landmarks: number[][]): number {
+    if (landmarks.length !== 5) return 0.8; // Default quality for incomplete landmarks
+    
+    // Calculate pose quality based on facial landmark geometry
+    const leftEye = landmarks[0];
+    const rightEye = landmarks[1];
+    const nose = landmarks[2];
+    const leftMouth = landmarks[3];
+    const rightMouth = landmarks[4];
+    
+    // Calculate eye distance and mouth distance
+    const eyeDistance = Math.sqrt(
+      Math.pow(rightEye[0] - leftEye[0], 2) + Math.pow(rightEye[1] - leftEye[1], 2)
+    );
+    const mouthDistance = Math.sqrt(
+      Math.pow(rightMouth[0] - leftMouth[0], 2) + Math.pow(rightMouth[1] - leftMouth[1], 2)
+    );
+    
+    // Calculate ideal ratios for frontal face
+    const eyeMouthRatio = mouthDistance / eyeDistance;
+    const idealRatio = 0.6; // Approximate ratio for frontal face
+    const ratioDeviation = Math.abs(eyeMouthRatio - idealRatio) / idealRatio;
+    
+    // Calculate nose position relative to eyes (should be centered for frontal view)
+    const eyeCenterX = (leftEye[0] + rightEye[0]) / 2;
+    const noseOffset = Math.abs(nose[0] - eyeCenterX) / eyeDistance;
+    
+    // Calculate quality factor (higher = more frontal, lower = more profile)
+    const geometryQuality = Math.exp(-ratioDeviation * 2) * Math.exp(-noseOffset * 3);
+    
+    // Adaptive threshold: lower threshold for side views, higher for frontal
+    // Range: 0.85-1.0 (frontal gets normal threshold, profile gets relaxed threshold)
+    return Math.max(0.85, Math.min(1.0, 0.85 + geometryQuality * 0.15));
   }
 
   dispose(): void {
