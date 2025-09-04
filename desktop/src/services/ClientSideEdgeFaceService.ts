@@ -196,7 +196,6 @@ export class ClientSideEdgeFaceService {
   // Global static resources for maximum memory efficiency across all instances
   private static globalAlignCanvas: HTMLCanvasElement | null = null;
   private static globalSourceCanvas: HTMLCanvasElement | null = null;
-  private static globalRgbData: Float32Array | null = null;
   private static globalChwData: Float32Array | null = null;
   
   /**
