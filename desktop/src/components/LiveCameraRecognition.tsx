@@ -303,6 +303,7 @@ export default function LiveCameraRecognition() {
 
   // Frame processing optimization - skip stale frames
   const isProcessing = useRef(false)
+  const frameSkipCount = useRef(0)
   
   // Ultra-optimized frame processing - intelligent skipping for maximum performance
   const processFrameRealTime = useCallback(async () => {
@@ -312,6 +313,11 @@ export default function LiveCameraRecognition() {
 
     // Skip frame if we're still processing the previous one (critical for performance)
     if (isProcessing.current) {
+      frameSkipCount.current++
+      // Log frame skips every 10 skips to monitor performance
+      if (frameSkipCount.current % 10 === 0) {
+        console.log(`⚡ Skipped ${frameSkipCount.current} frames for optimal performance`)
+      }
       return
     }
     
@@ -503,12 +509,12 @@ export default function LiveCameraRecognition() {
         // Process frame for detection (video element shows live feed)
         await processFrameRealTime()
         
-        // Intelligent frame rate control based on processing time
-        // Dynamically adjust based on current performance
-        const nextFrameDelay = processingTime > 500 ? 100 :  // If slow, reduce to 10 FPS
-                              processingTime > 200 ? 50 :    // If medium, reduce to 20 FPS  
-                              processingTime > 100 ? 33 :    // If fast, run at 30 FPS
-                              16;  // If very fast, run at 60 FPS
+        // Ultra-aggressive frame rate - prioritize smoothness over processing time
+        // Always try to maintain 30+ FPS for smooth UI experience
+        const nextFrameDelay = processingTime > 1000 ? 50 :   // If very slow, 20 FPS
+                              processingTime > 500 ? 33 :     // If slow, 30 FPS  
+                              processingTime > 200 ? 25 :     // If medium, 40 FPS
+                              16;  // If fast, 60 FPS - prioritize smoothness
         
         setTimeout(() => {
           if (processingActiveRef.current && isStreaming && cameraStatus === 'recognition') {
@@ -841,12 +847,20 @@ export default function LiveCameraRecognition() {
     }
   }, [detectionResults, isStreaming, cameraStatus])
 
-  // Draw detections overlay
+  // Draw detections overlay - optimized approach
   useEffect(() => {
-    if (isStreaming) {
+    if (isStreaming && detectionResults.length > 0) {
+      // Use requestAnimationFrame for smooth 60fps drawing
+      const frameId = requestAnimationFrame(() => {
+        drawDetections()
+      })
+      
+      return () => cancelAnimationFrame(frameId)
+    } else if (isStreaming) {
+      // Clear canvas if no detections
       drawDetections()
     }
-  }, [detectionResults, drawDetections, isStreaming])
+  }, [detectionResults, isStreaming, drawDetections])
 
   // Handle window resize to keep canvas aligned
   useEffect(() => {
