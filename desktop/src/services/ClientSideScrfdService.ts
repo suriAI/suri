@@ -30,7 +30,7 @@ export class ClientSideScrfdService {
   private centerCache = new Map<string, Float32Array>();
 
   async initialize(): Promise<void> {
-    const modelUrl = '/weights/det_500m.onnx';
+    const modelUrl = '/weights/scrfd_2.5g_kps_640x640.onnx';
     
     this.session = await ort.InferenceSession.create(modelUrl, {
       executionProviders: ['wasm', 'cpu'],

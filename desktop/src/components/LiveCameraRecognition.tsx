@@ -17,7 +17,6 @@ export default function LiveCameraRecognition() {
   const [detectionResults, setDetectionResults] = useState<DetectionResult[]>([])
   const [systemStats, setSystemStats] = useState({ today_records: 0, total_people: 0 })
   const [cameraStatus, setCameraStatus] = useState<'stopped' | 'starting' | 'preview' | 'recognition'>('stopped')
-  const [fps, setFps] = useState(0)
   const [processingTime, setProcessingTime] = useState(0)
   const [registrationMode, setRegistrationMode] = useState(false)
   const [newPersonId, setNewPersonId] = useState('')
@@ -32,7 +31,6 @@ export default function LiveCameraRecognition() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const animationFrameRef = useRef<number | undefined>(undefined)
-  const fpsCounterRef = useRef({ frames: 0, lastTime: 0 })
   const canvasInitializedRef = useRef(false)
   const lastCaptureRef = useRef(0)
   const captureIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined)
@@ -199,10 +197,6 @@ export default function LiveCameraRecognition() {
     
     // Stop any active processing immediately
     processingActiveRef.current = false
-    
-    // Reset FPS counter when camera stops
-    setFps(0)
-    fpsCounterRef.current = { frames: 0, lastTime: 0 }
     
     // Clean up any remaining intervals and frames
     if (animationFrameRef.current) {
@@ -448,7 +442,6 @@ export default function LiveCameraRecognition() {
     // Mark processing as active
     processingActiveRef.current = true
     
-    fpsCounterRef.current = { frames: 0, lastTime: performance.now() }
     lastCaptureRef.current = 0
     
     // Optimized processing loop - video displays live, detection runs at controlled rate
@@ -459,15 +452,6 @@ export default function LiveCameraRecognition() {
       }
       
       if (cameraStatus === 'recognition') {
-        // Count FPS attempts
-        fpsCounterRef.current.frames++
-        const now = performance.now()
-        if (now - fpsCounterRef.current.lastTime >= 1000) {
-          setFps(fpsCounterRef.current.frames)
-          fpsCounterRef.current.frames = 0
-          fpsCounterRef.current.lastTime = now
-        }
-        
         // Process frame for detection (video element shows live feed)
         await processFrameRealTime()
         
@@ -860,14 +844,6 @@ export default function LiveCameraRecognition() {
     }
   }, [drawDetections])
 
-  // Reset FPS when camera status changes to non-recognition mode
-  useEffect(() => {
-    if (cameraStatus !== 'recognition') {
-      setFps(0)
-      fpsCounterRef.current = { frames: 0, lastTime: 0 }
-    }
-  }, [cameraStatus])
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -932,10 +908,6 @@ export default function LiveCameraRecognition() {
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 rounded-full bg-green-400"></div>
               <span>Camera: {cameraStatus}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-              <span>FPS: {fps}</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 rounded-full bg-purple-400"></div>
@@ -1147,10 +1119,6 @@ export default function LiveCameraRecognition() {
               <div className="flex justify-between">
                 <span className="text-white/70">Today's Records:</span>
                 <span className="text-white">{systemStats.today_records}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/70">Current FPS:</span>
-                <span className="text-green-400">{fps}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-white/70">Processing Time:</span>

@@ -14,8 +14,8 @@ const copyWeights = () => {
   }
   
   // Copy SCRFD detection model
-  const srcScrfd = join(srcDir, 'det_500m.onnx')
-  const destScrfd = join(destDir, 'det_500m.onnx')
+  const srcScrfd = join(srcDir, 'scrfd_2.5g_kps_640x640.onnx')
+  const destScrfd = join(destDir, 'scrfd_2.5g_kps_640x640.onnx')
   
   if (existsSync(srcScrfd)) {
     copyFileSync(srcScrfd, destScrfd)

@@ -33,7 +33,7 @@ export class ScrfdDetectionService {
 
   async initialize(modelPath?: string): Promise<void> {
     try {
-      const weightsPath = modelPath || join(__dirname, '../../weights/det_500m.onnx');
+      const weightsPath = modelPath || join(__dirname, '../../weights/scrfd_2.5g_kps_640x640.onnx');
       console.log('Loading SCRFD model from:', weightsPath);
       
       // Check if file exists

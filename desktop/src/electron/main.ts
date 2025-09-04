@@ -19,7 +19,7 @@ ipcMain.handle('face-recognition:initialize', async () => {
 
         // Initialize the simple SCRFD service
         const weightsDir = path.join(__dirname, '../../../weights')
-        await scrfdService.initialize(path.join(weightsDir, 'det_500m.onnx'))
+        await scrfdService.initialize(path.join(weightsDir, 'scrfd_2.5g_kps_640x640.onnx'))
         
         return { success: true, message: 'Simple SCRFD service initialized successfully' }
     } catch (error) {
