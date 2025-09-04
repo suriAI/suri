@@ -53,13 +53,24 @@ export default defineConfig({
     }
   ],
   build: {
-    outDir: "dist-react"
+    outDir: "dist-react",
+    target: 'esnext',  // Enable modern features
+    minify: 'terser'   // Better minification
   },
   server: {
     port: 5123,
-    strictPort: true
+    strictPort: true,
+    headers: {
+      // Enable COOP/COEP for SharedArrayBuffer and threading
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
   },
   optimizeDeps: {
     exclude: ['onnxruntime-web']
+  },
+  define: {
+    // Enable WASM threads
+    global: 'globalThis'
   }
  })

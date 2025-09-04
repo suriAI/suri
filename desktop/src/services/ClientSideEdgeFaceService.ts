@@ -40,9 +40,16 @@ export class ClientSideEdgeFaceService {
       
       console.log('📁 Loading EdgeFace model from /weights/edgeface-recognition.onnx...');
       
-      // Load EdgeFace ONNX model with simpler configuration
+      // Load EdgeFace ONNX model with ultra-optimized configuration
       this.session = await ort.InferenceSession.create('/weights/edgeface-recognition.onnx', {
-        executionProviders: ['wasm']
+        executionProviders: ['wasm'],  // Use only WASM for consistent performance
+        logSeverityLevel: 4,  // Minimal logging
+        logVerbosityLevel: 0,
+        enableCpuMemArena: true,
+        enableMemPattern: true,
+        executionMode: 'sequential',
+        graphOptimizationLevel: 'all',
+        enableProfiling: false
       });
       
       console.log('✅ EdgeFace model loaded successfully');
@@ -186,30 +193,32 @@ export class ClientSideEdgeFaceService {
 
   // ================== PRIVATE METHODS ==================
 
-  // Reuse canvases for better performance
-  private alignCanvas: HTMLCanvasElement | null = null;
-  private sourceCanvas: HTMLCanvasElement | null = null;
+  // Global static resources for maximum memory efficiency across all instances
+  private static globalAlignCanvas: HTMLCanvasElement | null = null;
+  private static globalSourceCanvas: HTMLCanvasElement | null = null;
+  private static globalRgbData: Float32Array | null = null;
+  private static globalChwData: Float32Array | null = null;
   
   /**
-   * Align face using facial landmarks (matching Python implementation)
+   * Align face using facial landmarks (matching Python implementation) - optimized for speed
    */
   private alignFace(imageData: ImageData, landmarks: Float32Array): ImageData {
-    // Create reusable canvases
-    if (!this.alignCanvas) {
-      this.alignCanvas = document.createElement('canvas');
-      this.alignCanvas.width = this.INPUT_SIZE;
-      this.alignCanvas.height = this.INPUT_SIZE;
+    // Create reusable global canvases (shared across all instances)
+    if (!ClientSideEdgeFaceService.globalAlignCanvas) {
+      ClientSideEdgeFaceService.globalAlignCanvas = document.createElement('canvas');
+      ClientSideEdgeFaceService.globalAlignCanvas.width = this.INPUT_SIZE;
+      ClientSideEdgeFaceService.globalAlignCanvas.height = this.INPUT_SIZE;
     }
     
-    if (!this.sourceCanvas) {
-      this.sourceCanvas = document.createElement('canvas');
+    if (!ClientSideEdgeFaceService.globalSourceCanvas) {
+      ClientSideEdgeFaceService.globalSourceCanvas = document.createElement('canvas');
     }
     
-    const canvas = this.alignCanvas;
+    const canvas = ClientSideEdgeFaceService.globalAlignCanvas;
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     
     // Reuse source canvas but update dimensions if needed
-    const sourceCanvas = this.sourceCanvas;
+    const sourceCanvas = ClientSideEdgeFaceService.globalSourceCanvas;
     if (sourceCanvas.width !== imageData.width || sourceCanvas.height !== imageData.height) {
       sourceCanvas.width = imageData.width;
       sourceCanvas.height = imageData.height;
@@ -248,31 +257,25 @@ export class ClientSideEdgeFaceService {
     return ctx.getImageData(0, 0, this.INPUT_SIZE, this.INPUT_SIZE);
   }
 
-  // Reuse Float32Arrays to avoid memory allocations
-  private rgbData: Float32Array | null = null;
-  private chwData: Float32Array | null = null;
-  
   /**
-   * Preprocess aligned face for EdgeFace model input - optimized for speed
+   * Preprocess aligned face for EdgeFace model input - ultra-optimized for speed
    */
   private preprocessImage(alignedFace: ImageData): ort.Tensor {
     const { width, height, data } = alignedFace;
     const imageSize = width * height;
     const channels = 3;
     
-    // Create or reuse RGB data array
-    if (!this.rgbData || this.rgbData.length !== channels * imageSize) {
-      this.rgbData = new Float32Array(channels * imageSize);
-    }
-    
-    // Create or reuse CHW data array
-    if (!this.chwData || this.chwData.length !== channels * imageSize) {
-      this.chwData = new Float32Array(channels * imageSize);
+    // Create or reuse global CHW data array (massive memory savings)
+    if (!ClientSideEdgeFaceService.globalChwData || ClientSideEdgeFaceService.globalChwData.length !== channels * imageSize) {
+      ClientSideEdgeFaceService.globalChwData = new Float32Array(channels * imageSize);
     }
     
     // Get reference to reused array
-    const chwData = this.chwData;
+    const chwData = ClientSideEdgeFaceService.globalChwData;
     const channelSize = imageSize;
+    
+    // Pre-compute constants for ultimate performance
+    const invStd = 1.0 / this.INPUT_STD;  // Pre-compute division
     
     // Direct RGBA to CHW conversion - skips intermediate RGB array
     // This combines two operations (RGB conversion and CHW arrangement) into one
@@ -280,20 +283,20 @@ export class ClientSideEdgeFaceService {
     const gOffset = channelSize;
     const bOffset = channelSize * 2;
     
-    // Process in batches of pixels for better cache locality
-    const BATCH_SIZE = 128;
-    for (let batch = 0; batch < imageSize; batch += BATCH_SIZE) {
-      const batchEnd = Math.min(batch + BATCH_SIZE, imageSize);
+    // Process in large batches for maximum cache efficiency
+    const MEGA_BATCH_SIZE = 1024;
+    for (let batch = 0; batch < imageSize; batch += MEGA_BATCH_SIZE) {
+      const batchEnd = Math.min(batch + MEGA_BATCH_SIZE, imageSize);
       
       for (let i = batch; i < batchEnd; i++) {
-        const rgbaIndex = i * 4;
+        const rgbaIndex = i << 2;  // Bit shift for multiplication
         
-        // Convert to RGB and normalize in one step
-        const r = (data[rgbaIndex] - this.INPUT_MEAN) / this.INPUT_STD;         // R
-        const g = (data[rgbaIndex + 1] - this.INPUT_MEAN) / this.INPUT_STD;     // G
-        const b = (data[rgbaIndex + 2] - this.INPUT_MEAN) / this.INPUT_STD;     // B
+        // Convert to RGB and normalize in one step (no intermediate storage)
+        const r = (data[rgbaIndex] - this.INPUT_MEAN) * invStd;         // R
+        const g = (data[rgbaIndex + 1] - this.INPUT_MEAN) * invStd;     // G
+        const b = (data[rgbaIndex + 2] - this.INPUT_MEAN) * invStd;     // B
         
-        // Store directly in CHW format
+        // Store directly in CHW format (optimal memory layout)
         chwData[rOffset + i] = r;
         chwData[gOffset + i] = g;
         chwData[bOffset + i] = b;

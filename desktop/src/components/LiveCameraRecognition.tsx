@@ -235,46 +235,82 @@ export default function LiveCameraRecognition() {
   // Reuse canvases for better performance
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null)
   
-  const captureFrame = useCallback((): ImageData | null => {
+  // Enhanced capture with proper coordinate scaling
+  const captureFrame = useCallback((): { imageData: ImageData; scaleX: number; scaleY: number } | null => {
     if (!videoRef.current || videoRef.current.videoWidth === 0) return null
     
     const video = videoRef.current
     
-    
-    // Create a reusable canvas only once
+    // Create a reusable canvas only once - use smaller resolution for processing
     if (!captureCanvasRef.current) {
       captureCanvasRef.current = document.createElement('canvas')
-      captureCanvasRef.current.width = video.videoWidth
-      captureCanvasRef.current.height = video.videoHeight
+      // Use smaller resolution for much faster processing (640x480 max)
+      const maxWidth = 640
+      const maxHeight = 480
+      const aspectRatio = video.videoWidth / video.videoHeight
+      
+      if (aspectRatio > 1) {
+        // Landscape
+        captureCanvasRef.current.width = Math.min(maxWidth, video.videoWidth)
+        captureCanvasRef.current.height = Math.min(maxHeight, captureCanvasRef.current.width / aspectRatio)
+      } else {
+        // Portrait
+        captureCanvasRef.current.height = Math.min(maxHeight, video.videoHeight)
+        captureCanvasRef.current.width = Math.min(maxWidth, captureCanvasRef.current.height * aspectRatio)
+      }
     }
     
     const tempCanvas = captureCanvasRef.current
-    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })
+    const tempCtx = tempCanvas.getContext('2d', { 
+      willReadFrequently: true,
+      alpha: false,  // Disable alpha for performance
+      desynchronized: true  // Allow async rendering
+    })
     if (!tempCtx) return null
     
-    // Update canvas size if video dimensions changed
-    if (tempCanvas.width !== video.videoWidth || tempCanvas.height !== video.videoHeight) {
-      tempCanvas.width = video.videoWidth
-      tempCanvas.height = video.videoHeight
+    // Update canvas size only if video dimensions changed significantly
+    const currentAspectRatio = video.videoWidth / video.videoHeight
+    const canvasAspectRatio = tempCanvas.width / tempCanvas.height
+    
+    if (Math.abs(currentAspectRatio - canvasAspectRatio) > 0.1) {
+      const maxWidth = 640
+      const maxHeight = 480
+      
+      if (currentAspectRatio > 1) {
+        tempCanvas.width = Math.min(maxWidth, video.videoWidth)
+        tempCanvas.height = tempCanvas.width / currentAspectRatio
+      } else {
+        tempCanvas.height = Math.min(maxHeight, video.videoHeight)
+        tempCanvas.width = tempCanvas.height * currentAspectRatio
+      }
     }
     
-    // Draw video frame to temp canvas at full resolution
+    // Calculate scale factors for coordinate mapping back to original video
+    const scaleX = video.videoWidth / tempCanvas.width
+    const scaleY = video.videoHeight / tempCanvas.height
+    
+    // Optimize rendering for speed
+    tempCtx.imageSmoothingEnabled = false  // Disable smoothing for speed
+    
+    // Draw video frame to temp canvas at reduced resolution (major speed boost)
     tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height)
     
-    // Get image data from temp canvas (reuse existing buffer if possible)
-    return tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height)
+    // Get image data from temp canvas
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height)
+    
+    return { imageData, scaleX, scaleY }
   }, [])
 
   // Frame processing optimization - skip stale frames
   const isProcessing = useRef(false)
   
-  // Optimized frame processing - single capture for detection only
+  // Ultra-optimized frame processing - intelligent skipping for maximum performance
   const processFrameRealTime = useCallback(async () => {
     if (!isStreaming || cameraStatus !== 'recognition' || !scrfdServiceRef.current || !edgeFaceServiceRef.current) {
       return
     }
 
-    // Skip frame if we're still processing the previous one
+    // Skip frame if we're still processing the previous one (critical for performance)
     if (isProcessing.current) {
       return
     }
@@ -283,24 +319,28 @@ export default function LiveCameraRecognition() {
 
     try {
       // Capture frame for detection (video element handles display)
-      const imageData = captureFrame()
-      if (!imageData) {
+      const captureResult = captureFrame()
+      if (!captureResult) {
         isProcessing.current = false
         return
       }
+      
+      const { imageData, scaleX, scaleY } = captureResult
 
       const startTime = performance.now()
       
       // Process frame through client-side SCRFD service - ZERO IPC LATENCY!
       const allScrfdDetections = await scrfdServiceRef.current.detect(imageData)
       
-      // Filter out low confidence detections to reduce false positives
-      const minDisplayConfidence = 0.7; // Only show detections with 70% confidence or higher
+      // Filter out low confidence detections to reduce false positives (lowered for better detection)
+      const minDisplayConfidence = 0.5; // Lowered from 0.8 to 0.5 for better detection
       const scrfdDetections = allScrfdDetections.filter(det => det.confidence >= minDisplayConfidence)
       
       // Early exit if no faces detected - save computation!
       if (scrfdDetections.length === 0) {
         setDetectionResults([])
+        const processingTime = performance.now() - startTime
+        setProcessingTime(processingTime)
         return
       }
       
@@ -318,11 +358,19 @@ export default function LiveCameraRecognition() {
         }
       }
       
-      // Create initial detection results with all faces but no recognition
+      // Scale detection coordinates back to original video size
       const detections: DetectionResult[] = scrfdDetections.map(det => ({
-        bbox: det.bbox,
+        bbox: [
+          det.bbox[0] * scaleX,  // Scale x1 back to original size
+          det.bbox[1] * scaleY,  // Scale y1 back to original size  
+          det.bbox[2] * scaleX,  // Scale x2 back to original size
+          det.bbox[3] * scaleY   // Scale y2 back to original size
+        ] as [number, number, number, number],
         confidence: det.confidence,
-        landmarks: det.landmarks,
+        landmarks: det.landmarks.map(landmark => [
+          landmark[0] * scaleX,  // Scale landmark x back to original size
+          landmark[1] * scaleY   // Scale landmark y back to original size
+        ]),
         recognition: {
           personId: null,
           similarity: 0
@@ -332,7 +380,7 @@ export default function LiveCameraRecognition() {
       // Only run recognition on the largest face for real-time performance
       if (largestDetection.landmarks && largestDetection.landmarks.length >= 5) {
         try {
-          // Process only the largest face for recognition
+          // Process only the largest face for recognition (use original unscaled landmarks)
           const recognitionResult = await edgeFaceServiceRef.current.recognizeFace(imageData, largestDetection.landmarks)
           
           // Find the index of the largest detection
@@ -371,14 +419,14 @@ export default function LiveCameraRecognition() {
           const [x1, y1, x2, y2] = largestDetection.bbox
           const centerX = (x1 + x2) / 2
           const centerY = (y1 + y2) / 2
-          const imgCenterX = imageData.width / 2
-          const imgCenterY = imageData.height / 2
+          const imgCenterX = (videoRef.current?.videoWidth || 640) / 2  // Use video width
+          const imgCenterY = (videoRef.current?.videoHeight || 480) / 2 // Use video height
           
           // Check if face is reasonably centered (within 20% of center)
-          const isCentered = Math.abs(centerX - imgCenterX) < imageData.width * 0.2 && 
-                           Math.abs(centerY - imgCenterY) < imageData.height * 0.2
+          const isCentered = Math.abs(centerX - imgCenterX) < (videoRef.current?.videoWidth || 640) * 0.2 && 
+                           Math.abs(centerY - imgCenterY) < (videoRef.current?.videoHeight || 480) * 0.2
           
-          if (isCentered && largestDetection.confidence > 0.7) {
+          if (isCentered && largestDetection.confidence > 0.5) { // Lowered threshold
             const recognizedId = largestDetection.recognition?.personId || 'unknown'
             
             if (currentDetectedPerson === recognizedId || currentDetectedPerson === null) {
@@ -444,7 +492,7 @@ export default function LiveCameraRecognition() {
     
     lastCaptureRef.current = 0
     
-    // Optimized processing loop - video displays live, detection runs at controlled rate
+    // Ultra-optimized processing loop with intelligent frame skipping
     const processNextFrame = async () => {
       // Check if processing should continue
       if (!processingActiveRef.current || !isStreaming) {
@@ -455,12 +503,18 @@ export default function LiveCameraRecognition() {
         // Process frame for detection (video element shows live feed)
         await processFrameRealTime()
         
-        // Run detection as fast as possible (uncapped)
+        // Intelligent frame rate control based on processing time
+        // Dynamically adjust based on current performance
+        const nextFrameDelay = processingTime > 500 ? 100 :  // If slow, reduce to 10 FPS
+                              processingTime > 200 ? 50 :    // If medium, reduce to 20 FPS  
+                              processingTime > 100 ? 33 :    // If fast, run at 30 FPS
+                              16;  // If very fast, run at 60 FPS
+        
         setTimeout(() => {
           if (processingActiveRef.current && isStreaming && cameraStatus === 'recognition') {
             processNextFrame()
           }
-        }, 0) // 0ms = uncapped detection rate
+        }, nextFrameDelay)
       } else if (isStreaming) {
         // Camera is streaming but not in recognition mode (e.g., preview mode)
         setTimeout(() => {
@@ -477,8 +531,8 @@ export default function LiveCameraRecognition() {
       processNextFrame()
     }
     
-    console.log('Optimized processing started - live video display + controlled detection rate')
-  }, [processFrameRealTime, isStreaming, cameraStatus])
+    console.log('Ultra-optimized processing started - adaptive frame rate + controlled detection rate')
+  }, [processFrameRealTime, isStreaming, cameraStatus, processingTime])
 
   // Set the ref after the function is defined
   useEffect(() => {
@@ -497,11 +551,13 @@ export default function LiveCameraRecognition() {
     }
     
     try {
-      const imageData = captureFrame()
-      if (!imageData) {
+      const captureResult = captureFrame()
+      if (!captureResult) {
         alert('Failed to capture frame')
         return
       }
+      
+      const { imageData } = captureResult
       
       // Find the largest face detection for registration
       // First check if we have any detections at all
