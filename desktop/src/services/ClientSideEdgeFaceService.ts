@@ -6,15 +6,13 @@ interface RecognitionResult {
   embedding: Float32Array;
 }
 
-// Reference facial landmarks for alignment (matching research paper)
-// Currently unused but kept for future similarity transform implementation
-// const REFERENCE_ALIGNMENT = new Float32Array([
-//   38.2946, 51.6963,   // left eye
-//   73.5318, 51.5014,   // right eye  
-//   56.0252, 71.7366,   // nose
-//   41.5493, 92.3655,   // left mouth corner
-//   70.7299, 92.2041    // right mouth corner
-// ]);
+const REFERENCE_ALIGNMENT = new Float32Array([
+  38.2946, 51.6963,   // left eye
+  73.5318, 51.5014,   // right eye  
+  56.0252, 71.7366,   // nose
+  41.5493, 92.3655,   // left mouth corner
+  70.7299, 92.2041    // right mouth corner
+]);
 
 export class ClientSideEdgeFaceService {
   private session: ort.InferenceSession | null = null;
@@ -218,10 +216,9 @@ export class ClientSideEdgeFaceService {
   private static globalChwData: Float32Array | null = null;
   
   /**
-   * Align face using facial landmarks (matching Python implementation) - optimized for speed
+   * Align face using 5-point similarity transform for optimal accuracy
    */
   private alignFace(imageData: ImageData, landmarks: Float32Array): ImageData {
-    // Create reusable global canvases (shared across all instances)
     if (!ClientSideEdgeFaceService.globalAlignCanvas) {
       ClientSideEdgeFaceService.globalAlignCanvas = document.createElement('canvas');
       ClientSideEdgeFaceService.globalAlignCanvas.width = this.INPUT_SIZE;
@@ -235,7 +232,6 @@ export class ClientSideEdgeFaceService {
     const canvas = ClientSideEdgeFaceService.globalAlignCanvas;
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     
-    // Reuse source canvas but update dimensions if needed
     const sourceCanvas = ClientSideEdgeFaceService.globalSourceCanvas;
     if (sourceCanvas.width !== imageData.width || sourceCanvas.height !== imageData.height) {
       sourceCanvas.width = imageData.width;
@@ -244,35 +240,77 @@ export class ClientSideEdgeFaceService {
     const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true })!;
     sourceCtx.putImageData(imageData, 0, 0);
     
-    // Clear the alignment canvas for reuse
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Calculate eye positions (optimized)
-    const leftEye = [landmarks[0], landmarks[1]];
-    const rightEye = [landmarks[2], landmarks[3]];
+    const transform = this.computeSimilarityTransform(landmarks, REFERENCE_ALIGNMENT);
     
-    // Calculate eye center and angle (no change)
-    const eyeCenterX = (leftEye[0] + rightEye[0]) / 2;
-    const eyeCenterY = (leftEye[1] + rightEye[1]) / 2;
-    const eyeAngle = Math.atan2(rightEye[1] - leftEye[1], rightEye[0] - leftEye[0]);
+    ctx.setTransform(
+      transform[0], transform[1], 
+      transform[2], transform[3], 
+      transform[4], transform[5]
+    );
     
-    // Calculate scale (simplified)
-    const dx = rightEye[0] - leftEye[0];
-    const dy = rightEye[1] - leftEye[1];
-    const eyeDistance = Math.sqrt(dx * dx + dy * dy);
-    const targetEyeDistance = 40; // Target distance in 112x112 image
-    const scale = targetEyeDistance / eyeDistance;
-    
-    // Apply transformation
-    ctx.save();
-    ctx.translate(this.INPUT_SIZE / 2, this.INPUT_SIZE / 2);
-    ctx.rotate(-eyeAngle);
-    ctx.scale(scale, scale);
-    ctx.translate(-eyeCenterX, -eyeCenterY);
     ctx.drawImage(sourceCanvas, 0, 0);
-    ctx.restore();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     
     return ctx.getImageData(0, 0, this.INPUT_SIZE, this.INPUT_SIZE);
+  }
+
+  /**
+   * Compute similarity transform matrix from source to target landmarks
+   */
+  private computeSimilarityTransform(srcLandmarks: Float32Array, dstLandmarks: Float32Array): number[] {
+    const numPoints = 5;
+    
+    let srcMeanX = 0, srcMeanY = 0, dstMeanX = 0, dstMeanY = 0;
+    for (let i = 0; i < numPoints; i++) {
+      srcMeanX += srcLandmarks[i * 2];
+      srcMeanY += srcLandmarks[i * 2 + 1];
+      dstMeanX += dstLandmarks[i * 2];
+      dstMeanY += dstLandmarks[i * 2 + 1];
+    }
+    srcMeanX /= numPoints;
+    srcMeanY /= numPoints;
+    dstMeanX /= numPoints;
+    dstMeanY /= numPoints;
+    
+    let num = 0, den = 0;
+    for (let i = 0; i < numPoints; i++) {
+      const srcX = srcLandmarks[i * 2] - srcMeanX;
+      const srcY = srcLandmarks[i * 2 + 1] - srcMeanY;
+      const dstX = dstLandmarks[i * 2] - dstMeanX;
+      const dstY = dstLandmarks[i * 2 + 1] - dstMeanY;
+      
+      num += srcX * dstX + srcY * dstY;
+      den += srcX * srcX + srcY * srcY;
+    }
+    
+    let scale = 1;
+    if (den > 1e-10) {
+      scale = num / den;
+    }
+    
+    num = 0;
+    for (let i = 0; i < numPoints; i++) {
+      const srcX = srcLandmarks[i * 2] - srcMeanX;
+      const srcY = srcLandmarks[i * 2 + 1] - srcMeanY;
+      const dstX = dstLandmarks[i * 2] - dstMeanX;
+      const dstY = dstLandmarks[i * 2 + 1] - dstMeanY;
+      
+      num += srcX * dstY - srcY * dstX;
+    }
+    
+    let rotation = 0;
+    if (den > 1e-10) {
+      rotation = num / den;
+    }
+    
+    const a = scale;
+    const b = rotation;
+    const tx = dstMeanX - (a * srcMeanX - b * srcMeanY);
+    const ty = dstMeanY - (b * srcMeanX + a * srcMeanY);
+    
+    return [a, b, -b, a, tx, ty];
   }
 
   /**
