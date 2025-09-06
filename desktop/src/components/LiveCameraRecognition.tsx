@@ -77,9 +77,6 @@ export default function LiveCameraRecognition() {
   // Initialize worker-based face detection and recognition pipeline
   const initializePipeline = useCallback(async () => {
     try {
-      console.log(
-        "Initializing worker-based face detection and recognition..."
-      );
 
       // Create and initialize worker manager
       if (!workerManagerRef.current) {
@@ -87,7 +84,6 @@ export default function LiveCameraRecognition() {
       }
 
       // Initialize the worker (this handles both SCRFD and EdgeFace initialization)
-      console.log("🔄 Initializing worker pipeline...");
       await workerManagerRef.current.initialize();
 
       // Load existing database and get stats
@@ -97,16 +93,10 @@ export default function LiveCameraRecognition() {
         total_people: stats.totalPersons,
       }));
 
-      console.log("✅ Worker pipeline ready - RESEARCH-GRADE ACCURACY!");
-      console.log(`📊 Database loaded: ${stats.totalPersons} persons`);
-
       setCameraStatus("recognition");
 
       // Start processing immediately
       setTimeout(() => {
-        console.log(
-          "Starting real-time processing with worker-based face recognition"
-        );
         if (startProcessingRef.current) {
           startProcessingRef.current();
         }
@@ -148,14 +138,11 @@ export default function LiveCameraRecognition() {
         audio: false,
       });
 
-      console.log("Camera stream obtained");
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
 
         videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded, starting playback");
 
           // Configure video for ultra-minimal latency
           if (videoRef.current) {
@@ -207,24 +194,6 @@ export default function LiveCameraRecognition() {
               canvas.style.height = `${stableHeight}px`;
               canvasInitializedRef.current = true;
 
-              console.log(
-                "Canvas initialized with stable size:",
-                canvas.width,
-                "x",
-                canvas.height
-              );
-              console.log(
-                "Video natural size:",
-                video.videoWidth,
-                "x",
-                video.videoHeight
-              );
-              console.log(
-                "Video display size:",
-                stableWidth,
-                "x",
-                stableHeight
-              );
             }
           }, 200); // Slightly longer delay to ensure video is fully rendered
 
@@ -413,7 +382,6 @@ export default function LiveCameraRecognition() {
       // Refresh data from database
       await refreshDatabaseData();
       
-      console.log(`🤖 Auto-logged attendance for ${personId}`);
     } catch (error) {
       console.error("Auto-log failed:", error);
     }
@@ -442,7 +410,6 @@ export default function LiveCameraRecognition() {
       // Refresh data from database (async, don't await to avoid blocking)
       refreshDatabaseData();
       
-      console.log(`👤 Manually logged attendance for ${personId}`);
     } catch (error) {
       console.error("Manual log failed:", error);
     }
@@ -465,12 +432,6 @@ export default function LiveCameraRecognition() {
     // Skip frame if we're still processing the previous one (critical for performance)
     if (isProcessing.current) {
       frameSkipCount.current++;
-      // Log frame skips every 20 skips to monitor performance
-      if (frameSkipCount.current % 20 === 0) {
-        console.log(
-          `⚡ Skipped ${frameSkipCount.current} frames for optimal performance`
-        );
-      }
       return;
     }
 
@@ -550,14 +511,10 @@ export default function LiveCameraRecognition() {
               const now = Date.now();
               const lastLogged = autoLogCooldown.get(personId) || 0;
               
-              console.log(`🔍 Auto-log check for ${personId}: cooldown=${now - lastLogged}ms, mode=${loggingMode}`);
-              
+
               // Auto-log immediately if cooldown period passed (10 seconds)
               if ((now - lastLogged) > 10000) {
-                console.log(`🤖 Auto-logging triggered immediately for ${personId}, confidence: ${bestDetection.confidence}`);
                 handleAutoLog(bestDetection);
-              } else {
-                console.log(`⏳ Cooldown active for ${personId}, ${10000 - (now - lastLogged)}ms remaining`);
               }
             }
           } else {
@@ -636,9 +593,6 @@ export default function LiveCameraRecognition() {
       processNextFrame();
     }
 
-    console.log(
-      "Ultra-optimized processing started - adaptive frame rate (20-30 FPS max) for optimal CPU usage"
-    );
   }, [processFrameRealTime, isStreaming, cameraStatus]);
 
   // Set the ref after the function is defined
@@ -711,9 +665,6 @@ export default function LiveCameraRecognition() {
           total_people: prev.total_people + 1,
         }));
 
-        console.log(
-          `🎉 ${newPersonId} registered in EdgeFace database and persisted to localStorage`
-        );
       } else {
         alert(
           "❌ Registration failed - Please try again with better face positioning"
@@ -1053,9 +1004,6 @@ export default function LiveCameraRecognition() {
           const heightDiff = Math.abs(canvas.height - newHeight);
 
           if (widthDiff > sizeDiffThreshold || heightDiff > sizeDiffThreshold) {
-            console.log(
-              `Resize: Canvas ${canvas.width}x${canvas.height} → ${newWidth}x${newHeight}`
-            );
             canvas.width = newWidth;
             canvas.height = newHeight;
             canvas.style.width = `${newWidth}px`;
