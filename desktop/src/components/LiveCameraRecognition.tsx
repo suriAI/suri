@@ -568,19 +568,8 @@ export default function LiveCameraRecognition() {
         // Process frame for detection (video element shows live feed)
         await processFrameRealTime();
 
-        // Adaptive frame rate based on processing time for optimal performance
-        // Aim for 20-30 FPS maximum to reduce CPU load while maintaining responsiveness
-        const nextFrameDelay =
-          processingTime > 1000
-            ? 100 // If very slow, 10 FPS
-            : processingTime > 500
-            ? 66 // If slow, 15 FPS
-            : processingTime > 200
-            ? 50 // If medium, 20 FPS
-            : processingTime > 100
-            ? 40 // If fast, 25 FPS
-            : 33; // If very fast, 30 FPS max (optimal for face recognition)
-
+        // Maximum performance - no artificial delays for potato machines
+        // Let the hardware run at its natural speed without throttling
         setTimeout(() => {
           if (
             processingActiveRef.current &&
@@ -589,7 +578,7 @@ export default function LiveCameraRecognition() {
           ) {
             processNextFrame();
           }
-        }, nextFrameDelay);
+        }, 0); // No delay - run as fast as possible
       } else if (isStreaming) {
         // Camera is streaming but not in recognition mode (e.g., preview mode)
         setTimeout(() => {
@@ -608,7 +597,7 @@ export default function LiveCameraRecognition() {
     console.log(
       "Ultra-optimized processing started - adaptive frame rate (20-30 FPS max) for optimal CPU usage"
     );
-  }, [processFrameRealTime, isStreaming, cameraStatus, processingTime]);
+  }, [processFrameRealTime, isStreaming, cameraStatus]);
 
   // Set the ref after the function is defined
   useEffect(() => {
