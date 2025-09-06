@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import isDev from "./util.js";
 import { ScrfdService } from "../services/ScrfdService.js";
 import type { SerializableImageData } from "../services/ScrfdService.js";
+import { setupFaceLogIPC } from "./faceLogIPC.js";
+import { sqliteFaceDB } from "../services/SimpleSqliteFaceDatabase.js";
 
 // Dynamic GPU configuration - works on both old and new hardware
 // Enable modern GPU features for capable hardware, graceful fallback for old GPUs
@@ -194,8 +196,19 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     createWindow()
+    
+    // Initialize SQLite database first
+    try {
+        await sqliteFaceDB.initialize();
+        console.log('✅ SQLite Face Database initialized successfully');
+    } catch (error) {
+        console.error('❌ Failed to initialize SQLite database:', error);
+    }
+    
+    // Setup database IPC handlers
+    setupFaceLogIPC()
 
     app.on('activate', function () {
         // On macOS it's common to re-create a window in the app when the

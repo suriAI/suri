@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { WorkerManager } from "../services/WorkerManager";
+import { sqliteFaceLogService, type FaceLogEntry } from "../services/SqliteFaceLogService";
 
 interface DetectionResult {
   bbox: [number, number, number, number];
@@ -27,15 +28,15 @@ export default function LiveCameraRecognition() {
   const [registrationMode, setRegistrationMode] = useState(false);
   const [newPersonId, setNewPersonId] = useState("");
 
-  // Attendance tracking states
-  const [attendanceMode, setAttendanceMode] = useState(false);
-  const [currentDetectedPerson, setCurrentDetectedPerson] = useState<
-    string | null
-  >(null);
-  const [stableDetectionCount, setStableDetectionCount] = useState(0);
-  const [attendanceStatus, setAttendanceStatus] = useState<
-    "waiting" | "detecting" | "confirmed" | "recorded"
-  >("waiting");
+  // New intelligent logging system states
+  const [loggingMode, setLoggingMode] = useState<"auto" | "manual">("auto");
+  const [recentLogs, setRecentLogs] = useState<FaceLogEntry[]>([]);
+  const [autoLogCooldown, setAutoLogCooldown] = useState<Map<string, number>>(new Map());
+  const [dbConnected, setDbConnected] = useState(false);
+
+  // Enhanced detection states
+  const [bestDetection, setBestDetection] = useState<DetectionResult | null>(null);
+  const [isReadyToLog, setIsReadyToLog] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,6 +48,24 @@ export default function LiveCameraRecognition() {
 
   // Worker manager for face detection and recognition (non-blocking)
   const workerManagerRef = useRef<WorkerManager | null>(null);
+
+  // Helper function to refresh data from database
+  const refreshDatabaseData = useCallback(async () => {
+    try {
+      const [logs, stats] = await Promise.all([
+        sqliteFaceLogService.getRecentLogs(10),
+        sqliteFaceLogService.getTodayStats()
+      ]);
+      
+      setRecentLogs(logs);
+      setSystemStats(prev => ({
+        ...prev,
+        today_records: stats.totalDetections
+      }));
+    } catch {
+      // Silently fail - database might not be available
+    }
+  }, []);
 
   // Processing state management
   const processingActiveRef = useRef(false);
@@ -260,10 +279,10 @@ export default function LiveCameraRecognition() {
       }
     }
 
-    // Reset attendance tracking states
-    setCurrentDetectedPerson(null);
-    setStableDetectionCount(0);
-    setAttendanceStatus("waiting");
+    // Reset intelligent logging states
+    setBestDetection(null);
+    setIsReadyToLog(false);
+    setAutoLogCooldown(new Map());
 
     // Reset canvas initialization flag for next session
     canvasInitializedRef.current = false;
@@ -364,6 +383,71 @@ export default function LiveCameraRecognition() {
     return { imageData, scaleX, scaleY };
   }, []);
 
+  // Intelligent logging handlers
+  const handleAutoLog = useCallback(async (detection: DetectionResult) => {
+    if (!detection.recognition?.personId) return;
+    
+    const personId = detection.recognition.personId;
+
+    try {
+      // Log to persistent SQLite database
+      await sqliteFaceLogService.logAutoDetection(
+        personId, 
+        detection.confidence, 
+        detection.bbox,
+        detection.recognition.similarity
+      );
+      
+      // Update cooldown
+      setAutoLogCooldown(prev => new Map(prev).set(personId, Date.now()));
+      
+      // Force immediate UI update
+      setSystemStats(prev => ({
+        ...prev,
+        today_records: prev.today_records + 1
+      }));
+      
+      // Refresh data from database (async, don't await to avoid blocking)
+      refreshDatabaseData();
+      
+      // Refresh data from database
+      await refreshDatabaseData();
+      
+      console.log(`🤖 Auto-logged attendance for ${personId}`);
+    } catch (error) {
+      console.error("Auto-log failed:", error);
+    }
+  }, [refreshDatabaseData]);
+
+  const handleManualLog = useCallback(async (detection: DetectionResult) => {
+    if (!detection.recognition?.personId) return;
+    
+    const personId = detection.recognition.personId;
+
+    try {
+      // Log to persistent SQLite database
+      await sqliteFaceLogService.logManualDetection(
+        personId, 
+        detection.confidence, 
+        detection.bbox,
+        detection.recognition.similarity
+      );
+      
+      // Force immediate UI update
+      setSystemStats(prev => ({
+        ...prev,
+        today_records: prev.today_records + 1
+      }));
+      
+      // Refresh data from database (async, don't await to avoid blocking)
+      refreshDatabaseData();
+      
+      console.log(`👤 Manually logged attendance for ${personId}`);
+    } catch (error) {
+      console.error("Manual log failed:", error);
+    }
+  }, [refreshDatabaseData]);
+
   // Frame processing optimization - skip stale frames
   const isProcessing = useRef(false);
   const frameSkipCount = useRef(0);
@@ -442,88 +526,46 @@ export default function LiveCameraRecognition() {
         setDetectionResults(validDetections);
         setProcessingTime(processingTime);
 
-        // Attendance tracking logic - enhanced with real recognition
-        if (attendanceMode && validDetections.length > 0) {
-          // Find the largest detection for attendance tracking
-          const largestDetection = validDetections.reduce(
-            (largest, current) => {
-              const currentArea =
-                (current.bbox[2] - current.bbox[0]) *
-                (current.bbox[3] - current.bbox[1]);
-              const largestArea = largest
-                ? (largest.bbox[2] - largest.bbox[0]) *
-                  (largest.bbox[3] - largest.bbox[1])
-                : 0;
-              return currentArea > largestArea ? current : largest;
-            },
-            validDetections[0]
-          );
+        // Intelligent face logging system
+        if (validDetections.length > 0) {
+          // Find the best detection (highest confidence, largest face)
+          const bestDetection = validDetections.reduce((best, current) => {
+            const currentScore = current.confidence * 
+              ((current.bbox[2] - current.bbox[0]) * (current.bbox[3] - current.bbox[1]));
+            const bestScore = best.confidence * 
+              ((best.bbox[2] - best.bbox[0]) * (best.bbox[3] - best.bbox[1]));
+            return currentScore > bestScore ? current : best;
+          });
 
-          // Check if face is centered and stable
-          if (imageData && largestDetection) {
-            const [x1, y1, x2, y2] = largestDetection.bbox;
-            const centerX = (x1 + x2) / 2;
-            const centerY = (y1 + y2) / 2;
-            const imgCenterX = (videoRef.current?.videoWidth || 640) / 2;
-            const imgCenterY = (videoRef.current?.videoHeight || 480) / 2;
+          // Update best detection for UI
+          setBestDetection(bestDetection);
+          
+          // Immediate auto-logging for reliable detections
+          if (bestDetection.confidence > 0.7) {
+            setIsReadyToLog(true);
 
-            // Check if face is reasonably centered (within 20% of center)
-            const isCentered =
-              Math.abs(centerX - imgCenterX) <
-                (videoRef.current?.videoWidth || 640) * 0.2 &&
-              Math.abs(centerY - imgCenterY) <
-                (videoRef.current?.videoHeight || 480) * 0.2;
-
-            if (isCentered && largestDetection.confidence > 0.5) {
-              const recognizedId =
-                largestDetection.recognition?.personId || "unknown";
-
-              if (
-                currentDetectedPerson === recognizedId ||
-                currentDetectedPerson === null
-              ) {
-                setCurrentDetectedPerson(recognizedId);
-                setStableDetectionCount((prev) => prev + 1);
-
-                if (stableDetectionCount < 10) {
-                  setAttendanceStatus("detecting");
-                } else if (
-                  stableDetectionCount >= 10 &&
-                  stableDetectionCount < 30
-                ) {
-                  setAttendanceStatus("confirmed");
-                } else if (stableDetectionCount >= 30) {
-                  setAttendanceStatus("recorded");
-                  // Auto-record attendance after 2 seconds of stable detection
-                  setTimeout(() => {
-                    console.log(`📝 Attendance recorded for ${recognizedId}`);
-                    setSystemStats((prev) => ({
-                      ...prev,
-                      today_records: prev.today_records + 1,
-                    }));
-                    setAttendanceStatus("waiting");
-                    setStableDetectionCount(0);
-                    setCurrentDetectedPerson(null);
-                  }, 1000);
-                }
+            // Immediate auto-logging - no stability delay needed
+            if (loggingMode === "auto" && bestDetection.recognition?.personId) {
+              const personId = bestDetection.recognition.personId;
+              const now = Date.now();
+              const lastLogged = autoLogCooldown.get(personId) || 0;
+              
+              console.log(`🔍 Auto-log check for ${personId}: cooldown=${now - lastLogged}ms, mode=${loggingMode}`);
+              
+              // Auto-log immediately if cooldown period passed (10 seconds)
+              if ((now - lastLogged) > 10000) {
+                console.log(`🤖 Auto-logging triggered immediately for ${personId}, confidence: ${bestDetection.confidence}`);
+                handleAutoLog(bestDetection);
               } else {
-                // Different person detected, reset counter
-                setStableDetectionCount(0);
-                setAttendanceStatus("waiting");
-                setCurrentDetectedPerson(recognizedId);
+                console.log(`⏳ Cooldown active for ${personId}, ${10000 - (now - lastLogged)}ms remaining`);
               }
-            } else {
-              // Reset if face moves or confidence drops
-              setStableDetectionCount(0);
-              setAttendanceStatus("waiting");
-              setCurrentDetectedPerson(null);
             }
+          } else {
+            setIsReadyToLog(false);
           }
-        } else if (attendanceMode) {
-          // No detections - reset
-          setStableDetectionCount(0);
-          setAttendanceStatus("waiting");
-          setCurrentDetectedPerson(null);
+        } else {
+          setBestDetection(null);
+          setIsReadyToLog(false);
         }
       }
     } catch (error) {
@@ -536,9 +578,9 @@ export default function LiveCameraRecognition() {
     isStreaming,
     cameraStatus,
     captureFrame,
-    attendanceMode,
-    stableDetectionCount,
-    currentDetectedPerson,
+    loggingMode,
+    autoLogCooldown,
+    handleAutoLog,
   ]);
 
   const startProcessing = useCallback(() => {
@@ -1033,6 +1075,34 @@ export default function LiveCameraRecognition() {
     };
   }, [drawDetections]);
 
+  // Initialize data from persistent database
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        // Check if database is available
+        const isAvailable = await sqliteFaceLogService.isAvailable();
+        setDbConnected(isAvailable);
+        
+        if (isAvailable) {
+          // Load recent logs
+          const logs = await sqliteFaceLogService.getRecentLogs(10);
+          setRecentLogs(logs);
+          
+          // Load today's stats
+          const stats = await sqliteFaceLogService.getTodayStats();
+          setSystemStats(prev => ({
+            ...prev,
+            today_records: stats.totalDetections
+          }));
+        }
+      } catch {
+        setDbConnected(false);
+      }
+    };
+
+    initializeData();
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -1100,57 +1170,66 @@ export default function LiveCameraRecognition() {
                 </div>
               )}
 
-              {/* Attendance Mode Overlay */}
-              {attendanceMode && (
+              {/* Intelligent Face Logging Interface */}
+              {isStreaming && (
                 <div className="absolute inset-0 pointer-events-none">
-                  {/* Center guide */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="w-64 h-64 border-2 border-dashed border-white/50 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-white/70 text-sm mb-2">
-                          Position your face here
-                        </div>
-                        <div className="w-4 h-4 bg-white/50 rounded-full mx-auto"></div>
+
+                  {/* Smart Logging Controls */}
+                  <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm rounded-xl p-4 pointer-events-auto">
+                    {/* Mode Toggle */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <span className="text-white text-sm">Mode:</span>
+                      <button
+                        onClick={() => setLoggingMode(loggingMode === "auto" ? "manual" : "auto")}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                          loggingMode === "auto"
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-600 text-gray-300"
+                        }`}
+                      >
+                        {loggingMode === "auto" ? "🤖 Auto" : "👤 Manual"}
+                      </button>
+                    </div>
+
+                    {/* Manual Log Button */}
+                    {loggingMode === "manual" && bestDetection && isReadyToLog && (
+                      <button
+                        onClick={() => handleManualLog(bestDetection)}
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                      >
+                        📝 Log {bestDetection.recognition?.personId || 'Unknown'}
+                      </button>
+                    )}
+
+                    {/* Auto-Log Status */}
+                    {loggingMode === "auto" && (
+                      <div className="text-xs text-gray-300">
+                        {isReadyToLog ? "🤖 Auto-logging enabled" : "🔍 Waiting for face..."}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Logs Sidebar */}
+                  {recentLogs.length > 0 && (
+                    <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-sm rounded-xl p-3 max-w-64 pointer-events-auto">
+                      <div className="text-white text-sm font-medium mb-2">Recent Logs</div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {recentLogs.slice(0, 5).map((log) => (
+                          <div key={log.id} className="text-xs text-gray-300 bg-gray-700/50 rounded px-2 py-1">
+                            <div className="flex justify-between items-center">
+                              <span>{log.personId}</span>
+                              <span className="text-gray-400">
+                                {log.mode === "auto" ? "🤖" : "👤"}
+                              </span>
+                            </div>
+                            <div className="text-gray-400">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Attendance Status */}
-                  <div className="absolute top-4 right-4 bg-black/70 px-4 py-2 rounded-lg">
-                    <div className="text-white text-sm font-medium mb-1">
-                      Attendance Mode
-                    </div>
-                    <div
-                      className={`text-sm ${
-                        attendanceStatus === "waiting"
-                          ? "text-gray-400"
-                          : attendanceStatus === "detecting"
-                          ? "text-yellow-400"
-                          : attendanceStatus === "confirmed"
-                          ? "text-blue-400"
-                          : "text-green-400"
-                      }`}
-                    >
-                      {attendanceStatus === "waiting" &&
-                        "👀 Looking for face..."}
-                      {attendanceStatus === "detecting" &&
-                        `🎯 Detecting... ${stableDetectionCount}/10`}
-                      {attendanceStatus === "confirmed" &&
-                        `✅ Confirmed! ${stableDetectionCount}/30`}
-                      {attendanceStatus === "recorded" &&
-                        "📝 Recording attendance..."}
-                    </div>
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 px-6 py-3 rounded-lg">
-                    <div className="text-white text-sm text-center">
-                      <div className="font-medium mb-1">Instructions:</div>
-                      <div>1. Position face in center box</div>
-                      <div>2. Stay still for 2 seconds</div>
-                      <div>3. Wait for green confirmation</div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1179,14 +1258,14 @@ export default function LiveCameraRecognition() {
             </button>
 
             <button
-              onClick={() => setAttendanceMode(!attendanceMode)}
+              onClick={() => setLoggingMode(loggingMode === "auto" ? "manual" : "auto")}
               className={`px-6 py-3 rounded-xl text-sm font-light backdrop-blur-xl border transition-all duration-500 ${
-                attendanceMode
+                loggingMode === "auto"
                   ? "bg-green-500/20 border-green-400/30 text-green-300"
-                  : "bg-white/[0.05] border-white/[0.10] text-white/80 hover:bg-white/[0.08]"
+                  : "bg-blue-500/20 border-blue-400/30 text-blue-300"
               }`}
             >
-              {attendanceMode ? "✅ Stop Attendance" : "📝 Mark Attendance"}
+              {loggingMode === "auto" ? "🤖 Auto Logging" : "� Manual Logging"}
             </button>
 
             <div className="flex items-center space-x-4 mr-5 text-sm">
@@ -1233,47 +1312,40 @@ export default function LiveCameraRecognition() {
             </div>
           )}
 
-          {/* Attendance Status */}
-          {attendanceMode && (
-            <div className="mb-6 p-4 bg-green-500/10 rounded-lg border border-green-500/30">
-              <h3 className="text-lg font-medium mb-4 text-green-300">
-                Attendance Mode Active
+          {/* Intelligent Logging Status */}
+          {isStreaming && (
+            <div className="mb-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
+              <h3 className="text-lg font-medium mb-4 text-blue-300 flex items-center justify-between">
+                Smart Face Logging
+                <span className={`px-2 py-1 rounded text-xs ${
+                  loggingMode === "auto" ? "bg-green-500/20 text-green-300" : "bg-blue-500/20 text-blue-300"
+                }`}>
+                  {loggingMode === "auto" ? "🤖 Auto Mode" : "👤 Manual Mode"}
+                </span>
               </h3>
               <div className="space-y-3">
+                {bestDetection && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-white/70">Best Detection:</span>
+                      <span className="text-white">
+                        {bestDetection.recognition?.personId || "Unknown"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/70">Confidence:</span>
+                      <span className="text-white">
+                        {Math.round(bestDetection.confidence * 100)}%
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
-                  <span className="text-white/70">Status:</span>
-                  <span
-                    className={`font-medium ${
-                      attendanceStatus === "waiting"
-                        ? "text-gray-400"
-                        : attendanceStatus === "detecting"
-                        ? "text-yellow-400"
-                        : attendanceStatus === "confirmed"
-                        ? "text-blue-400"
-                        : "text-green-400"
-                    }`}
-                  >
-                    {attendanceStatus === "waiting" && "Waiting for face"}
-                    {attendanceStatus === "detecting" && "Detecting face"}
-                    {attendanceStatus === "confirmed" && "Face confirmed"}
-                    {attendanceStatus === "recorded" && "Attendance recorded"}
+                  <span className="text-white/70">Ready to Log:</span>
+                  <span className={`font-medium ${isReadyToLog ? "text-green-400" : "text-gray-400"}`}>
+                    {isReadyToLog ? "✅ Ready" : "⏳ Waiting"}
                   </span>
                 </div>
-                {attendanceStatus !== "waiting" && (
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Progress:</span>
-                    <span className="text-white">
-                      {stableDetectionCount}/
-                      {attendanceStatus === "detecting" ? "10" : "30"}
-                    </span>
-                  </div>
-                )}
-                {currentDetectedPerson && (
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Person:</span>
-                    <span className="text-white">{currentDetectedPerson}</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1312,7 +1384,14 @@ export default function LiveCameraRecognition() {
 
           {/* System Stats */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium mb-4">System Status</h3>
+            <h3 className="text-lg font-medium mb-4 flex items-center justify-between">
+              System Status
+              <span className={`px-2 py-1 rounded text-xs ${
+                dbConnected ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+              }`}>
+                {dbConnected ? "🟢 DB Connected" : "🔴 DB Error"}
+              </span>
+            </h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-white/70">People in DB:</span>
@@ -1321,6 +1400,10 @@ export default function LiveCameraRecognition() {
               <div className="flex justify-between">
                 <span className="text-white/70">Today's Records:</span>
                 <span className="text-white">{systemStats.today_records}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/70">Recent Logs:</span>
+                <span className="text-white">{recentLogs.length}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-white/70">Processing Time:</span>

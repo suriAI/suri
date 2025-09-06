@@ -19,6 +19,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     removePerson: (personId) => {
         return ipcRenderer.invoke('face-recognition:remove-person', personId)
+    },
+    // Face Log Database API
+    logDetection: (detection) => {
+        return ipcRenderer.invoke('face-db:log-detection', detection)
+    },
+    getRecentLogs: (limit) => {
+        return ipcRenderer.invoke('face-db:get-recent-logs', limit)
+    },
+    getTodayStats: () => {
+        return ipcRenderer.invoke('face-db:get-today-stats')
+    },
+    exportData: (filePath) => {
+        return ipcRenderer.invoke('face-db:export-data', filePath)
+    },
+    clearOldData: (daysToKeep) => {
+        return ipcRenderer.invoke('face-db:clear-old-data', daysToKeep)
     }
 })
 

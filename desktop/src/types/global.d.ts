@@ -46,6 +46,22 @@ declare global {
     registerPerson: (personId: string, imageData: ImageData, landmarks: number[][]) => Promise<boolean>
     getAllPersons: () => Promise<string[]>
     removePerson: (personId: string) => Promise<boolean>
+    // Face Log Database API
+    logDetection: (detection: FaceLogEntry) => Promise<string>
+    getRecentLogs: (limit?: number) => Promise<FaceLogEntry[]>
+    getTodayStats: () => Promise<{ totalDetections: number; uniquePersons: number; firstDetection: string | null; lastDetection: string | null }>
+    exportData: (filePath: string) => Promise<boolean>
+    clearOldData: (daysToKeep: number) => Promise<number>
+  }
+
+  interface FaceLogEntry {
+    id?: string;
+    timestamp: string;
+    personId: string | null;
+    confidence: number;
+    bbox: [number, number, number, number];
+    similarity?: number;
+    mode: 'auto' | 'manual';
   }
 
   interface Window {
