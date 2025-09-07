@@ -46,45 +46,44 @@ export default function TitleBar({ title = 'SURI' }: TitleBarProps) {
 
   return (
     <div 
-      className="h-8 bg-black/95 backdrop-blur-xl border-b border-white/[0.05] flex items-center justify-between px-4 select-none flex-shrink-0"
+      className="h-8 bg-black/98 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-white/[0.02]"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      {/* Drag Region - Left Side */}
-      <div className="flex items-center space-x-3 flex-1">
-        <div className="w-3 h-3 rounded-full bg-white/20"></div>
-        <span className="text-xs text-white/60 font-light tracking-wider uppercase">
-          {title}
-        </span>
+      {/* Minimal Left Side - Just a subtle indicator */}
+      <div className="flex items-center space-x-2 flex-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+        <div className="w-1 h-1 rounded-full bg-white/20"></div>
+        <div className="w-0.5 h-0.5 rounded-full bg-white/10"></div>
       </div>
 
-      {/* Window Controls - Right Side */}
+      {/* Ultra-minimal Window Controls */}
       <div 
-        className="flex items-center space-x-1"
+        className="flex items-center space-x-0.5"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
           onClick={handleMinimize}
-          className="titlebar-btn w-7 h-7 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.08] rounded transition-all duration-200"
+          className="titlebar-btn w-6 h-6 flex items-center justify-center text-white/40 hover:text-white hover:bg-yellow-500/20 rounded-sm transition-all duration-300"
         >
-          <i className="fas fa-window-minimize text-xs"></i>
+          <i className="fas fa-window-minimize text-[10px]"></i>
         </button>
 
         <button
           onClick={handleMaximize}
-          className="titlebar-btn w-7 h-7 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.08] rounded transition-all duration-200"
+          className="titlebar-btn w-6 h-6 flex items-center justify-center text-white/40 hover:text-white hover:bg-green-500/20 rounded-sm transition-all duration-300"
         >
           {isMaximized ? (
-            <i className="fas fa-window-restore text-xs"></i>
+            <i className="fas fa-window-restore text-[10px]"></i>
           ) : (
-            <i className="fas fa-window-maximize text-xs"></i>
+            <i className="fas fa-window-maximize text-[10px]"></i>
           )}
         </button>
 
         <button
           onClick={handleClose}
-          className="titlebar-btn w-7 h-7 flex items-center justify-center text-white/50 hover:text-white hover:bg-red-500/15 rounded transition-all duration-200"
+          className="titlebar-btn w-6 h-6 flex items-center justify-center text-white/40 hover:text-white hover:bg-red-500/20 rounded-sm transition-all duration-300"
         >
-          <i className="fas fa-times text-xs"></i>
+          <i className="fas fa-times text-[10px]"></i>
         </button>
       </div>
     </div>

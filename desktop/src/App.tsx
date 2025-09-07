@@ -160,7 +160,7 @@ function App() {
   return (
     <div className="electron-window-container">
       {/* Custom TitleBar - Outside scrollable area */}
-      <TitleBar title="SURI - Face Recognition System" />
+      <TitleBar />
       
       {/* Scrollable content wrapper */}
       <div className="app-content-wrapper">

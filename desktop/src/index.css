@@ -523,3 +523,13 @@ input::placeholder, textarea::placeholder {
     background-position: 0% 0%;
   }
 }
+
+/* Additional Gradient Utilities */
+.bg-gradient-radial {
+  background-image: radial-gradient(var(--tw-gradient-stops));
+}
+
+/* Custom Animation Delays */
+.delay-3000 {
+  animation-delay: 3000ms;
+}
