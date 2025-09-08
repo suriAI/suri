@@ -705,9 +705,29 @@ export default function LiveCameraRecognition() {
     const captureWidth = captureCanvasRef.current?.width || 640;
     const captureHeight = captureCanvasRef.current?.height || 480;
 
-    // Scale from capture canvas coordinates to display canvas coordinates
-    const scaleX = displayWidth / captureWidth;
-    const scaleY = displayHeight / captureHeight;
+    // Map capture coordinates to the displayed video area considering object-cover
+    const videoAspectRatio = video.videoWidth / video.videoHeight;
+    const containerAspectRatio = displayWidth / displayHeight;
+
+    let actualVideoWidth: number;
+    let actualVideoHeight: number;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (videoAspectRatio > containerAspectRatio) {
+      // Video is wider - fit height, crop left/right
+      actualVideoHeight = displayHeight;
+      actualVideoWidth = Math.round(displayHeight * videoAspectRatio);
+      offsetX = Math.round((actualVideoWidth - displayWidth) / 2);
+    } else {
+      // Video is taller - fit width, crop top/bottom
+      actualVideoWidth = displayWidth;
+      actualVideoHeight = Math.round(displayWidth / videoAspectRatio);
+      offsetY = Math.round((actualVideoHeight - displayHeight) / 2);
+    }
+
+    const scaleX = actualVideoWidth / captureWidth;
+    const scaleY = actualVideoHeight / captureHeight;
 
     // Validate scale factors
     if (!isFinite(scaleX) || !isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
@@ -723,11 +743,11 @@ export default function LiveCameraRecognition() {
         continue; // Skip invalid detections
       }
 
-      // Scale coordinates from capture canvas size to display canvas size
-      const scaledX1 = x1 * scaleX;
-      const scaledY1 = y1 * scaleY;
-      const scaledX2 = x2 * scaleX;
-      const scaledY2 = y2 * scaleY;
+      // Scale coordinates from capture canvas size to displayed video area (with cropping offsets)
+      const scaledX1 = (x1 * scaleX) - offsetX;
+      const scaledY1 = (y1 * scaleY) - offsetY;
+      const scaledX2 = (x2 * scaleX) - offsetX;
+      const scaledY2 = (y2 * scaleY) - offsetY;
 
       // Additional validation for scaled coordinates
       if (
@@ -860,32 +880,9 @@ export default function LiveCameraRecognition() {
           const [x, y] = detection.landmarks[i];
           if (isNaN(x) || isNaN(y)) continue;
 
-          // Landmarks are in original video coordinate space, but we need to account for object-cover
-          // Calculate the actual video display area within the container
-          const videoAspectRatio = video.videoWidth / video.videoHeight;
-          const containerAspectRatio = displayWidth / displayHeight;
-          
-          let actualVideoWidth, actualVideoHeight, offsetX, offsetY;
-          
-          if (videoAspectRatio > containerAspectRatio) {
-            // Video is wider - will be cropped horizontally
-            actualVideoHeight = displayHeight;
-            actualVideoWidth = displayHeight * videoAspectRatio;
-            offsetX = (actualVideoWidth - displayWidth) / 2;
-            offsetY = 0;
-          } else {
-            // Video is taller - will be cropped vertically
-            actualVideoWidth = displayWidth;
-            actualVideoHeight = displayWidth / videoAspectRatio;
-            offsetX = 0;
-            offsetY = (actualVideoHeight - displayHeight) / 2;
-          }
-          
-          // Scale from video coordinates to actual display coordinates
-          const videoScaleX = actualVideoWidth / video.videoWidth;
-          const videoScaleY = actualVideoHeight / video.videoHeight;
-          const scaledLandmarkX = (x * videoScaleX) - offsetX;
-          const scaledLandmarkY = (y * videoScaleY) - offsetY;
+          // Landmarks are in capture coordinate space; map using same scaling and offsets
+          const scaledLandmarkX = (x * scaleX) - offsetX;
+          const scaledLandmarkY = (y * scaleY) - offsetY;
 
           // Validate scaled landmark coordinates
           if (!isFinite(scaledLandmarkX) || !isFinite(scaledLandmarkY))
