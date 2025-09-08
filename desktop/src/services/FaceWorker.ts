@@ -12,11 +12,12 @@ self.onmessage = async (event) => {
     switch (type) {
       case 'init': {
         // Initialize both services
+        const { isDev } = data || {};
         scrfdService = new WebScrfdService();
         edgeFaceService = new WebFaceService(0.6);
         
-        await scrfdService.initialize();
-        await edgeFaceService.initialize();
+        await scrfdService.initialize(isDev);
+        await edgeFaceService.initialize(isDev);
         
         // Don't load database here - we'll get it from main thread
         

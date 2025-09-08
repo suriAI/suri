@@ -32,10 +32,11 @@ export class WebScrfdService {
   // Performance monitoring
   private frameCount = 0;
 
-  async initialize(): Promise<void> {
+  async initialize(isDev?: boolean): Promise<void> {
     // Use different paths for development vs production
-    const isDev = window.location.protocol === 'http:';
-    const modelUrl = isDev 
+    // If isDev is not provided, try to detect from global scope
+    const isDevMode = isDev !== undefined ? isDev : (typeof window !== 'undefined' && window.location.protocol === 'http:');
+    const modelUrl = isDevMode 
       ? '/weights/scrfd_2.5g_kps_640x640.onnx' 
       : './weights/scrfd_2.5g_kps_640x640.onnx';
     

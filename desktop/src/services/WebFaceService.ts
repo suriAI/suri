@@ -29,10 +29,11 @@ export class WebFaceService {
     this.similarityThreshold = similarityThreshold;
   }
 
-  async initialize(): Promise<void> {
+  async initialize(isDev?: boolean): Promise<void> {
       // Use different paths for development vs production
-      const isDev = window.location.protocol === 'http:';
-      const modelUrl = isDev 
+      // If isDev is not provided, try to detect from global scope
+      const isDevMode = isDev !== undefined ? isDev : (typeof window !== 'undefined' && window.location.protocol === 'http:');
+      const modelUrl = isDevMode 
         ? '/weights/edgeface-recognition.onnx' 
         : './weights/edgeface-recognition.onnx';
         

@@ -50,7 +50,8 @@ export class WorkerManager {
     };
 
     // Initialize the worker
-    await this.sendMessage({ type: 'init' });
+    const isDev = typeof window !== 'undefined' && window.location.protocol === 'http:';
+    await this.sendMessage({ type: 'init', data: { isDev } });
     
     // Load database from localStorage and send to worker
     await this.syncDatabaseToWorker();
