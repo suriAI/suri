@@ -56,7 +56,6 @@ export class WorkerManager {
     await this.syncDatabaseToWorker();
     
     this.isInitialized = true;
-    console.log('✅ Face Recognition Worker Manager initialized');
   }
 
   private async syncDatabaseToWorker(): Promise<void> {
@@ -67,7 +66,6 @@ export class WorkerManager {
         const result = await window.electronAPI.loadFaceDatabase();
         if (result.success) {
           databaseData = result.data;
-          console.log(`📂 Loaded face database from file (${Object.keys(databaseData).length} persons)`);
         } else {
           console.warn('Failed to load face database from file:', result.error);
         }
@@ -80,8 +78,6 @@ export class WorkerManager {
         type: 'load-database-from-main',
         data: { databaseData }
       });
-      
-      console.log('📂 Face database synced to worker');
     } catch (error) {
       console.error('Failed to sync database to worker:', error);
     }
@@ -99,9 +95,7 @@ export class WorkerManager {
       // Save to file via electron API
       if (window.electronAPI?.saveFaceDatabase) {
         const result = await window.electronAPI.saveFaceDatabase(databaseData);
-        if (result.success) {
-          console.log(`💾 Face database saved to file (${Object.keys(databaseData).length} persons)`);
-        } else {
+        if (!result.success) {
           console.error('Failed to save face database to file:', result.error);
         }
       } else {
@@ -377,12 +371,7 @@ export class WorkerManager {
 
     // Handle broadcast messages (without IDs)
     switch (type) {
-      case 'init-complete':
-        console.log('Worker initialization complete');
-        break;
       case 'database-changed': {
-        // Database was modified in worker, sync it back to localStorage
-        console.log('Database changed in worker, syncing to localStorage...');
         this.syncDatabaseFromWorker().catch(console.error);
         break;
       }
@@ -393,8 +382,6 @@ export class WorkerManager {
         console.error('Worker error:', errorMessage);
         break;
       }
-      default:
-        console.log('Unknown worker message:', type, data);
     }
   }
 
