@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import { sqliteFaceDB } from '../services/SimpleSqliteFaceDatabase.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -230,7 +230,11 @@ export function setupFaceLogIPC() {
   // ==================== FACE RECOGNITION DATABASE HANDLERS ====================
   
   const getFaceDbPath = () => {
-    return path.join(process.cwd(), 'public', 'face-logs', 'face-embeddings.json');
+    // Use userData directory for proper Electron app behavior
+    // This ensures the database works in both development and production
+    const userDataPath = app.getPath('userData');
+    const faceDataDir = path.join(userDataPath, 'face-data');
+    return path.join(faceDataDir, 'face-embeddings.json');
   };
 
   // Save face recognition database to file
@@ -239,7 +243,7 @@ export function setupFaceLogIPC() {
       const dbPath = getFaceDbPath();
       const dbDir = path.dirname(dbPath);
       
-      // Ensure directory exists
+      // Ensure userData/face-data directory exists
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
       }
@@ -247,6 +251,7 @@ export function setupFaceLogIPC() {
       // Save to file with pretty formatting
       fs.writeFileSync(dbPath, JSON.stringify(databaseData, null, 2), 'utf8');
       console.log(`💾 Face database saved to: ${dbPath}`);
+      console.log(`📊 Persons stored: ${Object.keys(databaseData).length}`);
       return { success: true };
     } catch (error) {
       console.error('Failed to save face database:', error);
@@ -260,13 +265,14 @@ export function setupFaceLogIPC() {
       const dbPath = getFaceDbPath();
       
       if (!fs.existsSync(dbPath)) {
-        console.log('Face database file does not exist, returning empty database');
+        console.log(`📂 Face database file does not exist yet: ${dbPath}`);
         return { success: true, data: {} };
       }
       
       const fileContent = fs.readFileSync(dbPath, 'utf8');
       const databaseData = JSON.parse(fileContent);
       console.log(`📂 Face database loaded from: ${dbPath}`);
+      console.log(`📊 Persons loaded: ${Object.keys(databaseData).length}`);
       return { success: true, data: databaseData };
     } catch (error) {
       console.error('Failed to load face database:', error);
