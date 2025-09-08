@@ -277,6 +277,20 @@ self.onmessage = async (event) => {
         });
         break;
       }
+
+      case 'clear-cache': {
+        if (!edgeFaceService) {
+          throw new Error('EdgeFace service not initialized');
+        }
+        
+        edgeFaceService.clearCache();
+        self.postMessage({ 
+          type: 'cache-cleared', 
+          data: { success: true },
+          id
+        });
+        break;
+      }
         
       default:
         throw new Error(`Unknown message type: ${type}`);

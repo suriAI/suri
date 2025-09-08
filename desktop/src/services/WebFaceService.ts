@@ -168,6 +168,16 @@ export class WebFaceService {
   }
 
   /**
+   * Clear all cached/static resources (useful for memory cleanup)
+   */
+  clearCache(): void {
+    // Clear global static resources
+    WebFaceService.globalAlignCanvas = null;
+    WebFaceService.globalSourceCanvas = null;
+    WebFaceService.globalChwData = null;
+  }
+
+  /**
    * Get database statistics
    */
   getStats() {

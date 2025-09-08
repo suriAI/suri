@@ -158,6 +158,44 @@ export class WorkerManager {
     await this.syncDatabaseToWorker();
   }
 
+  /**
+   * Clear a specific person from the worker's memory and sync with localStorage
+   */
+  async clearPersonFromMemory(personId: string): Promise<boolean> {
+    if (!this.isInitialized) return false;
+    
+    try {
+      // Remove from worker's memory
+      const success = await this.removePerson(personId);
+      
+      // Reload database to ensure sync
+      await this.syncDatabaseToWorker();
+      
+      return success;
+    } catch (error) {
+      console.error('Failed to clear person from memory:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Clear all cached data in the worker (useful for memory cleanup)
+   */
+  async clearCache(): Promise<boolean> {
+    if (!this.isInitialized) return false;
+    
+    try {
+      const response = await this.sendMessage({
+        type: 'clear-cache'
+      });
+      
+      return (response.success as boolean) || false;
+    } catch (error) {
+      console.error('Failed to clear cache:', error);
+      return false;
+    }
+  }
+
   async removePerson(personId: string): Promise<boolean> {
     if (!this.isInitialized) {
       throw new Error('Worker manager not initialized');
@@ -308,6 +346,8 @@ export class WorkerManager {
         } else if (type === 'database-export') {
           responseData = data || {};
         } else if (type === 'database-loaded') {
+          responseData = data || {};
+        } else if (type === 'cache-cleared') {
           responseData = data || {};
         }
         

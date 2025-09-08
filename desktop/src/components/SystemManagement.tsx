@@ -444,11 +444,28 @@ export default function SystemManagement({ onBack }: SystemManagementProps) {
 
   const deletePerson = async (person: string) => {
     try {
-      // Use SqliteFaceLogService to delete the person's records
+      // First, remove from face recognition database (embeddings) in localStorage
+      let embeddingRemoved = false;
+      try {
+        const stored = localStorage.getItem('edgeface_database');
+        if (stored) {
+          const databaseData = JSON.parse(stored);
+          if (databaseData[person]) {
+            delete databaseData[person];
+            localStorage.setItem('edgeface_database', JSON.stringify(databaseData));
+            embeddingRemoved = true;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to remove person from face database:', e);
+      }
+      
+      // Then, delete the person's attendance records
       const deleteCount = await sqliteFaceLogService.deletePersonRecords(person);
       
-      if (deleteCount > 0) {
-        const message = `✅ Successfully deleted "${person}" and ${deleteCount} attendance records from the system`;
+      if (deleteCount > 0 || embeddingRemoved) {
+        const embeddingMsg = embeddingRemoved ? "face recognition data and " : "";
+        const message = `✅ Successfully deleted "${person}" ${embeddingMsg}${deleteCount} attendance records from the system`;
         alert(message);
         
         // Notify live recognition to remove this person from in-memory embeddings
