@@ -38,7 +38,7 @@ export class WebScrfdService {
     const isDevMode = isDev !== undefined ? isDev : (typeof window !== 'undefined' && window.location.protocol === 'http:');
     const modelUrl = isDevMode 
       ? '/weights/scrfd_2.5g_kps_640x640.onnx' 
-      : './weights/scrfd_2.5g_kps_640x640.onnx';
+      : './app.asar.unpacked/dist-react/weights/scrfd_2.5g_kps_640x640.onnx';
     
     try {
       this.session = await ort.InferenceSession.create(modelUrl, {

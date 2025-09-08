@@ -35,7 +35,7 @@ export class WebFaceService {
       const isDevMode = isDev !== undefined ? isDev : (typeof window !== 'undefined' && window.location.protocol === 'http:');
       const modelUrl = isDevMode 
         ? '/weights/edgeface-recognition.onnx' 
-        : './weights/edgeface-recognition.onnx';
+        : './app.asar.unpacked/dist-react/weights/edgeface-recognition.onnx';
         
       try {
         this.session = await ort.InferenceSession.create(modelUrl, {
