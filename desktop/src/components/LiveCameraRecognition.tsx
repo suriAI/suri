@@ -1187,7 +1187,7 @@ export default function LiveCameraRecognition() {
         </div>
 
         {/* Sidebar */}
-        <div className="w-80 pb-2 bg-white/[0.02] backdrop-blur-xl border-l border-white/[0.08] flex flex-col min-h-0 max-h-[84vh]">
+        <div className="w-80 pb-2 bg-white/[0.02] backdrop-blur-xl border-l border-white/[0.08] flex flex-col h-[84vh]">
           {/* Stats Panel */}
           <div className="px-4 pt-2 pb-4 border-b border-white/[0.08]">
             <h3 className="text-lg font-light mb-3">System Status</h3>
