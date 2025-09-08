@@ -81,8 +81,12 @@ function App() {
             <div className="group flex items-center space-x-4 text-white/60">
               <div className="w-2 h-2 rounded-full bg-white/60 group-hover:bg-white group-hover:scale-125 transition-all duration-300"></div>
               <span className="text-sm font-light tracking-[0.15em] uppercase">SURI</span>
-              <span className="text-xs text-white/30">•</span>
-              <span className="text-xs font-light text-white/80">{getCurrentSectionName()}</span>
+              {currentMenu !== 'live-camera' && (
+                <>
+                  <span className="text-xs text-white/30">•</span>
+                  <span className="text-xs font-light text-white/80">{getCurrentSectionName()}</span>
+                </>
+              )}
             </div>
             
             <div className="flex items-center space-x-3">
