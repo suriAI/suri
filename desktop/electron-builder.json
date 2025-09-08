@@ -3,6 +3,9 @@
         "dist-electron/**/*",
         "dist-react/**/*"
     ],
+    "asarUnpack": [
+        "dist-react/weights/**/*"
+    ],
     "extraFiles": [
         {
             "from": "src/electron/preload.js",
