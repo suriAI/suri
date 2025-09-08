@@ -33,7 +33,11 @@ export class WebScrfdService {
   private frameCount = 0;
 
   async initialize(): Promise<void> {
-    const modelUrl = '/weights/scrfd_2.5g_kps_640x640.onnx';
+    // Use different paths for development vs production
+    const isDev = window.location.protocol === 'http:';
+    const modelUrl = isDev 
+      ? '/weights/scrfd_2.5g_kps_640x640.onnx' 
+      : './weights/scrfd_2.5g_kps_640x640.onnx';
     
     try {
       this.session = await ort.InferenceSession.create(modelUrl, {

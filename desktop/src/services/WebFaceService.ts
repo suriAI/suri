@@ -30,8 +30,14 @@ export class WebFaceService {
   }
 
   async initialize(): Promise<void> {
+      // Use different paths for development vs production
+      const isDev = window.location.protocol === 'http:';
+      const modelUrl = isDev 
+        ? '/weights/edgeface-recognition.onnx' 
+        : './weights/edgeface-recognition.onnx';
+        
       try {
-        this.session = await ort.InferenceSession.create('/weights/edgeface-recognition.onnx', {
+        this.session = await ort.InferenceSession.create(modelUrl, {
           executionProviders: [
             'webgl',     // Use WebGL instead of WebGPU for better compatibility
             'wasm'       // Fallback to optimized CPU
@@ -46,7 +52,7 @@ export class WebFaceService {
         });
       } catch {
         // If WebGL fails, use CPU-only
-        this.session = await ort.InferenceSession.create('/weights/edgeface-recognition.onnx', {
+        this.session = await ort.InferenceSession.create(modelUrl, {
           executionProviders: ['wasm'],
           logSeverityLevel: 4,
           logVerbosityLevel: 0,

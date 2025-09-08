@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron"
+import { app, BrowserWindow, ipcMain, session } from "electron"
 import path from "path"
 import { fileURLToPath } from 'node:url'
 import isDev from "./util.js";
@@ -119,6 +119,15 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+    // Register protocol to serve static files in packaged app
+    if (!isDev()) {
+        session.defaultSession.protocol.registerFileProtocol('app', (request, callback) => {
+            const url = request.url.substr(6); // Remove 'app://' prefix
+            const filePath = path.join(__dirname, '../../dist-react', url);
+            callback({ path: filePath });
+        });
+    }
+    
     createWindow()
     
     // Initialize SQLite database first
