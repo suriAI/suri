@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { WorkerManager } from "../services/WorkerManager";
 import { sqliteFaceLogService, type FaceLogEntry } from "../services/SqliteFaceLogService";
+import { FaceDeduplicationService } from "../services/FaceDeduplicationService";
 
 interface DetectionResult {
   bbox: [number, number, number, number];
@@ -38,6 +39,21 @@ export default function LiveCameraRecognition() {
   const [recentLogs, setRecentLogs] = useState<FaceLogEntry[]>([]);
   const [autoLogCooldown, setAutoLogCooldown] = useState<Map<string, number>>(new Map());
   const [dbConnected, setDbConnected] = useState(false);
+
+  // Initialize advanced face deduplication service
+  const deduplicationServiceRef = useRef<FaceDeduplicationService>(
+    new FaceDeduplicationService({
+      sessionTimeoutMs: 30000,      // 30 seconds between sessions
+      minSessionDurationMs: 2000,   // 2 seconds minimum observation
+      maxSessionDurationMs: 45000,  // 45 seconds maximum session
+      minConfidence: 0.7,           // Higher confidence threshold
+      minSimilarity: 0.75,          // Higher similarity threshold
+      minDetectionsForLog: 3,       // Require 3+ detections for stability
+      enableAdaptiveThresholds: true,
+      enableQualityBasedSelection: true,
+      enableTemporalSmoothing: true
+    })
+  );
 
   // Enhanced detection states
   const [bestDetection, setBestDetection] = useState<DetectionResult | null>(null);
@@ -373,40 +389,80 @@ export default function LiveCameraRecognition() {
     return { imageData, scaleX, scaleY };
   }, []);
 
-  // Intelligent logging handlers
+  // Advanced intelligent logging with deduplication
   const handleAutoLog = useCallback(async (detection: DetectionResult) => {
     if (!detection.recognition?.personId) return;
     
     const personId = detection.recognition.personId;
+    const confidence = detection.confidence;
+    const similarity = detection.recognition.similarity;
+    const bbox = detection.bbox;
+    const timestamp = Date.now();
 
     try {
-      // Log to persistent SQLite database
-      await sqliteFaceLogService.logAutoDetection(
-        personId, 
-        detection.confidence, 
-        detection.bbox,
-        detection.recognition.similarity
+      // Use advanced deduplication service to determine if we should log
+      const deduplicationResult = await deduplicationServiceRef.current.processDetection(
+        personId,
+        confidence,
+        similarity,
+        bbox,
+        timestamp
       );
-      
-      // Update cooldown
-      setAutoLogCooldown(prev => new Map(prev).set(personId, Date.now()));
-      
-      // Force immediate UI update
-      setSystemStats(prev => ({
-        ...prev,
-        today_records: prev.today_records + 1
-      }));
-      
-      // Refresh data from database (async, don't await to avoid blocking)
-      refreshDatabaseData();
-      
-      // Refresh data from database
-      await refreshDatabaseData();
+
+      if (deduplicationResult.shouldLog && deduplicationResult.bestDetection) {
+        // Log the best detection from the session, not necessarily the current one
+        const bestDetection = deduplicationResult.bestDetection;
+        
+        console.log(`📊 Auto-logging best detection for ${personId}: ${deduplicationResult.reason}`);
+        console.log(`Quality Score: ${bestDetection.qualityScore.toFixed(3)}, Confidence: ${bestDetection.confidence.toFixed(3)}, Similarity: ${bestDetection.similarity.toFixed(3)}`);
+        
+        // Log to persistent SQLite database using the best detection
+        await sqliteFaceLogService.logAutoDetection(
+          personId, 
+          bestDetection.confidence, 
+          bestDetection.bbox,
+          bestDetection.similarity
+        );
+        
+        // Update cooldown for legacy compatibility (though we now use session-based approach)
+        setAutoLogCooldown(prev => new Map(prev).set(personId, timestamp));
+        
+        // Force immediate UI update
+        setSystemStats(prev => ({
+          ...prev,
+          today_records: prev.today_records + 1
+        }));
+        
+        // Refresh data from database (async, don't await to avoid blocking)
+        refreshDatabaseData();
+      } else {
+        // Log why we didn't log for debugging
+        console.log(`🚫 Not logging ${personId}: ${deduplicationResult.reason}`);
+        
+        // Show active session info for debugging
+        const sessionInfo = deduplicationServiceRef.current.getSessionInfo(deduplicationResult.sessionId);
+        if (sessionInfo) {
+          console.log(`📋 Session ${deduplicationResult.sessionId}: ${sessionInfo.detections.length} detections, best quality: ${sessionInfo.bestDetection?.qualityScore.toFixed(3) || 'N/A'}`);
+        }
+      }
       
     } catch (error) {
-      console.error("Auto-log failed:", error);
+      console.error("Advanced auto-log failed:", error);
+      // Fallback to old cooldown system in case of errors
+      const now = Date.now();
+      const lastLogged = autoLogCooldown.get(personId) || 0;
+      
+      if ((now - lastLogged) > 30000) { // 30 second fallback cooldown
+        await sqliteFaceLogService.logAutoDetection(
+          personId, 
+          confidence, 
+          bbox,
+          similarity
+        );
+        setAutoLogCooldown(prev => new Map(prev).set(personId, now));
+      }
     }
-  }, [refreshDatabaseData]);
+  }, [refreshDatabaseData, autoLogCooldown]);
 
   const handleManualLog = useCallback(async (detection: DetectionResult) => {
     if (!detection.recognition?.personId) return;
@@ -522,21 +578,14 @@ export default function LiveCameraRecognition() {
           // Update best detection for UI
           setBestDetection(bestDetection);
           
-          // Immediate auto-logging for reliable detections
-          if (bestDetection.confidence > 0.7) {
+          // Advanced auto-logging with deduplication for reliable detections
+          if (bestDetection.confidence > 0.6) { // Lowered threshold since deduplication handles quality
             setIsReadyToLog(true);
 
-            // Immediate auto-logging - no stability delay needed
+            // Advanced auto-logging - let deduplication service handle timing and quality
             if (loggingMode === "auto" && bestDetection.recognition?.personId) {
-              const personId = bestDetection.recognition.personId;
-              const now = Date.now();
-              const lastLogged = autoLogCooldown.get(personId) || 0;
-              
-
-              // Auto-log immediately if cooldown period passed (10 seconds)
-              if ((now - lastLogged) > 10000) {
-                handleAutoLog(bestDetection);
-              }
+              // Always process through deduplication service - it handles all logic
+              handleAutoLog(bestDetection);
             }
           } else {
             setIsReadyToLog(false);
@@ -557,7 +606,6 @@ export default function LiveCameraRecognition() {
     cameraStatus,
     captureFrame,
     loggingMode,
-    autoLogCooldown,
     handleAutoLog,
   ]);
 
@@ -1111,6 +1159,8 @@ export default function LiveCameraRecognition() {
 
   // Cleanup on unmount
   useEffect(() => {
+    const deduplicationService = deduplicationServiceRef.current;
+    
     return () => {
       stopCamera();
 
@@ -1123,6 +1173,11 @@ export default function LiveCameraRecognition() {
       if (workerManagerRef.current) {
         workerManagerRef.current.dispose();
         workerManagerRef.current = null;
+      }
+
+      // Cleanup deduplication service
+      if (deduplicationService) {
+        deduplicationService.destroy();
       }
     };
   }, [stopCamera]);
