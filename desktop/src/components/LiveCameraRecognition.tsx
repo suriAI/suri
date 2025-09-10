@@ -892,63 +892,32 @@ export default function LiveCameraRecognition() {
       const label = personId.toUpperCase();
       const confidenceText = `${(confidence * 100).toFixed(1)}%`;
 
-      // Main label styling
+      // Set font for name measurement
       ctx.font = 'bold 16px "Courier New", monospace';
-      const labelMetrics = ctx.measureText(label);
 
-      // Confidence styling
-      ctx.font = 'normal 12px "Courier New", monospace';
-      const confMetrics = ctx.measureText(confidenceText);
-
-      const maxTextWidth = Math.max(labelMetrics.width, confMetrics.width);
-      const bgWidth = maxTextWidth + 20;
-      const bgHeight = 45;
-
-      // Validate coordinates before creating gradient (fix for createLinearGradient error)
+      // Validate coordinates
       const isValidCoord = (val: number) =>
         typeof val === "number" && isFinite(val);
       if (
         !isValidCoord(scaledX1) ||
-        !isValidCoord(scaledY1) ||
-        !isValidCoord(bgWidth) ||
-        !isValidCoord(bgHeight)
+        !isValidCoord(scaledY1)
       ) {
         continue; // Skip this detection if coordinates are invalid
       }
 
-      // Draw HUD background with gradient
-      const gradient = ctx.createLinearGradient(
-        scaledX1,
-        scaledY1 - bgHeight - 10,
-        scaledX1 + bgWidth,
-        scaledY1 - 10
-      );
-      gradient.addColorStop(0, isRecognized ? "#00ffff20" : "#ff6b6b20");
-      gradient.addColorStop(1, isRecognized ? "#0088ff40" : "#ff888840");
-
-      ctx.fillStyle = gradient;
-      ctx.fillRect(scaledX1, scaledY1 - bgHeight - 10, bgWidth, bgHeight);
-
-      // Draw HUD border
-      ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 1;
-      ctx.shadowColor = primaryColor;
-      ctx.shadowBlur = 3;
-      ctx.strokeRect(scaledX1, scaledY1 - bgHeight - 10, bgWidth, bgHeight);
-      ctx.shadowBlur = 0;
-
-      // Draw main label
+      // Draw name (no background)
       ctx.font = 'bold 16px "Courier New", monospace';
       ctx.fillStyle = primaryColor;
       ctx.shadowColor = primaryColor;
       ctx.shadowBlur = 10;
-      ctx.fillText(label, scaledX1 + 10, scaledY1 - 25);
+      ctx.fillText(label, scaledX1, scaledY1 - 10);
       ctx.shadowBlur = 0;
 
-      // Draw confidence
-      ctx.font = 'normal 12px "Courier New", monospace';
+      // Draw confidence next to name (no background)
+      ctx.font = 'normal 14px "Courier New", monospace';
       ctx.fillStyle = secondaryColor;
-      ctx.fillText(`CONF: ${confidenceText}`, scaledX1 + 10, scaledY1 - 10);
+      const nameWidth = ctx.measureText(label).width;
+      ctx.fillText(confidenceText, scaledX1 + nameWidth + 10, scaledY1 - 10);
 
       // Draw futuristic facial landmarks (neural nodes)
       if (detection.landmarks && detection.landmarks.length > 0) {
