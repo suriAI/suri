@@ -38,7 +38,6 @@ export default function LiveCameraRecognition() {
   const [loggingMode, setLoggingMode] = useState<"auto" | "manual">("auto");
   const [recentLogs, setRecentLogs] = useState<FaceLogEntry[]>([]);
   const [autoLogCooldown, setAutoLogCooldown] = useState<Map<string, number>>(new Map());
-  const [dbConnected, setDbConnected] = useState(false);
 
   // Initialize advanced face deduplication service
   const deduplicationServiceRef = useRef<FaceDeduplicationService>(
@@ -1090,13 +1089,11 @@ export default function LiveCameraRecognition() {
     };
   }, [drawDetections]);
 
-  // Initialize data from persistent database
+  // Initialize data from persistent database (run once on mount)
   useEffect(() => {
     const initializeData = async () => {
-      try {
         // Check if database is available
         const isAvailable = await sqliteFaceLogService.isAvailable();
-        setDbConnected(isAvailable);
         
         if (isAvailable) {
           // Load recent logs
@@ -1110,13 +1107,31 @@ export default function LiveCameraRecognition() {
             today_records: stats.totalDetections
           }));
         }
-      } catch {
-        setDbConnected(false);
-      }
+        
+        // Initialize WorkerManager to get face recognition database count
+        try {
+          console.log('🔄 Initializing face recognition database for People in DB count...');
+          if (!workerManagerRef.current) {
+            workerManagerRef.current = new WorkerManager();
+          }
+          await workerManagerRef.current.initialize();
+          const faceStats = await workerManagerRef.current.getStats();
+          console.log('📊 Face recognition stats loaded:', faceStats);
+          setSystemStats(prev => ({
+            ...prev,
+            total_people: faceStats.totalPersons
+          }));
+          console.log('✅ People in DB count updated:', faceStats.totalPersons);
+        } catch (error) {
+          console.error('❌ Failed to initialize face recognition database:', error);
+        }
     };
 
-    // Initialize cameras and database
     initializeData();
+  }, []); // Run only once on mount
+
+  // Initialize cameras (separate effect)
+  useEffect(() => {
     enumerateCameras();
   }, [enumerateCameras]);
 
@@ -1290,13 +1305,6 @@ export default function LiveCameraRecognition() {
           <div className="px-4 pt-2 pb-4 border-b border-white/[0.08]">
             <h3 className="text-lg font-light mb-3">System Status</h3>
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-white/60">Database</span>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                  <span className="text-sm">{dbConnected ? 'Connected' : 'Error'}</span>
-                </div>
-              </div>
               <div className="flex justify-between items-center">
                 <span className="text-white/60">People in DB</span>
                 <span className="font-mono">{systemStats.total_people}</span>
