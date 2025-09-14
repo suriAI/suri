@@ -8,25 +8,44 @@ let edgeFaceService: WebFaceService | null = null;
 let antiSpoofingService: WebAntiSpoofingService | null = null;
 let storedModelBuffers: Record<string, ArrayBuffer> | null = null;
 
+// ULTRA-AGGRESSIVE OPTIMIZATION: Pre-instantiate services for zero-delay initialization
+let prewarmStarted = false;
+const prewarmServices = () => {
+  if (prewarmStarted) return;
+  prewarmStarted = true;
+  
+  // Pre-instantiate services immediately (before models are even loaded)
+  scrfdService = new WebScrfdService();
+  edgeFaceService = new WebFaceService(0.6);
+  // Anti-spoofing stays lazy for memory efficiency
+  
+  console.log('🚀 ULTRA-OPTIMIZED: Services pre-instantiated for zero-delay init');
+};
+
+// Start prewarming immediately when worker loads
+prewarmServices();
+
 self.onmessage = async (event) => {
   const { type, data, id } = event.data;
   
   try {
     switch (type) {
       case 'init': {
-        // Initialize services with pre-loaded model buffers for optimal performance
+        // ULTRA-OPTIMIZED: Use pre-instantiated services for zero-delay initialization
         const { modelBuffers } = data;
         storedModelBuffers = modelBuffers; // Store for lazy initialization
 
-        scrfdService = new WebScrfdService();
-        edgeFaceService = new WebFaceService(0.6);
-        // antiSpoofingService will be initialized lazily when needed
+        // Services are already pre-instantiated, just initialize with models
+        const initStart = performance.now();
         
-        // Parallel initialization with pre-loaded buffers
+        // Parallel initialization with pre-loaded buffers (services already exist)
         await Promise.all([
-          scrfdService.initialize(modelBuffers?.['scrfd_2.5g_kps_640x640.onnx']),
-          edgeFaceService.initialize(modelBuffers?.['edgeface-recognition.onnx'])
+          scrfdService!.initialize(modelBuffers?.['scrfd_2.5g_kps_640x640.onnx']),
+          edgeFaceService!.initialize(modelBuffers?.['edgeface-recognition.onnx'])
         ]);
+        
+        const initTime = performance.now() - initStart;
+        console.log(`⚡ ULTRA-OPTIMIZED: Worker models initialized in ${initTime.toFixed(0)}ms`);
         
         // Don't load database here - we'll get it from main thread
         

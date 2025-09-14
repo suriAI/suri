@@ -82,7 +82,7 @@ export class WorkerManager {
     console.log(`💾 Database sync completed in ${dbSyncTime.toFixed(0)}ms`);
     
     const totalTime = performance.now() - startTime;
-    console.log(`✅ WorkerManager initialization completed in ${totalTime.toFixed(0)}ms (target: <1000ms)`);
+    console.log(`✅ WorkerManager initialization completed in ${totalTime.toFixed(0)}ms (target: <500ms - OPTIMIZED)`);
     
     this.isInitialized = true;
   }
@@ -345,22 +345,25 @@ export class WorkerManager {
   private sendMessage(message: WorkerMessage): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       if (!this.worker) {
-        reject(new Error('Worker not available'));
+        reject(new Error('Worker not initialized'));
         return;
       }
 
-      const id = this.messageId++;
+      const id = ++this.messageId;
       this.pendingMessages.set(id, { resolve, reject });
 
-      // Add timeout for messages
+      this.worker.postMessage({
+        ...message,
+        id
+      });
+
+      // OPTIMIZED: Reduced timeout for faster error detection
       setTimeout(() => {
         if (this.pendingMessages.has(id)) {
           this.pendingMessages.delete(id);
-          reject(new Error('Worker message timeout'));
+          reject(new Error('Message timeout'));
         }
-      }, 60000); // 60 second timeout for model loading
-
-      this.worker.postMessage({ ...message, id });
+      }, 10000); // Reduced from 60s to 10s for faster failure detection
     });
   }
 

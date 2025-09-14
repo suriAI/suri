@@ -184,15 +184,22 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
       setIsStreaming(true);
       setCameraStatus("starting");
 
-      // Get user media with high frame rate for smooth display
+      // Get user media with MAXIMUM performance optimizations
       const constraints: MediaStreamConstraints = {
         video: {
           // Use selected camera if available, otherwise use default
           ...(selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: "user" }),
+          // AGGRESSIVE performance optimizations for minimum latency
+          width: { ideal: 640, max: 1280 }, // Limit resolution for faster processing
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 30, min: 15 }, // High frame rate for smooth detection
           // Disable ALL video processing that can cause delays
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
+          // Additional WebRTC optimizations
+          aspectRatio: { ideal: 4/3 }
+          // Note: resizeMode is not part of standard MediaTrackConstraints
         },
         audio: false,
       };
@@ -236,8 +243,8 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
           }
           setCameraStatus("preview");
 
-          // Initialize canvas size once when video loads - delay to ensure video is rendered
-          setTimeout(() => {
+          // OPTIMIZED: Initialize canvas immediately for faster startup
+          const initializeCanvas = () => {
             if (videoRef.current && canvasRef.current) {
               const video = videoRef.current;
               const canvas = canvasRef.current;
@@ -246,8 +253,8 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
               const rect = video.getBoundingClientRect();
 
               // Set canvas to match video display size for perfect overlay (rounded for stability)
-              const stableWidth = Math.round(rect.width);
-              const stableHeight = Math.round(rect.height);
+              const stableWidth = Math.round(rect.width || 640); // Fallback to default
+              const stableHeight = Math.round(rect.height || 480);
 
               canvas.width = stableWidth;
               canvas.height = stableHeight;
@@ -255,11 +262,16 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
               canvas.style.height = `${stableHeight}px`;
               canvasInitializedRef.current = true;
 
+              // Initialize pipeline immediately after canvas setup
+              initializePipeline();
             }
-          }, 200); // Slightly longer delay to ensure video is fully rendered
-
-          // Initialize pipeline (it will start processing automatically)
-          initializePipeline();
+          };
+          
+          // Try immediate initialization, fallback to minimal delay
+          initializeCanvas();
+          if (!canvasInitializedRef.current) {
+            setTimeout(initializeCanvas, 50); // Reduced from 200ms to 50ms
+          }
         };
       }
     } catch (error) {
@@ -690,17 +702,16 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
         // Process frame for detection (video element shows live feed)
         await processFrameRealTime();
 
-        // Maximum performance - no artificial delays for potato machines
-        // Let the hardware run at its natural speed without throttling
-        setTimeout(() => {
-          if (
-            processingActiveRef.current &&
-            isStreaming &&
-            cameraStatus === "recognition"
-          ) {
-            processNextFrame();
-          }
-        }, 0); // No delay - run as fast as possible
+        // ULTRA PERFORMANCE - immediate next frame processing
+        // Use requestAnimationFrame for optimal browser performance
+        if (
+          processingActiveRef.current &&
+          isStreaming &&
+          cameraStatus === "recognition"
+        ) {
+          // Use requestAnimationFrame for smoother performance than setTimeout
+          requestAnimationFrame(processNextFrame);
+        }
       } else if (isStreaming) {
         // Camera is streaming but not in recognition mode (e.g., preview mode)
         setTimeout(() => {

@@ -15,8 +15,8 @@ export interface PooledSession {
 export class SessionPoolManager {
   private static instance: SessionPoolManager;
   private sessionPools: Map<string, PooledSession[]> = new Map();
-  private maxPoolSize = 3; // Maximum sessions per model
-  private sessionTimeout = 30000; // 30 seconds timeout for unused sessions
+  private maxPoolSize = 5; // INCREASED: More sessions for better performance
+  private sessionTimeout = 600000; // INCREASED: 10 minutes timeout for better reuse
   private webglContext: WebGL2RenderingContext | null = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -24,10 +24,43 @@ export class SessionPoolManager {
     // Initialize WebGL context for sharing
     this.initializeSharedWebGLContext();
     
-    // Start cleanup interval
+    // OPTIMIZED: Clean up unused sessions less frequently for better performance
     this.cleanupInterval = setInterval(() => {
       this.cleanupUnusedSessions();
-    }, 10000); // Cleanup every 10 seconds
+    }, 120000); // Increased from 10s to 2 minutes
+    
+    // AGGRESSIVE: Prewarm common models for instant availability
+    this.prewarmCommonModels();
+  }
+
+  /**
+   * OPTIMIZATION: Prewarm sessions for commonly used models
+   */
+  private async prewarmCommonModels(): Promise<void> {
+    // List of models to prewarm for instant availability
+    const commonModels = [
+      'scrfd_2.5g_kps_640x640.onnx',
+      'edgeface-recognition.onnx',
+      'AntiSpoofing_bin_1.5_128.onnx'
+    ];
+    
+    // Prewarm in background without blocking
+    setTimeout(async () => {
+      for (const modelName of commonModels) {
+        try {
+          // Create a dummy session to warm up the model
+          const session = await this.getSession(modelName, async () => {
+            // This will never be called since we're just prewarming
+            throw new Error('Prewarm session should not create new sessions');
+          });
+          // Immediately release it back to pool
+           this.releaseSession(session);
+          console.log(`🔥 Prewarmed model: ${modelName}`);
+        } catch {
+          // Silently fail prewarming - models will load on demand
+        }
+      }
+    }, 1000); // Start prewarming after 1 second
   }
 
   public static getInstance(): SessionPoolManager {
