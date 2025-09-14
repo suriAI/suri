@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import LiveCameraRecognition from './components/LiveCameraRecognition.tsx'
 import SystemManagement from './components/SystemManagement.tsx'
-import AppDropdown from './components/AppDropdown.tsx'
 import TitleBar from './components/TitleBar.tsx'
 import { sqliteFaceLogService } from './services/SqliteFaceLogService'
 
@@ -11,7 +10,6 @@ export type MenuOption =
 
 function App() {
   const [currentMenu, setCurrentMenu] = useState<MenuOption>('live-camera')
-  const [isConnected, setIsConnected] = useState(true) // Always connected since using SQLite3 directly
 
   const fetchSystemStats = useCallback(async () => {
     try {
@@ -34,37 +32,28 @@ function App() {
         // Check if SQLite3 database is available
         const isAvailable = await sqliteFaceLogService.isAvailable()
         if (isAvailable) {
-          setIsConnected(true)
           await fetchSystemStats()
         } else {
-          setIsConnected(false)
           console.error('SQLite3 database not available')
         }
       } catch (error) {
         console.error('Failed to initialize app:', error)
-        setIsConnected(false)
       }
     }
 
     initializeApp()
   }, [fetchSystemStats])
 
-  const getCurrentSectionName = () => {
-    switch (currentMenu) {
-      case 'live-camera': return 'Live Camera'
-      case 'system-management': return 'System Management'
-      default: return 'Live Camera'
-    }
-  }
+
 
   const renderCurrentComponent = () => {
     switch (currentMenu) {
       case 'live-camera':
-        return <LiveCameraRecognition />
+        return <LiveCameraRecognition onMenuSelect={setCurrentMenu} />
       case 'system-management':
         return <SystemManagement onBack={() => setCurrentMenu('live-camera')} />
       default:
-        return <LiveCameraRecognition />
+        return <LiveCameraRecognition onMenuSelect={setCurrentMenu} />
     }
   }
 
@@ -75,29 +64,6 @@ function App() {
       
       {/* Scrollable content wrapper */}
       <div className="app-content-wrapper">
-        {/* Glass Morphism Header - always visible */}
-        <div className="sticky top-0 z-50 bg-black/70 backdrop-blur-xl border-b border-white/[0.05]">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div className="group flex items-center space-x-4 text-white/60">
-              <div className="w-2 h-2 rounded-full bg-white/60 group-hover:bg-white group-hover:scale-125 transition-all duration-300"></div>
-              <span className="text-sm font-light tracking-[0.15em] uppercase">SURI</span>
-              {currentMenu !== 'live-camera' && (
-                <>
-                  <span className="text-xs text-white/30">•</span>
-                  <span className="text-xs font-light text-white/80">{getCurrentSectionName()}</span>
-                </>
-              )}
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <AppDropdown 
-                isConnected={isConnected} 
-                onMenuSelect={setCurrentMenu}
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Main content area */}
         <div className="text-white px-4">
           {renderCurrentComponent()}
