@@ -38,16 +38,22 @@ export class WebAntiSpoofingService {
     const modelName = 'AntiSpoofing_bin_1.5_128.onnx';
     
     try {
-      // Use SessionPoolManager with ArrayBuffer loading like other models
+      // Use session pool for optimized initialization and reuse
       this.pooledSession = await this.sessionPool.getSession(
         modelName,
         async () => {
           let modelBuffer: ArrayBuffer;
           
+          // Use pre-loaded buffer if available (worker context with optimization)
           if (preloadedBuffer) {
             modelBuffer = preloadedBuffer;
           } else {
-            if (isDev) {
+            // Fallback to loading methods for main context or dev mode
+            if (typeof window !== 'undefined' && (window as { electronAPI?: { invoke: (channel: string, ...args: unknown[]) => Promise<ArrayBuffer> } }).electronAPI) {
+              // Main context - use IPC for better performance
+              const electronAPI = (window as { electronAPI: { invoke: (channel: string, ...args: unknown[]) => Promise<ArrayBuffer> } }).electronAPI;
+              modelBuffer = await electronAPI.invoke('model:load', modelName);
+            } else if (isDev) {
               // Dev mode - use fetch from public folder
               const response = await fetch('/weights/AntiSpoofing_bin_1.5_128.onnx');
               if (!response.ok) {
@@ -55,11 +61,8 @@ export class WebAntiSpoofingService {
               }
               modelBuffer = await response.arrayBuffer();
             } else {
-              // Worker context in production - fallback to app:// protocol (should not happen with optimization)
-              console.warn(`⚠️ Falling back to app:// protocol for AntiSpoofing_bin_1.5_128.onnx - optimization not working`);
-              const response = await fetch(`app://weights/AntiSpoofing_bin_1.5_128.onnx`);
-              if (!response.ok) throw new Error(`Failed to fetch model: ${response.statusText}`);
-              modelBuffer = await response.arrayBuffer();
+              // No fallback - optimization should provide preloaded buffer or use IPC/dev fetch
+              throw new Error(`Model loading failed: ${modelName} not available through optimized loading paths`);
             }
           }
           
