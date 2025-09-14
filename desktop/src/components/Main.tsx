@@ -4,6 +4,7 @@ import { sqliteFaceLogService, type FaceLogEntry } from "../services/SqliteFaceL
 import { FaceDeduplicationService } from "../services/FaceDeduplicationService";
 import { WebAntiSpoofingService, type AntiSpoofingResult } from "../services/WebAntiSpoofingService";
 import { preprocessFaceForAntiSpoofing } from "../utils/faceUtils";
+import { globalWorkerPool } from "../services/GlobalWorkerPool";
 
 interface DetectionResult {
   bbox: [number, number, number, number];
@@ -30,7 +31,7 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
     total_people: 0,
   });
   const [cameraStatus, setCameraStatus] = useState<
-    "stopped" | "starting" | "preview" | "recognition"
+    "stopped" | "starting" | "preview" | "recognition" | "initializing"
   >("stopped");
   const [processingTime, setProcessingTime] = useState(0);
   const [registrationMode, setRegistrationMode] = useState(false);
@@ -45,6 +46,9 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
   const [loggingMode, setLoggingMode] = useState<"auto" | "manual">("auto");
   const [recentLogs, setRecentLogs] = useState<FaceLogEntry[]>([]);
   const [autoLogCooldown, setAutoLogCooldown] = useState<Map<string, number>>(new Map());
+
+  // Worker pool state tracking
+
 
   // Initialize advanced face deduplication service
   const deduplicationServiceRef = useRef<FaceDeduplicationService>(
@@ -97,6 +101,21 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
     }
   }, []);
 
+  // Subscribe to global worker pool state changes for stats updates
+  useEffect(() => {
+    const unsubscribe = globalWorkerPool.subscribe((state) => {
+      // Update system stats when worker pool is ready
+      if (state.isInitialized && state.stats) {
+        setSystemStats(prev => ({
+          ...prev,
+          total_people: state.stats?.totalPersons || 0
+        }));
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Function to enumerate available cameras
   const enumerateCameras = useCallback(async () => {
     try {
@@ -124,47 +143,113 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
   // Processing state management
   const processingActiveRef = useRef(false);
   const acceptDetectionUpdatesRef = useRef(true);
+  const cameraStatusRef = useRef<"stopped" | "starting" | "preview" | "recognition" | "initializing">("stopped");
 
   // Define startProcessing first (will be defined later with useCallback)
   const startProcessingRef = useRef<(() => void) | null>(null);
 
-  // Initialize worker-based face detection and recognition pipeline
-  const initializePipeline = useCallback(async () => {
-    try {
+  // Keep cameraStatusRef in sync with cameraStatus state
+  useEffect(() => {
+    cameraStatusRef.current = cameraStatus;
+    console.log('🔍 cameraStatusRef updated to:', cameraStatus);
+  }, [cameraStatus]);
 
+  // Fast pipeline initialization using pre-initialized global worker pool
+  const initializePipeline = useCallback(async () => {
+    console.log('🔍 initializePipeline: Starting pipeline initialization');
+    try {
+      // Check if global worker pool is ready
+      if (globalWorkerPool.isReady()) {
+        console.log('🚀 Using pre-initialized worker pool for instant startup!');
+        
+        // Get pre-initialized services
+        const workerManager = globalWorkerPool.getWorkerManager();
+        const antiSpoofingService = globalWorkerPool.getAntiSpoofingService();
+        
+        // Verify services are actually available
+        if (!workerManager) {
+          throw new Error('Worker manager not available from global pool');
+        }
+        
+        workerManagerRef.current = workerManager;
+        antiSpoofingServiceRef.current = antiSpoofingService;
+        console.log('🔍 initializePipeline: Worker services assigned to refs');
+        
+        // Update stats from pre-loaded data
+        const stats = globalWorkerPool.getStats();
+        if (stats) {
+          setSystemStats((prev) => ({
+            ...prev,
+            total_people: stats.totalPersons,
+          }));
+        }
+        
+        console.log('🔍 initializePipeline: About to set camera status to recognition');
+        setCameraStatus("recognition");
+        console.log('✅ Camera status set to recognition mode');
+        
+        // Start processing immediately - no delay needed!
+        if (startProcessingRef.current) {
+          console.log('🔍 initializePipeline: Calling startProcessingRef.current()');
+          startProcessingRef.current();
+          console.log('✅ Processing started');
+        } else {
+          console.warn('⚠️ startProcessingRef.current is not available');
+        }
+        
+        return; // Early return for instant startup
+      }
+      
+      // Fallback: Initialize normally if worker pool not ready
+      console.log('⏳ Worker pool not ready, falling back to normal initialization...');
+      setCameraStatus("initializing");
+      
       // Create and initialize worker manager
       if (!workerManagerRef.current) {
+        console.log('📦 Creating new WorkerManager...');
         workerManagerRef.current = new WorkerManager();
       }
 
       // Initialize the worker (this handles both SCRFD and EdgeFace initialization)
+      console.log('🔧 Initializing worker manager...');
       await workerManagerRef.current.initialize();
+      console.log('✅ Worker manager initialized successfully');
 
       // Initialize anti-spoofing service
       if (!antiSpoofingServiceRef.current) {
-        antiSpoofingServiceRef.current = new WebAntiSpoofingService(); // Threshold between real and spoof scores
+        console.log('🛡️ Initializing anti-spoofing service...');
+        antiSpoofingServiceRef.current = new WebAntiSpoofingService();
         await antiSpoofingServiceRef.current.initialize();
-  
+        console.log('✅ Anti-spoofing service initialized successfully');
       }
 
       // Load existing database and get stats
+      console.log('📊 Loading database stats...');
       const stats = await workerManagerRef.current.getStats();
       setSystemStats((prev) => ({
         ...prev,
         total_people: stats.totalPersons,
       }));
+      console.log('✅ Database stats loaded successfully');
 
       setCameraStatus("recognition");
+      console.log('✅ Camera status set to recognition mode (fallback path)');
 
-      // Start processing immediately
+      // Start processing with slight delay for fallback initialization
       setTimeout(() => {
         if (startProcessingRef.current) {
           startProcessingRef.current();
+          console.log('✅ Processing started (fallback path)');
+        } else {
+          console.warn('⚠️ startProcessingRef.current is not available (fallback path)');
         }
       }, 100);
+      
+      console.log('🔍 initializePipeline: Function completed successfully');
     } catch (error) {
       console.error("❌ Failed to initialize worker pipeline:", error);
       console.error("📋 Detailed error:", error);
+      console.log('🔍 initializePipeline: ERROR occurred, setting camera status to stopped');
       setCameraStatus("stopped");
 
       // Show user-friendly error
@@ -174,7 +259,7 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
         }`
       );
     }
-    }, []);
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
@@ -242,9 +327,11 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
             }
           }
           setCameraStatus("preview");
+          console.log('🔍 Camera status set to preview, about to initialize canvas and pipeline');
 
           // OPTIMIZED: Initialize canvas immediately for faster startup
           const initializeCanvas = () => {
+            console.log('🔍 initializeCanvas: Starting canvas initialization');
             if (videoRef.current && canvasRef.current) {
               const video = videoRef.current;
               const canvas = canvasRef.current;
@@ -261,9 +348,12 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
               canvas.style.width = `${stableWidth}px`;
               canvas.style.height = `${stableHeight}px`;
               canvasInitializedRef.current = true;
+              console.log('🔍 Canvas initialized, calling initializePipeline');
 
               // Initialize pipeline immediately after canvas setup
               initializePipeline();
+            } else {
+              console.log('🔍 initializeCanvas: Video or canvas ref not available');
             }
           };
           
@@ -347,7 +437,12 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
     scaleX: number;
     scaleY: number;
   } | null => {
-    if (!videoRef.current || videoRef.current.videoWidth === 0) return null;
+    if (!videoRef.current || videoRef.current.videoWidth === 0) {
+      console.log('🔍 captureFrame: Video not ready or no video dimensions');
+      return null;
+    }
+    
+    console.log('🔍 captureFrame: Capturing frame from video...');
 
     const video = videoRef.current;
 
@@ -512,9 +607,17 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
   const processFrameRealTime = useCallback(async () => {
     if (
       !isStreaming ||
-      cameraStatus !== "recognition" ||
+      cameraStatusRef.current !== "recognition" ||
       !workerManagerRef.current
     ) {
+      // Debug logging for early returns
+      if (!isStreaming) {
+        console.log('🔍 processFrameRealTime: Not streaming, skipping frame');
+      } else if (cameraStatusRef.current !== "recognition") {
+        console.log(`🔍 processFrameRealTime: Camera status is "${cameraStatusRef.current}", not "recognition", skipping frame`);
+      } else if (!workerManagerRef.current) {
+        console.log('🔍 processFrameRealTime: No worker manager available, skipping frame');
+      }
       return;
     }
 
@@ -528,7 +631,8 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
 
     try {
       // Double-check streaming status before proceeding (prevent race conditions)
-      if (!isStreaming || cameraStatus !== "recognition") {
+      if (!isStreaming || cameraStatusRef.current !== "recognition") {
+        console.log('🔍 processFrameRealTime: Double-check failed - isStreaming:', isStreaming, 'cameraStatusRef:', cameraStatusRef.current);
         isProcessing.current = false;
         return;
       }
@@ -543,18 +647,22 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
       const { imageData } = captureResult;
 
       const startTime = performance.now();
+      console.log('🔍 Processing frame for face detection...');
 
       // Process frame through worker (ZERO main thread blocking!)
       const detections = await workerManagerRef.current.detectAndRecognizeFaces(
         imageData
       );
+      
+      console.log(`🔍 Detection results: ${detections.length} faces found`, detections);
 
       // Final check before updating state - prevent race conditions after camera stop
       if (
         !isStreaming ||
-        cameraStatus !== "recognition" ||
+        cameraStatusRef.current !== "recognition" ||
         !acceptDetectionUpdatesRef.current
       ) {
+        console.log('🔍 processFrameRealTime: Final check failed - isStreaming:', isStreaming, 'cameraStatusRef:', cameraStatusRef.current, 'acceptDetectionUpdates:', acceptDetectionUpdatesRef.current);
         isProcessing.current = false;
         return;
       }
@@ -613,9 +721,10 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
       const processingTime = performance.now() - startTime;
 
       // Only update state if still streaming, in recognition mode, and accepting updates
+      console.log('🔍 processFrameRealTime: Final state update check - isStreaming:', isStreaming, 'cameraStatusRef:', cameraStatusRef.current, 'acceptDetectionUpdates:', acceptDetectionUpdatesRef.current);
       if (
         isStreaming &&
-        cameraStatus === "recognition" &&
+        cameraStatusRef.current === "recognition" &&
         acceptDetectionUpdatesRef.current
       ) {
         setDetectionResults(validDetections);
@@ -675,6 +784,8 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
   ]);
 
   const startProcessing = useCallback(() => {
+    console.log('🔍 startProcessing: Starting face detection processing loop');
+    
     // Clean up any existing intervals
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -687,6 +798,7 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
 
     // Mark processing as active
     processingActiveRef.current = true;
+    console.log('🔍 startProcessing: Processing marked as active');
 
     lastCaptureRef.current = 0;
 
@@ -694,10 +806,12 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
     const processNextFrame = async () => {
       // Check if processing should continue
       if (!processingActiveRef.current || !isStreaming) {
+        console.log('🔍 processNextFrame: Stopping - processingActive:', processingActiveRef.current, 'isStreaming:', isStreaming);
         return; // Stop the loop completely
       }
 
-      if (cameraStatus === "recognition") {
+      if (cameraStatusRef.current === "recognition") {
+        console.log('🔍 processNextFrame: Processing frame in recognition mode, cameraStatusRef:', cameraStatusRef.current);
         // Process frame for detection (video element shows live feed)
         await processFrameRealTime();
 
@@ -706,12 +820,13 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
         if (
           processingActiveRef.current &&
           isStreaming &&
-          cameraStatus === "recognition"
+          cameraStatusRef.current === "recognition"
         ) {
           // Use requestAnimationFrame for smoother performance than setTimeout
           requestAnimationFrame(processNextFrame);
         }
       } else if (isStreaming) {
+        console.log('🔍 processNextFrame: Camera not in recognition mode, cameraStatusRef:', cameraStatusRef.current);
         // Camera is streaming but not in recognition mode (e.g., preview mode)
         setTimeout(() => {
           if (processingActiveRef.current && isStreaming) {
@@ -723,7 +838,10 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
 
     // Start optimized processing only if streaming
     if (isStreaming) {
+      console.log('🔍 startProcessing: Starting processNextFrame loop, isStreaming:', isStreaming, 'cameraStatus:', cameraStatus);
       processNextFrame();
+    } else {
+      console.log('🔍 startProcessing: Not starting processNextFrame - isStreaming is false');
     }
 
   }, [processFrameRealTime, isStreaming, cameraStatus]);
@@ -1316,11 +1434,18 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
             <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4 flex items-center justify-between">
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${cameraStatus === 'recognition' ? 'bg-green-500' : 'bg-white/40'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${
+                    cameraStatus === 'recognition' ? 'bg-green-500' : 
+                    cameraStatus === 'initializing' ? 'bg-orange-500 animate-pulse' :
+                    'bg-white/40'
+                  }`}></div>
                   <span className="text-sm text-white/60">
-                    {cameraStatus === 'recognition' ? 'Detection: Active' : 'Detection: Inactive'}
+                    {cameraStatus === 'recognition' ? 'Detection: Active' : 
+                     cameraStatus === 'initializing' ? 'Detection: Initializing...' :
+                     'Detection: Inactive'}
                   </span>
                 </div>
+
                 <div className="text-sm text-white/60">
                   Processing: {processingTime.toFixed(1)}ms
                 </div>
