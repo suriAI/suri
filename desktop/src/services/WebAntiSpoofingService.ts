@@ -49,16 +49,17 @@ export class WebAntiSpoofingService {
             modelBuffer = preloadedBuffer;
             console.log('📦 Using preloaded buffer for anti-spoofing model');
           } else {
-            const modelUrl = isDev
-              ? '/weights/AntiSpoofing_bin_1.5_128.onnx'
-              : 'app://weights/AntiSpoofing_bin_1.5_128.onnx';
-            
-            console.log(`🌐 Fetching anti-spoofing model from: ${modelUrl}`);
-            const response = await fetch(modelUrl);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`);
+            if (isDev) {
+              // Dev mode - use fetch from public folder
+              const response = await fetch('/weights/AntiSpoofing_bin_1.5_128.onnx');
+              if (!response.ok) {
+                throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`);
+              }
+              modelBuffer = await response.arrayBuffer();
+            } else {
+              // Production mode - no fallback, should use preloaded buffer
+              throw new Error('Anti-spoofing model not available through optimized loading paths');
             }
-            modelBuffer = await response.arrayBuffer();
             console.log(`📦 Model buffer loaded: ${(modelBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
           }
           

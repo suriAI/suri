@@ -60,11 +60,8 @@ export class WebScrfdService {
         if (!response.ok) throw new Error(`Failed to fetch model: ${response.statusText}`);
         modelBuffer = await response.arrayBuffer();
       } else {
-        // Worker context in production - fallback to app:// protocol (should not happen with optimization)
-        console.warn(`⚠️ Falling back to app:// protocol for ${modelName} - optimization not working`);
-        const response = await fetch(`app://weights/${modelName}`);
-        if (!response.ok) throw new Error(`Failed to fetch model: ${response.statusText}`);
-        modelBuffer = await response.arrayBuffer();
+        // No fallback - optimization should provide preloaded buffer or use IPC/dev fetch
+        throw new Error(`Model loading failed: ${modelName} not available through optimized loading paths`);
       }
     }
     
