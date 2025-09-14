@@ -68,23 +68,15 @@ ipcMain.handle('window:close', () => {
 function createWindow(): void {
     // Create the browser window.
     const mainWindow = new BrowserWindow({
-        width: 1600,
-        height: 1000,
+        width: 1024,
+        height: 600,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
-            // Basic WebGL support only - avoid experimental features
             webgl: true,
-            // Remove experimental features to eliminate security warnings
-            // experimentalFeatures: false,  // Explicitly disable
-            // enableBlinkFeatures: undefined,  // Don't enable additional features
-            disableBlinkFeatures: 'Autofill' // Disable autofill to prevent console errors
         },
-        titleBarStyle: 'hidden',
-        frame: false,
-        show: false,
-        backgroundColor: '#000000'
+        titleBarStyle: 'hidden'
     })
 
     mainWindowRef = mainWindow
