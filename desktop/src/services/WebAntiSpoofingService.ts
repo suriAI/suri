@@ -55,8 +55,11 @@ export class WebAntiSpoofingService {
               }
               modelBuffer = await response.arrayBuffer();
             } else {
-              // Production mode - no fallback, should use preloaded buffer
-              throw new Error('Anti-spoofing model not available through optimized loading paths');
+              // Worker context in production - fallback to app:// protocol (should not happen with optimization)
+              console.warn(`⚠️ Falling back to app:// protocol for AntiSpoofing_bin_1.5_128.onnx - optimization not working`);
+              const response = await fetch(`app://weights/AntiSpoofing_bin_1.5_128.onnx`);
+              if (!response.ok) throw new Error(`Failed to fetch model: ${response.statusText}`);
+              modelBuffer = await response.arrayBuffer();
             }
           }
           

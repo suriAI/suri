@@ -21,10 +21,13 @@ export class SessionPoolManager {
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
-    // Configure global WASM settings for SIMD and proxy support
-    ort.env.wasm.simd = true;  // Enable SIMD acceleration
-    ort.env.wasm.proxy = true; // Enable proxy worker for better UI responsiveness
-    ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency); // Multi-threading for better performance
+    // Configure global WASM settings for SIMD and proxy support (but not for app:// protocol)
+    const isAppProtocol = typeof window !== 'undefined' && window.location?.protocol === 'app:';
+    if (!isAppProtocol) {
+      ort.env.wasm.simd = true;  // Enable SIMD acceleration
+      ort.env.wasm.proxy = true; // Enable proxy worker for better UI responsiveness
+      ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency); // Multi-threading for better performance
+    }
     
     // Configure WebGL settings for better GPU performance
     ort.env.webgl.contextId = 'webgl2'; // Prefer WebGL2 for better performance
