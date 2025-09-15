@@ -1553,7 +1553,7 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
           </div>
 
           {/* Recent Logs */}
-          <div className="flex-1 p-4 overflow-hidden min-h-0">
+          <div className="flex-1 p-4  min-h-0 h-full">
             <h3 className="text-lg font-light mb-4">Recent Logs</h3>
             <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
               {recentLogs.length === 0 ? (
