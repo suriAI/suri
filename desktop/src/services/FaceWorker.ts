@@ -125,9 +125,7 @@ self.onmessage = async (event) => {
         // First detect faces
         const detections = await scrfdService.detect(imageData);
         
-        // Filter out low confidence detections early (major performance boost)
-        const minConfidence = 0.5;
-        const validDetections = detections.filter(det => det.confidence >= minConfidence);
+        const validDetections = detections
         
         // Early exit if no valid faces (saves compute time)
         if (validDetections.length === 0) {
