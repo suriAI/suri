@@ -625,11 +625,7 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
         return;
       }
 
-      // Filter out low confidence detections to reduce false positives
-      const minDisplayConfidence = 0.5;
-      let validDetections = detections.filter(
-        (det) => det.confidence >= minDisplayConfidence
-      );
+      let validDetections = detections
       
       // Smart anti-spoofing: Only run on recognized faces with high similarity
       if (antiSpoofingServiceRef.current && validDetections.length > 0) {
