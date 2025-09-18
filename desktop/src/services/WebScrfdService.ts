@@ -76,10 +76,11 @@ export class WebScrfdService {
     );
     
     // Warm up the session with dummy input for faster first inference
-    // Note: Warmup may fail due to resize operations, but this doesn't affect actual inference
+    // Use the correct input size of 320x320 that matches the model's expected dimensions
     try {
+      const WARMUP_INPUT_SIZE = 320; // Match the actual model input size
       const dummyInput = {
-        [this.pooledSession.session.inputNames[0]]: new ort.Tensor('float32', new Float32Array(3 * 640 * 640), [1, 3, 640, 640])
+        [this.pooledSession.session.inputNames[0]]: new ort.Tensor('float32', new Float32Array(3 * WARMUP_INPUT_SIZE * WARMUP_INPUT_SIZE), [1, 3, WARMUP_INPUT_SIZE, WARMUP_INPUT_SIZE])
       };
       await this.sessionPool.warmupSession(this.pooledSession, dummyInput);
     } catch (warmupError) {
@@ -109,7 +110,7 @@ export class WebScrfdService {
         return [];
       }
 
-      const FIXED_INPUT_SIZE = 640;
+      const FIXED_INPUT_SIZE = 320;
       
       const scale = Math.min(FIXED_INPUT_SIZE / width, FIXED_INPUT_SIZE / height);
       const scaledWidth = Math.round(width * scale);
@@ -160,7 +161,7 @@ export class WebScrfdService {
   
   private createBlobFromImage(imageData: ImageData): ort.Tensor {
     const { width, height } = imageData;
-    const FIXED_INPUT_SIZE = 640;
+    const FIXED_INPUT_SIZE = 320;
     
     // Create or reuse global canvas for processing (shared across instances for memory efficiency)
     if (!WebScrfdService.globalBlobCanvas) {
@@ -241,7 +242,7 @@ export class WebScrfdService {
     const bboxesList: Float32Array[] = [];
     const kpssList: Float32Array[] = [];
     
-    const FIXED_INPUT_SIZE = 640;
+    const FIXED_INPUT_SIZE = 320;
     
     for (let idx = 0; idx < this.featStrideFpn.length; idx++) {
       const stride = this.featStrideFpn[idx];
