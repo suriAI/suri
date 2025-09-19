@@ -41,7 +41,7 @@ export class SessionPoolManager {
   private async prewarmCommonModels(): Promise<void> {
     // List of models to prewarm for instant availability
     const commonModels = [
-      'scrfd_2.5g_kps_640x640.onnx',
+      'det_500m_kps_320.onnx',
       'edgeface-recognition.onnx',
       'AntiSpoofing_bin_1.5_128.onnx'
     ];
@@ -174,7 +174,7 @@ export class SessionPoolManager {
   private supportsWasmOptimizations(modelName: string): boolean {
     // Models that are known to work well with WASM optimizations
     const compatibleModels = [
-      'scrfd_2.5g_kps_640x640.onnx',
+      'det_500m_kps_320.onnx',
       'edgeface-recognition.onnx'
       // AntiSpoofing model excluded as it may have compatibility issues
     ];
@@ -195,7 +195,7 @@ export class SessionPoolManager {
   private requiresWasmOnly(modelName: string): boolean {
     // SCRFD models don't support WebGL properly
     const wasmOnlyModels = [
-      'scrfd_2.5g_kps_640x640.onnx'
+      'det_500m_kps_320.onnx'
     ];
     
     return wasmOnlyModels.some(model => modelName.includes(model));

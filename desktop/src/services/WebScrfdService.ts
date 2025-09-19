@@ -39,7 +39,7 @@ export class WebScrfdService {
     const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || 
                   (typeof window !== 'undefined' && window.location.hostname === 'localhost');
     
-    const modelName = 'scrfd_2.5g_kps_640x640.onnx';
+    const modelName = 'det_500m_kps_320.onnx';
 
     
     let modelBuffer: ArrayBuffer;
