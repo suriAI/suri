@@ -5,7 +5,7 @@
  * the SQLite database running in the Electron main process via IPC communication.
  */
 
-import '../types/global';
+import '../types/global.d.ts';
 
 export interface FaceLogEntry {
   id?: string;
