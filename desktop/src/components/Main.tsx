@@ -876,26 +876,34 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
       return; // No detections to draw
     }
 
-    // Always get fresh dimensions and recalculate for accuracy
+    // CRITICAL: Always get fresh dimensions and recalculate for accuracy
+    // Force layout recalculation to ensure accurate dimensions after resize
+    void video.offsetHeight; // Force reflow
     const rect = video.getBoundingClientRect();
     const displayWidth = Math.round(rect.width);
     const displayHeight = Math.round(rect.height);
 
-    // Update canvas size to exactly match video display size
+    // ENHANCED: Update canvas size to exactly match video display size
     if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
       canvas.width = displayWidth;
       canvas.height = displayHeight;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+      
+      // Clear canvas after size change
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
     }
 
-    // Calculate scale factors for coordinate transformation with object-contain
-    // Detection coordinates are in capture canvas resolution
+    // ENHANCED: Calculate precise scale factors for coordinate transformation with object-contain
+    // Detection coordinates are in capture canvas resolution (from SCRFD model)
     // We need to scale them to the actual video display area within the container
 
     // Get the capture canvas dimensions used for detection
     const captureWidth = captureCanvasRef.current?.width || 640;
     const captureHeight = captureCanvasRef.current?.height || 480;
 
-    // Calculate the actual video display size within the container (object-contain behavior)
+    // CRITICAL: Calculate the actual video display size within the container (object-contain behavior)
+    // This must match exactly how the video element displays the content
     const videoAspectRatio = video.videoWidth / video.videoHeight;
     const containerAspectRatio = displayWidth / displayHeight;
     
@@ -907,16 +915,17 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
     if (videoAspectRatio > containerAspectRatio) {
       // Video is wider - fit to container width, add vertical padding
       actualVideoWidth = displayWidth;
-      actualVideoHeight = Math.round(displayWidth / videoAspectRatio);
-      offsetY = Math.round((displayHeight - actualVideoHeight) / 2);
+      actualVideoHeight = displayWidth / videoAspectRatio;
+      offsetY = (displayHeight - actualVideoHeight) / 2;
     } else {
       // Video is taller - fit to container height, add horizontal padding
       actualVideoHeight = displayHeight;
-      actualVideoWidth = Math.round(displayHeight * videoAspectRatio);
-      offsetX = Math.round((displayWidth - actualVideoWidth) / 2);
+      actualVideoWidth = displayHeight * videoAspectRatio;
+      offsetX = (displayWidth - actualVideoWidth) / 2;
     }
     
-    // Scale from capture canvas to actual video display size
+    // CRITICAL: Direct scaling from capture canvas to display area
+    // This ensures landmarks align perfectly with the video content
     const scaleX = actualVideoWidth / captureWidth;
     const scaleY = actualVideoHeight / captureHeight;
 
@@ -1041,13 +1050,16 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
           const [x, y] = detection.landmarks[i];
           if (isNaN(x) || isNaN(y)) continue;
 
-          // Landmarks are in capture coordinate space; map using same scaling
-          // Add offset for object-contain positioning within container
+          // ENHANCED: High-precision landmark coordinate transformation
+          // Landmarks come from SCRFD in the same coordinate system as bbox (capture canvas)
+          // Apply identical transformation as bbox coordinates for perfect alignment
           const scaledLandmarkX = x * scaleX + offsetX;
           const scaledLandmarkY = y * scaleY + offsetY;
 
-          // Validate scaled landmark coordinates
-          if (!isFinite(scaledLandmarkX) || !isFinite(scaledLandmarkY))
+          // Enhanced validation for scaled landmark coordinates
+          if (!isFinite(scaledLandmarkX) || !isFinite(scaledLandmarkY) || 
+              scaledLandmarkX < 0 || scaledLandmarkY < 0 ||
+              scaledLandmarkX > displayWidth || scaledLandmarkY > displayHeight)
             continue;
 
           // Draw neural node with glow effect
@@ -1164,27 +1176,41 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
         ) {
           const video = videoRef.current;
           const canvas = canvasRef.current;
+          
+          // CRITICAL: Force a layout recalculation before getting dimensions
+          // This ensures we get the most up-to-date dimensions after resize
+          void video.offsetHeight; // Force reflow
+          
           const rect = video.getBoundingClientRect();
 
           // Update canvas size to match current video display size (with stability threshold)
           const newWidth = Math.round(rect.width);
           const newHeight = Math.round(rect.height);
-          const sizeDiffThreshold = 10; // Increased threshold to prevent micro-adjustments
+          const sizeDiffThreshold = 5; // Reduced threshold for more responsive updates
 
           const widthDiff = Math.abs(canvas.width - newWidth);
           const heightDiff = Math.abs(canvas.height - newHeight);
 
           if (widthDiff > sizeDiffThreshold || heightDiff > sizeDiffThreshold) {
+            // ENHANCED: Update both canvas dimensions and style for perfect alignment
             canvas.width = newWidth;
             canvas.height = newHeight;
             canvas.style.width = `${newWidth}px`;
             canvas.style.height = `${newHeight}px`;
 
-            // Redraw detections with new size
-            drawDetections();
+            // CRITICAL: Clear any existing drawings before redrawing
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.clearRect(0, 0, newWidth, newHeight);
+            }
+
+            // Force immediate redraw with fresh coordinates
+            requestAnimationFrame(() => {
+              drawDetections();
+            });
           }
         }
-      }, 200); // Increased debounce time
+      }, 150); // Reduced debounce time for more responsive updates
     };
 
     window.addEventListener("resize", handleResize);
