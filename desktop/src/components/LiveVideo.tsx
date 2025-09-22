@@ -457,7 +457,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       console.error('Error starting camera:', err);
       setError('Failed to start camera. Please check permissions.');
     }
-  }, [selectedCamera, websocketStatus, initializeWebSocket, startDetectionInterval]);
+  }, [selectedCamera, websocketStatus, initializeWebSocket, startDetectionInterval, getCameraDevices]);
 
   // Stop camera stream
   const stopCamera = useCallback(() => {
