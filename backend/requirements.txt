@@ -1,0 +1,30 @@
+# FastAPI and web server dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+python-multipart==0.0.6
+
+# Computer vision and image processing
+opencv-python==4.8.1.78
+numpy==1.24.3
+Pillow==10.1.0
+
+# Async and utilities
+aiofiles==23.2.1
+python-dotenv==1.0.0
+
+# Data validation and serialization
+pydantic==2.5.0
+
+# CORS support (built into FastAPI)
+# python-cors==1.7.0  # Not needed - using FastAPI's built-in CORS
+
+# Testing dependencies
+requests==2.31.0
+
+# Logging and monitoring
+structlog==23.2.0
+
+# ONNX runtime for anti-spoofing models
+onnxruntime==1.16.3  # For anti-spoofing model inference
+# onnxruntime-gpu==1.16.3  # Uncomment for GPU support

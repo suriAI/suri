@@ -1,0 +1,98 @@
+{
+  "synthetic_multiple": {
+    "largest_confidence_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.07352542877197266
+    },
+    "largest_confidence_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.39040040969848633
+    },
+    "largest_area_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.061881303787231445
+    },
+    "largest_area_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.06247377395629883
+    },
+    "center_most_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.04694724082946777
+    },
+    "center_most_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.06838154792785645
+    }
+  },
+  "synthetic_single": {
+    "largest_confidence_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.05121159553527832
+    },
+    "largest_confidence_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.05869936943054199
+    },
+    "largest_area_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.05215263366699219
+    },
+    "largest_area_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.062102556228637695
+    },
+    "center_most_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.04661226272583008
+    },
+    "center_most_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.06442451477050781
+    }
+  },
+  "real_image": {
+    "largest_confidence_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.05398154258728027
+    },
+    "largest_confidence_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.06696438789367676
+    },
+    "largest_area_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.05228114128112793
+    },
+    "largest_area_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.06320357322692871
+    },
+    "center_most_no_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.05156898498535156
+    },
+    "center_most_preprocess": {
+      "faces_detected": 0,
+      "faces": [],
+      "processing_time": 0.06948637962341309
+    }
+  }
+}
