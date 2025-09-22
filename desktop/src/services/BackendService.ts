@@ -104,7 +104,7 @@ export class BackendService {
       if (typeof imageData === 'string') {
         imageBase64 = imageData;
       } else {
-        imageBase64 = this.imageDataToBase64(imageData);
+        imageBase64 = await this.imageDataToBase64(imageData);
       }
 
       const request: DetectionRequest = {
@@ -235,15 +235,15 @@ export class BackendService {
       antispoofing_threshold?: number;
     } = {}
   ): Promise<void> {
-    if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-      await this.connectWebSocket();
+    if (!this.isWebSocketReady()) {
+      throw new Error('WebSocket not connected or not ready');
     }
 
     let imageBase64: string;
     if (typeof imageData === 'string') {
       imageBase64 = imageData;
     } else {
-      imageBase64 = this.imageDataToBase64(imageData);
+      imageBase64 = await this.imageDataToBase64(imageData);
     }
 
     const message = {
@@ -263,8 +263,8 @@ export class BackendService {
    * Send ping to keep connection alive
    */
   ping(): void {
-    if (this.websocket?.readyState === WebSocket.OPEN) {
-      this.websocket.send(JSON.stringify({ type: 'ping' }));
+    if (this.isWebSocketReady()) {
+      this.websocket!.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
     }
   }
 
@@ -308,6 +308,232 @@ export class BackendService {
     };
   }
 
+  /**
+   * Get WebSocket status string for UI display
+   */
+  getWebSocketStatus(): 'disconnected' | 'connecting' | 'connected' {
+    if (!this.websocket) {
+      return 'disconnected';
+    }
+    
+    switch (this.websocket.readyState) {
+      case WebSocket.CONNECTING:
+        return 'connecting';
+      case WebSocket.OPEN:
+        return 'connected';
+      case WebSocket.CLOSING:
+      case WebSocket.CLOSED:
+      default:
+        return 'disconnected';
+    }
+  }
+
+  /**
+   * Check if WebSocket is ready for sending messages
+   */
+  isWebSocketReady(): boolean {
+    return this.websocket?.readyState === WebSocket.OPEN;
+  }
+
+  // Face Recognition Methods
+
+  /**
+   * Recognize a face from image data
+   */
+  async recognizeFace(
+    imageData: ImageData | string,
+    landmarks?: number[][]
+  ): Promise<any> {
+    try {
+      const base64Image = typeof imageData === 'string' 
+        ? imageData 
+        : await this.imageDataToBase64(imageData);
+
+      const requestBody = {
+        image: base64Image,
+        landmarks: landmarks
+      };
+
+      const response = await fetch(`${this.config.baseUrl}/face/recognize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Face recognition failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Register a new face with person ID
+   */
+  async registerFace(
+    imageData: ImageData | string,
+    personId: string,
+    landmarks?: number[][]
+  ): Promise<any> {
+    try {
+      const base64Image = typeof imageData === 'string' 
+        ? imageData 
+        : await this.imageDataToBase64(imageData);
+
+      const requestBody = {
+        image: base64Image,
+        person_id: personId,
+        landmarks: landmarks
+      };
+
+      const response = await fetch(`${this.config.baseUrl}/face/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Face registration failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a person from the database
+   */
+  async removePerson(personId: string): Promise<any> {
+    try {
+      const requestBody = {
+        person_id: personId
+      };
+
+      const response = await fetch(`${this.config.baseUrl}/face/remove`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Person removal failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all registered persons
+   */
+  async getAllPersons(): Promise<any> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/face/persons`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get persons:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set similarity threshold for recognition
+   */
+  async setSimilarityThreshold(threshold: number): Promise<any> {
+    try {
+      const requestBody = {
+        threshold: threshold
+      };
+
+      const response = await fetch(`${this.config.baseUrl}/face/threshold`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to set similarity threshold:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear the face database
+   */
+  async clearDatabase(): Promise<any> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/face/clear`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to clear database:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get database statistics
+   */
+  async getDatabaseStats(): Promise<any> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/face/stats`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get database stats:', error);
+      throw error;
+    }
+  }
+
   // Private methods
 
   private handleWebSocketMessage(data: any): void {
@@ -333,7 +559,13 @@ export class BackendService {
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
   }
 
-  private imageDataToBase64(imageData: ImageData): string {
+  private async imageDataToBase64(imageData: ImageData): Promise<string> {
+    // Validate ImageData dimensions
+    if (!imageData || typeof imageData.width !== 'number' || typeof imageData.height !== 'number' || 
+        imageData.width <= 0 || imageData.height <= 0) {
+      throw new Error('Invalid ImageData: width and height must be positive numbers');
+    }
+
     // Create a canvas to convert ImageData to base64
     const canvas = new OffscreenCanvas(imageData.width, imageData.height);
     const ctx = canvas.getContext('2d')!;
@@ -352,7 +584,7 @@ export class BackendService {
           reader.readAsDataURL(blob);
         })
         .catch(reject);
-    }) as any; // Type assertion for synchronous usage pattern
+    });
   }
 }
 

@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackendService } from '../services/BackendService';
+import type { 
+  FaceWithRecognition, 
+  DetectionWithRecognitionResult, 
+  PersonInfo, 
+  DatabaseStatsResponse,
+  RecognitionResult,
+} from '../types/recognition';
 
 interface DetectionResult {
   faces: Array<{
@@ -86,6 +93,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   const [fps, setFps] = useState<number>(0);
   const [detectionFps, setDetectionFps] = useState<number>(0);
   const [websocketStatus, setWebsocketStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [backendServiceReady, setBackendServiceReady] = useState(false);
   const lastDetectionRef = useRef<DetectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
@@ -94,6 +102,16 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   // Anti-spoofing settings
   const [antispoofingEnabled, setAntispoofingEnabled] = useState(true);
   const [antispoofingThreshold, setAntispoofingThreshold] = useState(0.5);
+
+  // Face recognition settings
+  const [recognitionEnabled, setRecognitionEnabled] = useState(true);
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.7);
+  const [registeredPersons, setRegisteredPersons] = useState<PersonInfo[]>([]);
+  const [databaseStats, setDatabaseStats] = useState<DatabaseStatsResponse | null>(null);
+  const [selectedPersonForRegistration, setSelectedPersonForRegistration] = useState<string>('');
+  const [newPersonId, setNewPersonId] = useState<string>('');
+  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
+  const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, RecognitionResult>>(new Map());
 
   // Performance tracking - throttled updates
   const fpsCounterRef = useRef({ frames: 0, lastTime: Date.now(), lastUpdate: 0 });
@@ -106,10 +124,11 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         backendServiceRef.current = new BackendService();
       }
 
-      setWebsocketStatus('connecting');
-      
       // Connect to WebSocket
       await backendServiceRef.current.connectWebSocket();
+      
+      // Mark backend service as ready
+      setBackendServiceReady(true);
         
         // Register message handler for detection responses
         backendServiceRef.current.onMessage('detection_response', (data: WebSocketDetectionResponse) => {
@@ -180,6 +199,11 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
 
           setCurrentDetections(detectionResult);
           lastDetectionRef.current = detectionResult;
+
+          // Perform face recognition if enabled
+          if (recognitionEnabled && detectionResult.faces.length > 0) {
+            performFaceRecognition(detectionResult);
+          }
         }
 
         // Mark processing as complete - interval will handle next frame
@@ -209,15 +233,15 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         }
       });
 
-      setWebsocketStatus('connected');
+      // Status will be managed by polling the actual WebSocket state
       if (process.env.NODE_ENV === 'development') {
-        console.log('✅ WebSocket initialized and connected');
+        console.log('✅ WebSocket initialized');
       }
       
     } catch (error) {
       console.error('❌ WebSocket initialization failed:', error);
-      setWebsocketStatus('disconnected');
       setError('Failed to connect to real-time detection service');
+      setBackendServiceReady(false);
     }
   }, []);
 
@@ -253,7 +277,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   const processCurrentFrame = useCallback(() => {
     // Ensure we're in a valid state and not already processing
     if (isProcessingRef.current || 
-        websocketStatus !== 'connected' || 
+        !backendServiceRef.current?.isWebSocketReady() || 
         !detectionEnabledRef.current ||
         !isStreaming) {
       return;
@@ -281,7 +305,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       console.error('❌ Frame capture failed:', error);
       isProcessingRef.current = false;
     }
-  }, [websocketStatus, antispoofingEnabled, antispoofingThreshold, isStreaming, captureFrame]);
+  }, [antispoofingEnabled, antispoofingThreshold, isStreaming, captureFrame]);
 
   // Get available camera devices
   const getCameraDevices = useCallback(async () => {
@@ -492,11 +516,28 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       const width = scaledX2 - scaledX1;
       const height = scaledY2 - scaledY1;
 
-      // Simplified color determination
+      // Get recognition result for this face
+      const recognitionResult = currentRecognitionResults.get(index);
+      
+      // Debug logging for UI rendering
+      if (process.env.NODE_ENV === 'development' && index === 0) {
+        console.log(`🎨 UI Render - Face ${index}:`, {
+          recognitionEnabled,
+          hasRecognitionResult: !!recognitionResult,
+          person_id: recognitionResult?.person_id,
+          similarity: recognitionResult?.similarity,
+          antispoofing: antispoofing?.status
+        });
+      }
+      
+      // Simplified color determination with recognition priority
       const isHighConfidence = confidence > 0.8;
       let primaryColor: string;
       
-      if (antispoofing) {
+      if (recognitionEnabled && recognitionResult?.person_id) {
+        // Recognized face - use green color
+        primaryColor = "#00ff00";
+      } else if (antispoofing) {
         if (antispoofing.status === 'real') {
           primaryColor = "#00ff41";
         } else if (antispoofing.status === 'fake') {
@@ -535,11 +576,25 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
 
       // Simplified text rendering
       let label = `FACE ${index + 1}`;
-      const statusText = `${(confidence * 100).toFixed(1)}%`;
+      let statusText = `${(confidence * 100).toFixed(1)}%`;
+      
+      // Add recognition information if available
+      if (recognitionEnabled && recognitionResult?.person_id) {
+        label = recognitionResult.person_id.toUpperCase();
+        statusText = `${(confidence * 100).toFixed(1)}% | Similarity: ${(recognitionResult.similarity * 100).toFixed(1)}%`;
+      } else if (!recognitionEnabled) {
+        statusText = `${(confidence * 100).toFixed(1)}% | Recognition: OFF`;
+      }
       
       if (antispoofing && antispoofing.status) {
         if (antispoofing.status === 'real') {
-          label = `✓ REAL FACE ${index + 1}`;
+          // Keep the recognition result if available, otherwise show generic real face label
+          if (!(recognitionEnabled && recognitionResult?.person_id)) {
+            label = `✓ REAL FACE ${index + 1}`;
+          } else {
+            // Add checkmark to recognized name to indicate it's real
+            label = `✓ ${recognitionResult.person_id.toUpperCase()}`;
+          }
         } else if (antispoofing.status === 'fake') {
           label = `⚠ FAKE FACE ${index + 1}`;
         } else {
@@ -633,14 +688,16 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
 
   // Start detection interval helper
   const startDetectionInterval = useCallback(() => {
-    if (detectionEnabledRef.current && websocketStatus === 'connected' && !detectionIntervalRef.current) {
+    if (detectionEnabledRef.current && 
+        backendServiceRef.current?.isWebSocketReady() && 
+        !detectionIntervalRef.current) {
       // Optimized frequency based on processing time (~70ms)
       detectionIntervalRef.current = setInterval(processFrameForDetection, 100); // 100ms = 10 FPS
       if (process.env.NODE_ENV === 'development') {
         console.log('🎯 Detection interval started');
       }
     }
-  }, [processFrameForDetection, websocketStatus]);
+  }, [processFrameForDetection]);
 
   // Start/stop detection
   const toggleDetection = useCallback(async () => {
@@ -675,6 +732,208 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
     }
   }, [detectionEnabled, websocketStatus, initializeWebSocket, startDetectionInterval]);
 
+  // Face recognition utility functions
+  const loadRegisteredPersons = useCallback(async () => {
+    try {
+      if (!backendServiceRef.current) {
+        console.warn('⚠️ Backend service not initialized, skipping load registered persons');
+        return;
+      }
+      const persons = await backendServiceRef.current.getAllPersons();
+      setRegisteredPersons(persons);
+    } catch (error) {
+      console.error('❌ Failed to load registered persons:', error);
+      setError('Failed to load registered persons');
+    }
+  }, []);
+
+  const loadDatabaseStats = useCallback(async () => {
+    try {
+      if (!backendServiceRef.current) {
+        console.warn('⚠️ Backend service not initialized, skipping load database stats');
+        return;
+      }
+      const stats = await backendServiceRef.current.getDatabaseStats();
+      setDatabaseStats(stats);
+    } catch (error) {
+      console.error('❌ Failed to load database stats:', error);
+    }
+  }, []);
+
+  const handleRegisterFace = useCallback(async (faceIndex: number) => {
+    if (!currentDetections?.faces?.[faceIndex] || !newPersonId.trim()) {
+      setError('Please enter a person ID and select a valid face');
+      return;
+    }
+
+    try {
+      if (!backendServiceRef.current) {
+        setError('Backend service not initialized');
+        return;
+      }
+
+      const frameData = captureFrame();
+      if (!frameData) {
+        setError('Failed to capture frame for registration');
+        return;
+      }
+
+      const face = currentDetections.faces[faceIndex];
+      
+      // Convert landmarks to the format expected by backend: [[x1,y1], [x2,y2], ...]
+      const landmarks = [
+        [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
+        [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
+        [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
+        [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
+        [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
+      ];
+      
+      const response = await backendServiceRef.current.registerFace(
+        frameData,
+        newPersonId.trim(),
+        landmarks
+      );
+
+      if (response.success) {
+        setNewPersonId('');
+        setShowRegistrationDialog(false);
+        await loadRegisteredPersons();
+        await loadDatabaseStats();
+        
+        // Trigger immediate face recognition on current detections
+        if (currentDetections && currentDetections.faces.length > 0) {
+          await performFaceRecognition(currentDetections);
+        }
+        
+        console.log('✅ Face registered successfully:', `Person "${response.person_id}" added to database (${response.total_persons} total persons)`);
+      } else {
+        setError(response.error || 'Failed to register face');
+      }
+    } catch (error) {
+      console.error('❌ Face registration failed:', error);
+      setError('Failed to register face');
+    }
+  }, [currentDetections, newPersonId, captureFrame, loadRegisteredPersons, loadDatabaseStats]);
+
+  const handleRemovePerson = useCallback(async (personId: string) => {
+    try {
+      if (!backendServiceRef.current) {
+        setError('Backend service not initialized');
+        return;
+      }
+      const response = await backendServiceRef.current.removePerson(personId);
+      if (response.success) {
+        await loadRegisteredPersons();
+        await loadDatabaseStats();
+        console.log('✅ Person removed successfully:', response.message);
+      } else {
+        setError(response.message || 'Failed to remove person');
+      }
+    } catch (error) {
+      console.error('❌ Failed to remove person:', error);
+      setError('Failed to remove person');
+    }
+  }, [loadRegisteredPersons, loadDatabaseStats]);
+
+  const handleClearDatabase = useCallback(async () => {
+    try {
+      if (!backendServiceRef.current) {
+        setError('Backend service not initialized');
+        return;
+      }
+      const response = await backendServiceRef.current.clearDatabase();
+      if (response.success) {
+        await loadRegisteredPersons();
+        await loadDatabaseStats();
+        setCurrentRecognitionResults(new Map());
+        console.log('✅ Database cleared successfully:', response.message);
+      } else {
+        setError(response.message || 'Failed to clear database');
+      }
+    } catch (error) {
+      console.error('❌ Failed to clear database:', error);
+      setError('Failed to clear database');
+    }
+  }, [loadRegisteredPersons, loadDatabaseStats]);
+
+  const handleSimilarityThresholdChange = useCallback(async (threshold: number) => {
+    try {
+      if (!backendServiceRef.current) {
+        setError('Backend service not initialized');
+        return;
+      }
+      setSimilarityThreshold(threshold);
+      const response = await backendServiceRef.current.setSimilarityThreshold(threshold);
+      if (!response.success) {
+        setError(response.message || 'Failed to update similarity threshold');
+      }
+    } catch (error) {
+      console.error('❌ Failed to update similarity threshold:', error);
+      setError('Failed to update similarity threshold');
+    }
+  }, []);
+
+  const performFaceRecognition = useCallback(async (detectionResult: DetectionResult) => {
+    try {
+      const frameData = captureFrame();
+      if (!frameData) {
+        console.warn('⚠️ Failed to capture frame for face recognition');
+        return;
+      }
+
+      // Process each detected face for recognition
+      const recognitionPromises = detectionResult.faces.map(async (face, index) => {
+        try {
+          // Convert landmarks to the format expected by backend: [[x1,y1], [x2,y2], ...]
+          const landmarks = [
+            [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
+            [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
+            [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
+            [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
+            [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
+          ];
+          
+          const response = await backendServiceRef.current.recognizeFace(
+            frameData,
+            landmarks
+          );
+
+          if (response.success && response.person_id) {
+            console.log(`🎯 Face ${index} recognized as: ${response.person_id} (${(response.similarity * 100).toFixed(1)}%)`);
+            return { index, result: response };
+          } else if (response.success) {
+            console.log(`👤 Face ${index} not recognized (similarity: ${(response.similarity * 100).toFixed(1)}%)`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Face recognition failed for face ${index}:`, error);
+        }
+        return null;
+      });
+
+      const recognitionResults = await Promise.all(recognitionPromises);
+      
+      // Update recognition results map
+      const newRecognitionResults = new Map(currentRecognitionResults);
+      recognitionResults.forEach((result) => {
+        if (result) {
+          newRecognitionResults.set(result.index, result.result);
+        }
+      });
+      
+      setCurrentRecognitionResults(newRecognitionResults);
+
+      if (process.env.NODE_ENV === 'development') {
+        const recognizedCount = recognitionResults.filter(r => r?.result.person_id).length;
+        if (recognizedCount > 0) {
+          console.log(`🎯 Face recognition: ${recognizedCount}/${detectionResult.faces.length} faces recognized`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Face recognition processing failed:', error);
+    }
+  }, [captureFrame, currentRecognitionResults]);
+
   // Initialize
   useEffect(() => {
     getCameraDevices();
@@ -695,10 +954,55 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
     };
   }, [isStreaming, animate]);
 
+  // Poll WebSocket status from BackendService
+  useEffect(() => {
+    const pollWebSocketStatus = () => {
+      if (backendServiceRef.current) {
+        const actualStatus = backendServiceRef.current.getWebSocketStatus();
+        if (actualStatus !== websocketStatus) {
+          setWebsocketStatus(actualStatus);
+        }
+      }
+    };
+
+    // Poll every 100ms for responsive status updates
+    const statusInterval = setInterval(pollWebSocketStatus, 100);
+
+    return () => {
+      clearInterval(statusInterval);
+    };
+  }, [websocketStatus]);
+
+  // Load face recognition data when backend service becomes ready
+  useEffect(() => {
+    if (backendServiceReady && recognitionEnabled) {
+      loadRegisteredPersons();
+      loadDatabaseStats();
+    }
+  }, [backendServiceReady, recognitionEnabled, loadRegisteredPersons, loadDatabaseStats]);
+
   // Monitor WebSocket status and start detection when connected
   useEffect(() => {
     if (websocketStatus === 'connected' && detectionEnabledRef.current && !detectionIntervalRef.current) {
-      startDetectionInterval();
+      // Poll for WebSocket readiness with exponential backoff
+      let attempts = 0;
+      const maxAttempts = 10;
+      const checkReadiness = () => {
+        if (backendServiceRef.current?.isWebSocketReady() && 
+            detectionEnabledRef.current && 
+            !detectionIntervalRef.current) {
+          startDetectionInterval();
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          const delay = Math.min(100 * Math.pow(1.5, attempts), 1000); // Exponential backoff, max 1s
+          setTimeout(checkReadiness, delay);
+        } else {
+          console.warn('⚠️ WebSocket readiness check timed out after', maxAttempts, 'attempts');
+        }
+      };
+      
+      // Start checking immediately
+      checkReadiness();
     }
   }, [websocketStatus, startDetectionInterval]);
 
@@ -706,6 +1010,14 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   useEffect(() => {
     console.log('🔍 detectionEnabled state changed to:', detectionEnabled);
   }, [detectionEnabled]);
+
+  // Load face recognition data when recognition is enabled and backend service is ready
+  useEffect(() => {
+    if (recognitionEnabled && backendServiceReady) {
+      loadRegisteredPersons();
+      loadDatabaseStats();
+    }
+  }, [recognitionEnabled, backendServiceReady, loadRegisteredPersons, loadDatabaseStats]);
 
   return (
     <div className="p-6 bg-gray-900 min-h-screen text-white">
@@ -804,6 +1116,64 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
             )}
           </div>
 
+          {/* Face Recognition Controls */}
+          <div className="flex flex-wrap items-center gap-4 mb-4 pt-4 border-t border-gray-700">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Face Recognition:</label>
+              <button
+                onClick={() => setRecognitionEnabled(!recognitionEnabled)}
+                className={`px-3 py-1 rounded text-sm transition-colors ${
+                  recognitionEnabled
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-gray-600 hover:bg-gray-700'
+                }`}
+              >
+                {recognitionEnabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+
+            {recognitionEnabled && (
+              <>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Similarity Threshold:</label>
+                  <input
+                    type="range"
+                    min="0.3"
+                    max="0.9"
+                    step="0.05"
+                    value={similarityThreshold}
+                    onChange={(e) => handleSimilarityThresholdChange(parseFloat(e.target.value))}
+                    className="w-20"
+                  />
+                  <span className="text-sm text-gray-300 min-w-[3rem]">
+                    {similarityThreshold.toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setShowRegistrationDialog(true)}
+                  disabled={!currentDetections?.faces?.length}
+                  className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded text-sm transition-colors"
+                >
+                  Register Face
+                </button>
+
+                <button
+                  onClick={handleClearDatabase}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+                >
+                  Clear Database
+                </button>
+
+                {databaseStats && (
+                  <div className="text-sm text-gray-300">
+                    Registered: {databaseStats.total_persons} persons, {databaseStats.total_faces} faces
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Status */}
           <div className="flex flex-wrap items-center gap-6 text-sm">
             <div className={`px-2 py-1 rounded ${isStreaming ? 'bg-green-600' : 'bg-gray-600'}`}>
@@ -817,6 +1187,9 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
             </div>
             <div className={`px-2 py-1 rounded ${antispoofingEnabled ? 'bg-purple-600' : 'bg-gray-600'}`}>
               Anti-Spoofing: {antispoofingEnabled ? 'Enabled' : 'Disabled'}
+            </div>
+            <div className={`px-2 py-1 rounded ${recognitionEnabled ? 'bg-indigo-600' : 'bg-gray-600'}`}>
+              Recognition: {recognitionEnabled ? 'Enabled' : 'Disabled'}
             </div>
             <div className="text-gray-300">Video FPS: {fps}</div>
             <div className="text-gray-300">Detection FPS: {detectionFps}</div>
@@ -885,6 +1258,86 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Face Registration Dialog */}
+        {showRegistrationDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold mb-4">Register Face</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Person ID:</label>
+                <input
+                  type="text"
+                  value={newPersonId}
+                  onChange={(e) => setNewPersonId(e.target.value)}
+                  placeholder="Enter person ID (e.g., john_doe)"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {currentDetections?.faces && currentDetections.faces.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Select Face:</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {currentDetections.faces.map((face, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                        onClick={() => handleRegisterFace(index)}
+                      >
+                        <span className="text-sm">
+                          Face {index + 1} (Confidence: {(face.confidence * 100).toFixed(1)}%)
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRegisterFace(index);
+                          }}
+                          disabled={!newPersonId.trim()}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded text-sm transition-colors"
+                        >
+                          Register
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {registeredPersons.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Registered Persons:</label>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {registeredPersons.map((person) => (
+                      <div key={person.person_id} className="flex items-center justify-between p-2 bg-gray-700 rounded">
+                        <span className="text-sm">{person.person_id} ({person.face_count} faces)</span>
+                        <button
+                          onClick={() => handleRemovePerson(person.person_id)}
+                          className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowRegistrationDialog(false);
+                    setNewPersonId('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
