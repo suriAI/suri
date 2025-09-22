@@ -530,22 +530,25 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         });
       }
       
-      // Simplified color determination with recognition priority
+      // Color determination with anti-spoofing priority for security
       const isHighConfidence = confidence > 0.8;
       let primaryColor: string;
       
-      if (recognitionEnabled && recognitionResult?.person_id) {
-        // Recognized face - use green color
-        primaryColor = "#00ff00";
-      } else if (antispoofing) {
-        if (antispoofing.status === 'real') {
-          primaryColor = "#00ff41";
-        } else if (antispoofing.status === 'fake') {
-          primaryColor = "#ff0000";
+      if (antispoofing && antispoofing.status) {
+        // Anti-spoofing status takes priority for security
+        if (antispoofing.status === 'fake') {
+          primaryColor = "#ff0000"; // Red for fake faces
+        } else if (antispoofing.status === 'real') {
+          // Real faces: green if recognized, light green if not
+          primaryColor = (recognitionEnabled && recognitionResult?.person_id) ? "#00ff00" : "#00ff41";
         } else {
-          primaryColor = "#ff8800";
+          primaryColor = "#ff8800"; // Orange for unknown anti-spoofing status
         }
+      } else if (recognitionEnabled && recognitionResult?.person_id) {
+        // Recognized face without anti-spoofing - use cyan to indicate missing security check
+        primaryColor = "#00ffff";
       } else {
+        // Unrecognized face without anti-spoofing
         primaryColor = isHighConfidence ? "#00ffff" : "#ff6b6b";
       }
 
@@ -578,7 +581,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       let label = `FACE ${index + 1}`;
       let statusText = `${(confidence * 100).toFixed(1)}%`;
       
-      // Add recognition information if available
+      // Determine base label from recognition first
       if (recognitionEnabled && recognitionResult?.person_id) {
         label = recognitionResult.person_id.toUpperCase();
         statusText = `${(confidence * 100).toFixed(1)}% | Similarity: ${(recognitionResult.similarity * 100).toFixed(1)}%`;
@@ -586,19 +589,29 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         statusText = `${(confidence * 100).toFixed(1)}% | Recognition: OFF`;
       }
       
+      // Apply anti-spoofing indicators without overriding recognition
       if (antispoofing && antispoofing.status) {
         if (antispoofing.status === 'real') {
-          // Keep the recognition result if available, otherwise show generic real face label
-          if (!(recognitionEnabled && recognitionResult?.person_id)) {
-            label = `✓ REAL FACE ${index + 1}`;
-          } else {
-            // Add checkmark to recognized name to indicate it's real
+          // Add checkmark to indicate real face
+          if (recognitionEnabled && recognitionResult?.person_id) {
             label = `✓ ${recognitionResult.person_id.toUpperCase()}`;
+          } else {
+            label = `✓ REAL FACE ${index + 1}`;
           }
         } else if (antispoofing.status === 'fake') {
-          label = `⚠ FAKE FACE ${index + 1}`;
+          // For fake faces, show warning but preserve recognition if available
+          if (recognitionEnabled && recognitionResult?.person_id) {
+            label = `⚠ ${recognitionResult.person_id.toUpperCase()} (FAKE)`;
+          } else {
+            label = `⚠ FAKE FACE ${index + 1}`;
+          }
         } else {
-          label = `? UNKNOWN FACE ${index + 1}`;
+          // For unknown anti-spoofing status, show question mark
+          if (recognitionEnabled && recognitionResult?.person_id) {
+            label = `? ${recognitionResult.person_id.toUpperCase()}`;
+          } else {
+            label = `? UNKNOWN FACE ${index + 1}`;
+          }
         }
       }
 
