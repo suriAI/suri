@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackendService } from '../services/BackendService';
 import type { 
-  FaceWithRecognition, 
-  DetectionWithRecognitionResult, 
   PersonInfo, 
   DatabaseStatsResponse,
   RecognitionResult,
@@ -108,7 +106,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   const [similarityThreshold, setSimilarityThreshold] = useState(0.7);
   const [registeredPersons, setRegisteredPersons] = useState<PersonInfo[]>([]);
   const [databaseStats, setDatabaseStats] = useState<DatabaseStatsResponse | null>(null);
-  const [selectedPersonForRegistration, setSelectedPersonForRegistration] = useState<string>('');
+
   const [newPersonId, setNewPersonId] = useState<string>('');
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
   const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, RecognitionResult>>(new Map());
@@ -116,6 +114,100 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   // Performance tracking - throttled updates
   const fpsCounterRef = useRef({ frames: 0, lastTime: Date.now(), lastUpdate: 0 });
   const detectionCounterRef = useRef({ detections: 0, lastTime: Date.now() });
+
+  // Optimized capture frame with reduced logging
+  const captureFrame = useCallback((): string | null => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    if (!video || !canvas || video.videoWidth === 0) {
+      return null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+
+    // Only resize canvas if video dimensions changed
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    // Draw current video frame
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert to base64 with reduced quality for better performance
+    const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    return base64;
+  }, []);
+
+  // Face recognition function
+  const performFaceRecognition = useCallback(async (detectionResult: DetectionResult) => {
+    try {
+      const frameData = captureFrame();
+      if (!frameData) {
+        console.warn('⚠️ Failed to capture frame for face recognition');
+        return;
+      }
+
+      // Process each detected face for recognition
+      const recognitionPromises = detectionResult.faces.map(async (face, index) => {
+        try {
+          // Convert landmarks to the format expected by backend: [[x1,y1], [x2,y2], ...]
+          const landmarks = [
+            [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
+            [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
+            [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
+            [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
+            [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
+          ];
+          
+          if (!backendServiceRef.current) {
+            console.error('Backend service not initialized');
+            return null;
+          }
+          
+          const response = await backendServiceRef.current.recognizeFace(
+            frameData,
+            landmarks
+          );
+
+          if (response.success && response.person_id) {
+            console.log(`🎯 Face ${index} recognized as: ${response.person_id} (${(response.similarity * 100).toFixed(1)}%)`);
+            return { index, result: response };
+          } else if (response.success) {
+            console.log(`👤 Face ${index} not recognized (similarity: ${(response.similarity * 100).toFixed(1)}%)`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Face recognition failed for face ${index}:`, error);
+        }
+        return null;
+      });
+
+      const recognitionResults = await Promise.all(recognitionPromises);
+      
+      // Update recognition results map
+      const newRecognitionResults = new Map(currentRecognitionResults);
+      recognitionResults.forEach((result) => {
+        if (result) {
+          newRecognitionResults.set(result.index, result.result);
+        }
+      });
+      
+      setCurrentRecognitionResults(newRecognitionResults);
+
+      if (process.env.NODE_ENV === 'development') {
+        const recognizedCount = recognitionResults.filter(r => r?.result.person_id).length;
+        if (recognizedCount > 0) {
+          console.log(`🎯 Face recognition: ${recognizedCount}/${detectionResult.faces.length} faces recognized`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Face recognition processing failed:', error);
+    }
+  }, [captureFrame, currentRecognitionResults]);
 
   // Initialize WebSocket connection
   const initializeWebSocket = useCallback(async () => {
@@ -243,35 +335,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       setError('Failed to connect to real-time detection service');
       setBackendServiceReady(false);
     }
-  }, []);
-
-  // Optimized capture frame with reduced logging
-  const captureFrame = useCallback((): string | null => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
-    if (!video || !canvas || video.videoWidth === 0) {
-      return null;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return null;
-    }
-
-    // Only resize canvas if video dimensions changed
-    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-    }
-
-    // Draw current video frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Convert to base64 with reduced quality for better performance
-    const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-    return base64;
-  }, []);
+  }, [recognitionEnabled, performFaceRecognition]);
 
   // Process current frame directly without queue
   const processCurrentFrame = useCallback(() => {
@@ -530,25 +594,22 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         });
       }
       
-      // Color determination with anti-spoofing priority for security
+      // Simplified color determination with recognition priority
       const isHighConfidence = confidence > 0.8;
       let primaryColor: string;
       
-      if (antispoofing && antispoofing.status) {
-        // Anti-spoofing status takes priority for security
-        if (antispoofing.status === 'fake') {
-          primaryColor = "#ff0000"; // Red for fake faces
-        } else if (antispoofing.status === 'real') {
-          // Real faces: green if recognized, light green if not
-          primaryColor = (recognitionEnabled && recognitionResult?.person_id) ? "#00ff00" : "#00ff41";
+      if (recognitionEnabled && recognitionResult?.person_id) {
+        // Recognized face - use green color
+        primaryColor = "#00ff00";
+      } else if (antispoofing) {
+        if (antispoofing.status === 'real') {
+          primaryColor = "#00ff41";
+        } else if (antispoofing.status === 'fake') {
+          primaryColor = "#ff0000";
         } else {
-          primaryColor = "#ff8800"; // Orange for unknown anti-spoofing status
+          primaryColor = "#ff8800";
         }
-      } else if (recognitionEnabled && recognitionResult?.person_id) {
-        // Recognized face without anti-spoofing - use cyan to indicate missing security check
-        primaryColor = "#00ffff";
       } else {
-        // Unrecognized face without anti-spoofing
         primaryColor = isHighConfidence ? "#00ffff" : "#ff6b6b";
       }
 
@@ -584,7 +645,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       // Determine base label from recognition first
       if (recognitionEnabled && recognitionResult?.person_id) {
         label = recognitionResult.person_id.toUpperCase();
-        statusText = `${(confidence * 100).toFixed(1)}% | Similarity: ${(recognitionResult.similarity * 100).toFixed(1)}%`;
+        statusText = `${(confidence * 100).toFixed(1)}% | Similarity: ${(recognitionResult.similarity ? (recognitionResult.similarity * 100).toFixed(1) : 'N/A')}%`;
       } else if (!recognitionEnabled) {
         statusText = `${(confidence * 100).toFixed(1)}% | Recognition: OFF`;
       }
@@ -664,7 +725,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       ctx.font = 'normal 12px Arial';
       ctx.fillText(statusText, scaledX1, scaledY1 - 25);
     });
-  }, [currentDetections, calculateScaleFactors]);
+  }, [currentDetections, calculateScaleFactors, currentRecognitionResults, recognitionEnabled]);
 
   // Optimized animation loop with reduced frequency
   const animate = useCallback(() => {
@@ -827,7 +888,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       console.error('❌ Face registration failed:', error);
       setError('Failed to register face');
     }
-  }, [currentDetections, newPersonId, captureFrame, loadRegisteredPersons, loadDatabaseStats]);
+  }, [currentDetections, newPersonId, captureFrame, loadRegisteredPersons, loadDatabaseStats, performFaceRecognition]);
 
   const handleRemovePerson = useCallback(async (personId: string) => {
     try {
@@ -886,66 +947,6 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
       setError('Failed to update similarity threshold');
     }
   }, []);
-
-  const performFaceRecognition = useCallback(async (detectionResult: DetectionResult) => {
-    try {
-      const frameData = captureFrame();
-      if (!frameData) {
-        console.warn('⚠️ Failed to capture frame for face recognition');
-        return;
-      }
-
-      // Process each detected face for recognition
-      const recognitionPromises = detectionResult.faces.map(async (face, index) => {
-        try {
-          // Convert landmarks to the format expected by backend: [[x1,y1], [x2,y2], ...]
-          const landmarks = [
-            [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
-            [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
-            [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
-            [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
-            [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
-          ];
-          
-          const response = await backendServiceRef.current.recognizeFace(
-            frameData,
-            landmarks
-          );
-
-          if (response.success && response.person_id) {
-            console.log(`🎯 Face ${index} recognized as: ${response.person_id} (${(response.similarity * 100).toFixed(1)}%)`);
-            return { index, result: response };
-          } else if (response.success) {
-            console.log(`👤 Face ${index} not recognized (similarity: ${(response.similarity * 100).toFixed(1)}%)`);
-          }
-        } catch (error) {
-          console.warn(`⚠️ Face recognition failed for face ${index}:`, error);
-        }
-        return null;
-      });
-
-      const recognitionResults = await Promise.all(recognitionPromises);
-      
-      // Update recognition results map
-      const newRecognitionResults = new Map(currentRecognitionResults);
-      recognitionResults.forEach((result) => {
-        if (result) {
-          newRecognitionResults.set(result.index, result.result);
-        }
-      });
-      
-      setCurrentRecognitionResults(newRecognitionResults);
-
-      if (process.env.NODE_ENV === 'development') {
-        const recognizedCount = recognitionResults.filter(r => r?.result.person_id).length;
-        if (recognizedCount > 0) {
-          console.log(`🎯 Face recognition: ${recognizedCount}/${detectionResult.faces.length} faces recognized`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Face recognition processing failed:', error);
-    }
-  }, [captureFrame, currentRecognitionResults]);
 
   // Initialize
   useEffect(() => {
@@ -1180,7 +1181,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
 
                 {databaseStats && (
                   <div className="text-sm text-gray-300">
-                    Registered: {databaseStats.total_persons} persons, {databaseStats.total_faces} faces
+                    Registered: {databaseStats.total_persons} persons, {databaseStats.total_embeddings} embeddings
                   </div>
                 )}
               </>
@@ -1326,7 +1327,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
                   <div className="space-y-1 max-h-32 overflow-y-auto">
                     {registeredPersons.map((person) => (
                       <div key={person.person_id} className="flex items-center justify-between p-2 bg-gray-700 rounded">
-                        <span className="text-sm">{person.person_id} ({person.face_count} faces)</span>
+                        <span className="text-sm">{person.person_id} ({person.embedding_count} embeddings)</span>
                         <button
                           onClick={() => handleRemovePerson(person.person_id)}
                           className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
