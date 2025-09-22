@@ -60,7 +60,6 @@ class DetectionRequest(BaseModel):
     confidence_threshold: float = 0.6
     nms_threshold: float = 0.3
     enable_antispoofing: bool = True
-    antispoofing_threshold: float = 0.5
 
 class DetectionResponse(BaseModel):
     success: bool
@@ -74,7 +73,6 @@ class StreamingRequest(BaseModel):
     confidence_threshold: float = 0.6
     nms_threshold: float = 0.3
     enable_antispoofing: bool = True
-    antispoofing_threshold: float = 0.5
 
 class FaceRecognitionRequest(BaseModel):
     image: str  # Base64 encoded image
@@ -235,7 +233,7 @@ async def detect_faces(request: DetectionRequest):
     logger.info(f"Detection request received:")
     logger.info(f"  - Model: {request.model_type}")
     logger.info(f"  - Anti-spoofing enabled: {request.enable_antispoofing}")
-    logger.info(f"  - Anti-spoofing threshold: {request.antispoofing_threshold}")
+    logger.info(f"  - Anti-spoofing threshold: {ANTISPOOFING_CONFIG['threshold']}")
     logger.info(f"  - Image size: {len(request.image)} chars")
     
     try:
@@ -259,7 +257,7 @@ async def detect_faces(request: DetectionRequest):
             # Apply anti-spoofing if enabled and faces detected
             if request.enable_antispoofing and faces and optimized_antispoofing_detector:
                 logger.info(f"Starting optimized anti-spoofing processing for {len(faces)} faces")
-                optimized_antispoofing_detector.set_threshold(request.antispoofing_threshold)
+                optimized_antispoofing_detector.set_threshold(ANTISPOOFING_CONFIG['threshold'])
                 
                 try:
                     # Use the optimized batch processing method
@@ -323,8 +321,7 @@ async def detect_faces_upload(
     model_type: str = "yunet",
     confidence_threshold: float = 0.6,
     nms_threshold: float = 0.3,
-    enable_antispoofing: bool = True,
-    antispoofing_threshold: float = 0.5
+    enable_antispoofing: bool = True
 ):
     """
     Detect faces in an uploaded image file
@@ -357,7 +354,7 @@ async def detect_faces_upload(
             
             # Apply anti-spoofing if enabled and faces detected
             if enable_antispoofing and faces and optimized_antispoofing_detector:
-                optimized_antispoofing_detector.set_threshold(antispoofing_threshold)
+                optimized_antispoofing_detector.set_threshold(ANTISPOOFING_CONFIG['threshold'])
                 
                 # Process all detected faces for anti-spoofing using optimized batch method
                 try:
@@ -653,10 +650,9 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                     
                     # Apply anti-spoofing detection if enabled and faces detected
                     enable_antispoofing = message.get("enable_antispoofing", True)
-                    antispoofing_threshold = message.get("antispoofing_threshold", 0.5)
                     
                     if enable_antispoofing and faces and optimized_antispoofing_detector:
-                        optimized_antispoofing_detector.set_threshold(antispoofing_threshold)
+                        optimized_antispoofing_detector.set_threshold(ANTISPOOFING_CONFIG['threshold'])
                         
                         # Process all detected faces for anti-spoofing
                         try:

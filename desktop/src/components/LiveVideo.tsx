@@ -3,7 +3,7 @@ import { BackendService } from '../services/BackendService';
 import type { 
   PersonInfo, 
   DatabaseStatsResponse,
-  RecognitionResult,
+  FaceRecognitionResponse,
 } from '../types/recognition';
 
 interface DetectionResult {
@@ -107,7 +107,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
 
   const [newPersonId, setNewPersonId] = useState<string>('');
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
-  const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, RecognitionResult>>(new Map());
+  const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, FaceRecognitionResponse>>(new Map());
 
   // Performance tracking - throttled updates
   const fpsCounterRef = useRef({ frames: 0, lastTime: Date.now(), lastUpdate: 0 });
@@ -173,10 +173,10 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
           );
 
           if (response.success && response.person_id) {
-            console.log(`🎯 Face ${index} recognized as: ${response.person_id} (${(response.similarity * 100).toFixed(1)}%)`);
+            console.log(`🎯 Face ${index} recognized as: ${response.person_id} (${((response.similarity || 0) * 100).toFixed(1)}%)`);
             return { index, result: response };
           } else if (response.success) {
-            console.log(`👤 Face ${index} not recognized (similarity: ${(response.similarity * 100).toFixed(1)}%)`);
+            console.log(`👤 Face ${index} not recognized (similarity: ${((response.similarity || 0) * 100).toFixed(1)}%)`);
           }
         } catch (error) {
           console.warn(`⚠️ Face recognition failed for face ${index}:`, error);
@@ -357,8 +357,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         model_type: 'yunet',
         confidence_threshold: 0.5,
         nms_threshold: 0.3,
-        enable_antispoofing: antispoofingEnabled,
-        antispoofing_threshold: 0.5
+        enable_antispoofing: antispoofingEnabled
       }).catch(error => {
         console.error('❌ WebSocket detection request failed:', error);
         isProcessingRef.current = false;

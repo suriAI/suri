@@ -28,6 +28,74 @@ interface BackendConfig {
   retryAttempts: number;
 }
 
+interface ModelInfo {
+  name: string;
+  description?: string;
+  version?: string;
+}
+
+interface FaceRecognitionResponse {
+  success: boolean;
+  person_id?: string;
+  similarity?: number;
+  processing_time: number;
+  error?: string;
+}
+
+interface FaceRegistrationResponse {
+  success: boolean;
+  person_id: string;
+  processing_time: number;
+  error?: string;
+  total_persons?: number;
+}
+
+interface RemovalResult {
+  success: boolean;
+  message: string;
+}
+
+interface PersonInfo {
+  person_id: string;
+  embedding_count: number;
+  last_seen?: string;
+}
+
+interface ThresholdResult {
+  success: boolean;
+  message: string;
+  threshold: number;
+}
+
+interface DatabaseStatsResponse {
+  total_persons: number;
+  total_embeddings: number;
+  persons: PersonInfo[];
+}
+
+interface WebSocketMessage {
+  type?: string;
+  message?: string;
+  status?: string;
+  error?: string;
+  timestamp?: number;
+  data?: unknown;
+  // Detection response properties
+  faces?: Array<{
+    bbox?: number[];
+    confidence?: number;
+    landmarks?: number[][];
+    antispoofing?: {
+      is_real?: boolean | null;
+      confidence?: number;
+      status?: 'real' | 'fake' | 'error';
+    };
+  }>;
+  model_used?: string;
+  processing_time?: number;
+  [key: string]: unknown;
+}
+
 export class BackendService {
   private config: BackendConfig;
   private websocket: WebSocket | null = null;
@@ -35,7 +103,7 @@ export class BackendService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // Start with 1 second
-  private messageHandlers: Map<string, (data: any) => void> = new Map();
+  private messageHandlers: Map<string, (data: WebSocketMessage) => void> = new Map();
   private isConnecting = false;
 
   constructor(config?: Partial<BackendConfig>) {
@@ -69,7 +137,7 @@ export class BackendService {
   /**
    * Get available models from the backend
    */
-  async getAvailableModels(): Promise<Record<string, any>> {
+  async getAvailableModels(): Promise<Record<string, ModelInfo>> {
     try {
       const response = await fetch(`${this.config.baseUrl}/models`, {
         method: 'GET',
@@ -232,7 +300,6 @@ export class BackendService {
       confidence_threshold?: number;
       nms_threshold?: number;
       enable_antispoofing?: boolean;
-      antispoofing_threshold?: number;
     } = {}
   ): Promise<void> {
     if (!this.isWebSocketReady()) {
@@ -252,8 +319,7 @@ export class BackendService {
       model_type: options.model_type || 'yunet',
       confidence_threshold: options.confidence_threshold || 0.5,
       nms_threshold: options.nms_threshold || 0.3,
-      enable_antispoofing: options.enable_antispoofing !== undefined ? options.enable_antispoofing : true,
-      antispoofing_threshold: options.antispoofing_threshold || 0.5
+      enable_antispoofing: options.enable_antispoofing !== undefined ? options.enable_antispoofing : true
     };
 
     this.websocket!.send(JSON.stringify(message));
@@ -271,7 +337,7 @@ export class BackendService {
   /**
    * Register message handler for WebSocket responses
    */
-  onMessage(type: string, handler: (data: any) => void): void {
+  onMessage(type: string, handler: (data: WebSocketMessage) => void): void {
     this.messageHandlers.set(type, handler);
   }
 
@@ -343,7 +409,7 @@ export class BackendService {
   async recognizeFace(
     imageData: ImageData | string,
     landmarks?: number[][]
-  ): Promise<any> {
+  ): Promise<FaceRecognitionResponse> {
     try {
       const base64Image = typeof imageData === 'string' 
         ? imageData 
@@ -381,7 +447,7 @@ export class BackendService {
     imageData: ImageData | string,
     personId: string,
     landmarks?: number[][]
-  ): Promise<any> {
+  ): Promise<FaceRegistrationResponse> {
     try {
       const base64Image = typeof imageData === 'string' 
         ? imageData 
@@ -416,7 +482,7 @@ export class BackendService {
   /**
    * Remove a person from the database
    */
-  async removePerson(personId: string): Promise<any> {
+  async removePerson(personId: string): Promise<RemovalResult> {
     try {
       const requestBody = {
         person_id: personId
@@ -445,7 +511,7 @@ export class BackendService {
   /**
    * Get all registered persons
    */
-  async getAllPersons(): Promise<any> {
+  async getAllPersons(): Promise<PersonInfo[]> {
     try {
       const response = await fetch(`${this.config.baseUrl}/face/persons`, {
         method: 'GET',
@@ -466,7 +532,7 @@ export class BackendService {
   /**
    * Set similarity threshold for recognition
    */
-  async setSimilarityThreshold(threshold: number): Promise<any> {
+  async setSimilarityThreshold(threshold: number): Promise<ThresholdResult> {
     try {
       const requestBody = {
         threshold: threshold
@@ -495,7 +561,7 @@ export class BackendService {
   /**
    * Clear the face database
    */
-  async clearDatabase(): Promise<any> {
+  async clearDatabase(): Promise<{ success: boolean; message: string }> {
     try {
       const response = await fetch(`${this.config.baseUrl}/face/clear`, {
         method: 'POST',
@@ -516,7 +582,7 @@ export class BackendService {
   /**
    * Get database statistics
    */
-  async getDatabaseStats(): Promise<any> {
+  async getDatabaseStats(): Promise<DatabaseStatsResponse> {
     try {
       const response = await fetch(`${this.config.baseUrl}/face/stats`, {
         method: 'GET',
@@ -536,12 +602,13 @@ export class BackendService {
 
   // Private methods
 
-  private handleWebSocketMessage(data: any): void {
-    const handler = this.messageHandlers.get(data.type);
+  private handleWebSocketMessage(data: WebSocketMessage): void {
+    const messageType = data.type || 'unknown';
+    const handler = this.messageHandlers.get(messageType);
     if (handler) {
       handler(data);
     } else {
-      console.log('Unhandled WebSocket message:', data.type, data);
+      console.log('Unhandled WebSocket message:', messageType, data);
     }
   }
 
