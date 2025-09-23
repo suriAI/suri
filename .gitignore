@@ -25,6 +25,8 @@ backend/build/
 backend/*.exe
 backend/*.pkg
 backend/*.spec.bak
+backend/*.log
+*.log
 
 # PyInstaller artifacts
 *.toc
