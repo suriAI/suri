@@ -29,6 +29,55 @@ export interface BackendStatus {
   error?: string;
 }
 
+export interface ModelInfo {
+  model_name?: string;
+  model_path: string;
+  input_size: number[] | [number, number];
+  conf_threshold?: number;
+  nms_threshold?: number;
+  top_k?: number;
+  backend_id?: number;
+  target_id?: number;
+  embedding_dimension?: number;
+  similarity_threshold?: number;
+  providers?: string[];
+  description?: string;
+  version?: string;
+  supported_formats?: string[];
+  requires_landmarks?: boolean;
+  landmark_count?: number;
+}
+
+export interface ModelEntry {
+  available: boolean;
+  info?: ModelInfo;
+}
+
+export interface ModelsResponse {
+  models: {
+    yunet?: ModelEntry;
+    antispoofing?: ModelEntry;
+    optimized_antispoofing?: ModelEntry;
+    edgeface?: ModelEntry;
+  };
+}
+
+export interface DetectionOptions {
+  model_type?: string;
+  confidence_threshold?: number;
+  nms_threshold?: number;
+}
+
+export interface DetectionResponse {
+  faces: Array<{
+    bbox: [number, number, number, number];
+    confidence: number;
+    landmarks: number[][];
+  }>;
+  model_used: string;
+  processing_time: number;
+}
+
 export class BackendService {
   private process: ChildProcess | null = null;
   private config: BackendConfig;
@@ -344,7 +393,7 @@ export class BackendService {
   /**
    * Get available models from backend
    */
-  async getModels(): Promise<any> {
+  async getModels(): Promise<ModelsResponse> {
     const response = await fetch(`${this.getUrl()}/models`, {
       method: 'GET',
       signal: AbortSignal.timeout(10000)
@@ -360,7 +409,7 @@ export class BackendService {
   /**
    * Detect faces using backend API
    */
-  async detectFaces(imageBase64: string, options: any = {}): Promise<any> {
+  async detectFaces(imageBase64: string, options: DetectionOptions = {}): Promise<DetectionResponse> {
     const request = {
       image: imageBase64,
       model_type: options.model_type || 'yunet',
