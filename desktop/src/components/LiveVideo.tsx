@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackendService } from '../services/BackendService';
 import type { 
   PersonInfo, 
-  DatabaseStatsResponse,
   FaceRecognitionResponse,
 } from '../types/recognition';
 
@@ -103,7 +102,6 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   // Face recognition settings
   const [recognitionEnabled, setRecognitionEnabled] = useState(true);
   const [registeredPersons, setRegisteredPersons] = useState<PersonInfo[]>([]);
-  const [databaseStats, setDatabaseStats] = useState<DatabaseStatsResponse | null>(null);
 
   const [newPersonId, setNewPersonId] = useState<string>('');
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
@@ -866,8 +864,6 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
         console.warn('⚠️ Backend service not initialized, skipping load database stats');
         return;
       }
-      const stats = await backendServiceRef.current.getDatabaseStats();
-      setDatabaseStats(stats);
     } catch (error) {
       console.error('❌ Failed to load database stats:', error);
     }
@@ -1159,12 +1155,6 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
                 >
                   Clear Database
                 </button>
-
-                {databaseStats && (
-                  <div className="text-sm text-gray-300">
-                    Registered: {databaseStats.total_persons} persons, {databaseStats.total_embeddings} embeddings
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -1231,9 +1221,6 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
           <div className="bg-gray-800 p-4 rounded-lg mt-6">
             <h3 className="text-lg font-semibold mb-3">Latest Detection Results</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div className="text-gray-300">
-                <span className="font-medium">Model:</span> {currentDetections.model_used}
-              </div>
               <div className="text-gray-300">
                 <span className="font-medium">Processing Time:</span> {currentDetections.processing_time.toFixed(3)}s
               </div>
