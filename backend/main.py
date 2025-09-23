@@ -108,15 +108,12 @@ async def startup_event():
     """Initialize models on startup"""
     global yunet_detector, optimized_antispoofing_detector, edgeface_detector
     try:
-        logger.info("Initializing YuNet detector...")
         yunet_detector = YuNetDetector(
             model_path=str(YUNET_MODEL_PATH),
             input_size=list(YUNET_CONFIG["input_size"]),
             conf_threshold=YUNET_CONFIG["score_threshold"],
             nms_threshold=YUNET_CONFIG["nms_threshold"]
         )
-        
-        logger.info("Initializing Optimized Anti-Spoofing detector...")
         optimized_antispoofing_detector = OptimizedAntiSpoofingDetector(
             model_path=str(ANTISPOOFING_MODEL_PATH),
             input_size=ANTISPOOFING_CONFIG["input_size"],
@@ -127,7 +124,6 @@ async def startup_event():
             frame_skip=2
         )
         
-        logger.info("Initializing EdgeFace detector...")
         edgeface_detector = EdgeFaceDetector(
             model_path=str(EDGEFACE_MODEL_PATH),
             input_size=EDGEFACE_CONFIG["input_size"],
@@ -136,7 +132,6 @@ async def startup_event():
             database_path=str(EDGEFACE_CONFIG["database_path"])
         )
         
-        logger.info("All models initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize models: {e}")
         raise
@@ -144,7 +139,6 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    logger.info("Shutting down...")
 
 @app.get("/")
 async def root():
@@ -230,16 +224,9 @@ async def detect_faces(request: DetectionRequest):
     import time
     start_time = time.time()
     
-    logger.info(f"Detection request received:")
-    logger.info(f"  - Model: {request.model_type}")
-    logger.info(f"  - Anti-spoofing enabled: {request.enable_antispoofing}")
-    logger.info(f"  - Anti-spoofing threshold: {ANTISPOOFING_CONFIG['threshold']}")
-    logger.info(f"  - Image size: {len(request.image)} chars")
-    
     try:
         # Decode base64 image
         image = decode_base64_image(request.image)
-        logger.info(f"Image decoded successfully: {image.shape}")
         
         # Select detector based on model type
         if request.model_type == "yunet":
@@ -252,21 +239,17 @@ async def detect_faces(request: DetectionRequest):
             
             # Perform face detection
             faces = await yunet_detector.detect_async(image)
-            logger.info(f"YuNet detected {len(faces)} faces")
             
             # Apply anti-spoofing if enabled and faces detected
             if request.enable_antispoofing and faces and optimized_antispoofing_detector:
-                logger.info(f"Starting optimized anti-spoofing processing for {len(faces)} faces")
                 optimized_antispoofing_detector.set_threshold(ANTISPOOFING_CONFIG['threshold'])
                 
                 try:
                     # Use the optimized batch processing method
                     antispoofing_results = await optimized_antispoofing_detector.detect_faces_async(image, faces)
-                    logger.info(f"Optimized anti-spoofing completed for {len(antispoofing_results)} faces")
                     
                     # Add anti-spoofing results to each face
                     for i, (face, result) in enumerate(zip(faces, antispoofing_results)):
-                        logger.info(f"Face {i+1} anti-spoofing result: {result}")
                         
                         # The result contains antispoofing data nested under 'antispoofing' key
                         antispoofing_data = result.get('antispoofing', {})
@@ -283,7 +266,6 @@ async def detect_faces(request: DetectionRequest):
                             'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
                             'status': 'real' if is_real_value else 'fake'
                         }
-                        logger.info(f"Added antispoofing data to face {i+1}: {face['antispoofing']}")
                         
                 except Exception as e:
                     logger.error(f"Anti-spoofing processing failed: {e}")
@@ -295,14 +277,7 @@ async def detect_faces(request: DetectionRequest):
             raise HTTPException(status_code=400, detail=f"Unsupported model type: {request.model_type}")
         
         processing_time = time.time() - start_time
-        logger.info(f"Detection completed in {processing_time:.3f}s, returning {len(faces)} faces")
-        
-        # Log final face data for debugging
-        for i, face in enumerate(faces):
-            has_antispoofing = 'antispoofing' in face
-            logger.info(f"Face {i+1} response: has_antispoofing={has_antispoofing}")
-            if has_antispoofing:
-                logger.info(f"Face {i+1} antispoofing: {face['antispoofing']}")
+
         
         return DetectionResponse(
             success=True,
@@ -409,17 +384,12 @@ async def recognize_face(request: FaceRecognitionRequest):
     import time
     start_time = time.time()
     
-    logger.info(f"Face recognition request received")
-    logger.info(f"  - Landmarks count: {len(request.landmarks)}")
-    logger.info(f"  - Image size: {len(request.image)} chars")
-    
     try:
         if not edgeface_detector:
             raise HTTPException(status_code=500, detail="EdgeFace detector not available")
         
         # Decode base64 image
         image = decode_base64_image(request.image)
-        logger.info(f"Image decoded successfully: {image.shape}")
         
         # Perform face recognition
         result = await edgeface_detector.recognize_face_async(image, request.landmarks)
@@ -453,18 +423,12 @@ async def register_person(request: FaceRegistrationRequest):
     import time
     start_time = time.time()
     
-    logger.info(f"Person registration request received")
-    logger.info(f"  - Person ID: {request.person_id}")
-    logger.info(f"  - Landmarks count: {len(request.landmarks)}")
-    logger.info(f"  - Image size: {len(request.image)} chars")
-    
     try:
         if not edgeface_detector:
             raise HTTPException(status_code=500, detail="EdgeFace detector not available")
         
         # Decode base64 image
         image = decode_base64_image(request.image)
-        logger.info(f"Image decoded successfully: {image.shape}")
         
         # Register person
         result = await edgeface_detector.register_person_async(
@@ -670,7 +634,6 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                                         'fake_score': float(antispoofing_data.get('fake_score', 0.5)),
                                         'status': 'real' if antispoofing_data.get('is_real', True) else 'fake'
                                     }
-                                    logger.info(f"Added antispoofing data to face {i}: {face['antispoofing']}")
                                 else:
                                     # Fallback if no anti-spoofing result for this face
                                     face['antispoofing'] = {
@@ -720,7 +683,6 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                 
     except WebSocketDisconnect:
         manager.disconnect(client_id)
-        logger.info(f"WebSocket client disconnected: {session_id}")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(client_id)
