@@ -19,7 +19,7 @@ interface DetectionResult {
 }
 
 interface LiveCameraRecognitionProps {
-  onMenuSelect: (menu: 'live-camera' | 'system-management' | 'backend-test' | 'live-video') => void;
+  onMenuSelect: (menu: 'live-camera' | 'system-management' | 'live-video') => void;
 }
 
 export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecognitionProps) {
@@ -1553,17 +1553,6 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   <span className="text-sm font-light tracking-wider uppercase">Settings</span>
-                </button>
-                
-                {/* Backend Test Button */}
-                <button
-                  onClick={() => onMenuSelect('backend-test')}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 backdrop-blur-xl border border-blue-500/30 text-blue-200 hover:text-blue-100 rounded-xl font-light transition-all duration-300"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3V6a3 3 0 013-3h13.5a3 3 0 013 3v5.25a3 3 0 01-3 3m-13.5 0h13.5m-13.5 0v5.25A2.25 2.25 0 007.5 21.75h9a2.25 2.25 0 002.25-2.25v-5.25m0 0A2.25 2.25 0 0021 12v-1.5a2.25 2.25 0 00-2.25-2.25H15.75" />
-                  </svg>
-                  <span className="text-sm font-light tracking-wider uppercase">Backend Test</span>
                 </button>
                 
                 {/* Live Video Button */}
