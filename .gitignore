@@ -19,6 +19,10 @@ desktop/dist/
 desktop/dist-electron/
 desktop/dist-react/
 
+# Backend
+backend/dist/
+backend/build/
+
 # IDE
 .vscode/
 .idea/
