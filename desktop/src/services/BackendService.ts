@@ -114,8 +114,8 @@ export class BackendService {
 
   constructor(config?: Partial<BackendConfig>) {
     this.config = {
-      baseUrl: 'http://127.0.0.1:8001',
-      wsUrl: 'ws://127.0.0.1:8001',
+      baseUrl: 'http://127.0.0.1:8700',
+    wsUrl: 'ws://127.0.0.1:8700',
       timeout: 30000,
       retryAttempts: 3,
       ...config

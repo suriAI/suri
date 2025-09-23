@@ -28,7 +28,7 @@ WEIGHTS_DIR = get_weights_dir()
 # Server configuration
 SERVER_CONFIG = {
     "host": "127.0.0.1",
-    "port": 8001,
+    "port": 8700,  # 🍔 Jollibee port for easy remembering!
     "reload": False,  # Disabled to prevent log file reload loops
     "log_level": "info",
     "workers": 1,  # Single worker for development
@@ -204,7 +204,7 @@ def get_config() -> Dict[str, Any]:
         config["logging"]["handlers"]["console"]["level"] = "WARNING"
     
     elif env == "testing":
-        config["server"]["port"] = 8001
+        config["server"]["port"] = 8700  # 🍔 Consistent Jollibee port for testing too!
         config["models"]["yunet"]["score_threshold"] = 0.5
     
     # Override with environment variables

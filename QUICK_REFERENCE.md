@@ -58,7 +58,7 @@ pnpm electron-pack     # Test packaging without distribution
 ## 🔧 Configuration
 
 ### Backend Ports
-- **Development**: 8000 (configurable in `run.py`)
+- **Development**: 8700 (configurable in `run.py`)
 - **Production**: Dynamic allocation by `backendService.ts`
 
 ### Build Outputs
@@ -77,7 +77,7 @@ process.env.NODE_ENV    // 'development' or 'production'
 ### Backend Won't Start
 1. Check Python dependencies: `pip install -r requirements.txt`
 2. Verify model files exist in `desktop/public/weights/`
-3. Check port availability: `netstat -an | grep 8000`
+3. Check port availability: `netstat -an | grep 8700`
 
 ### Build Fails
 1. Clean build artifacts: `rm -rf backend/dist desktop/dist`
@@ -108,7 +108,7 @@ cd desktop
 pnpm electron . --enable-logging
 
 # Backend health check
-curl http://localhost:8000/health
+curl http://localhost:8700/health
 ```
 
 ## 📱 Platform Notes
