@@ -1051,235 +1051,289 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   }, [recognitionEnabled, backendServiceReady, loadRegisteredPersons, loadDatabaseStats]);
 
   return (
-    <div className="p-6 bg-gray-900 min-h-screen text-white">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Live Video Detection</h1>
-          <div className="flex items-center space-x-3">
+    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
+        <h1 className="text-xl font-light">Live Video Detection</h1>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="text-sm font-light tracking-wider uppercase">Settings</span>
+          </button>
+          {onBack && (
             <button
-              onClick={() => setShowSettings(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
+              onClick={onBack}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-sm font-light tracking-wider uppercase">Settings</span>
+              ← Back
             </button>
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-              >
-                ← Back
-              </button>
-            )}
+          )}
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mx-4 mt-3 bg-red-900 border border-red-600 p-3 rounded text-red-200">
+          {error}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main Video Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Video Container */}
+          <div className="flex-1 p-4 flex items-center justify-center bg-white/[0.01]">
+            <div className="relative max-w-full max-h-full">
+              <video
+                ref={videoRef}
+                className="max-w-full max-h-full object-contain rounded border border-white/[0.1]"
+                playsInline
+                muted
+              />
+              <canvas
+                ref={overlayCanvasRef}
+                className="absolute top-0 left-0 pointer-events-none"
+                style={{
+                  width: '100%',
+                  height: '100%'
+                }}
+              />
+              
+              {/* Hidden canvas for frame capture */}
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+          </div>
+
+          {/* Controls Bar */}
+          <div className="px-4 pt-2 pb-2">
+            <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4 flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    isStreaming ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+                  <span className="text-sm text-white/60">
+                    Camera: {isStreaming ? 'Active' : 'Stopped'}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    websocketStatus === 'connected' ? 'bg-green-500' : 
+                    websocketStatus === 'connecting' ? 'bg-orange-500 animate-pulse' :
+                    'bg-white/40'
+                  }`}></div>
+                  <span className="text-sm text-white/60">
+                    WebSocket: {websocketStatus === 'connected' ? 'Connected' : 
+                               websocketStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                  </span>
+                </div>
+
+                <div className="text-sm text-white/60">
+                  FPS: {detectionFps}
+                </div>
+                
+                {/* Camera Selection */}
+                {cameraDevices.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-white/60">Camera:</span>
+                    <select
+                      value={selectedCamera}
+                      onChange={(e) => setSelectedCamera(e.target.value)}
+                      disabled={isStreaming || cameraDevices.length <= 1}
+                      className="bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-2 py-1 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                    >
+                      {cameraDevices.map((device, index) => (
+                        <option key={device.deviceId} value={device.deviceId} className="bg-black text-white">
+                          {device.label || `Camera ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={isStreaming ? stopCamera : startCamera}
+                  className={`px-4 py-2 rounded font-medium transition-colors duration-150 ${
+                    isStreaming
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {isStreaming ? 'Stop' : 'Start Detection'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="bg-gray-800 p-4 rounded-lg mb-6">
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            {/* Camera Selection */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Camera:</label>
-              <select
-                value={selectedCamera}
-                onChange={(e) => setSelectedCamera(e.target.value)}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-sm"
-                disabled={isStreaming}
-              >
-                {cameraDevices.map(device => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label || `Camera ${device.deviceId.slice(0, 8)}`}
-                  </option>
-                ))}
-              </select>
+        {/* Sidebar */}
+        <div className="sidebar w-80 my-3 bg-white/[0.02] border-l border-white/[0.08] flex flex-col max-h-full overflow-hidden">
+          {/* System Status */}
+          <div className="px-4 pt-2 pb-4 border-b border-white/[0.08]">
+            <h3 className="text-lg font-light mb-3">System Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-white/60">Detection Status</span>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    detectionEnabled ? 'bg-green-500' : 'bg-white/40'
+                  }`}></div>
+                  <span className="text-xs font-light tracking-wider uppercase text-white">
+                    {detectionEnabled ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/60">Faces Detected</span>
+                <span className="font-mono">{currentDetections?.faces?.length || 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/60">Registered Persons</span>
+                <span className="font-mono">{registeredPersons.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/60">Processing Time</span>
+                <span className="font-mono">{currentDetections?.processing_time?.toFixed(1) || 0}ms</span>
+              </div>
             </div>
-
-            {/* Camera Controls */}
-            <button
-              onClick={isStreaming ? stopCamera : startCamera}
-              className={`px-4 py-2 rounded transition-colors ${
-                isStreaming 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-green-600 hover:bg-green-700'
-              }`}
-            >
-              {isStreaming ? 'Stop Camera & Detection' : 'Start Camera & Detection'}
-            </button>
           </div>
 
-          {/* Anti-spoofing Controls */}
-          <div className="flex flex-wrap items-center gap-4 mb-4 pt-4 border-t border-gray-700">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Anti-Spoofing:</label>
-              <button
-                onClick={() => setAntispoofingEnabled(!antispoofingEnabled)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
-                  antispoofingEnabled
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-gray-600 hover:bg-gray-700'
-                }`}
-              >
-                {antispoofingEnabled ? 'Enabled' : 'Disabled'}
-              </button>
+          {/* Detection Settings */}
+          <div className="px-4 py-4 border-b border-white/[0.08]">
+            <h3 className="text-lg font-light mb-3">Detection Settings</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-white/60">Anti-Spoofing</span>
+                <button
+                  onClick={() => setAntispoofingEnabled(!antispoofingEnabled)}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors duration-150 ${
+                    antispoofingEnabled
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white/[0.05] text-white/70 hover:bg-white/[0.08] border border-white/[0.1]'
+                  }`}
+                >
+                  {antispoofingEnabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/60">Face Recognition</span>
+                <button
+                  onClick={() => setRecognitionEnabled(!recognitionEnabled)}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors duration-150 ${
+                    recognitionEnabled
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white/[0.05] text-white/70 hover:bg-white/[0.08] border border-white/[0.1]'
+                  }`}
+                >
+                  {recognitionEnabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
             </div>
-
-
           </div>
 
-          {/* Face Recognition Controls */}
-          <div className="flex flex-wrap items-center gap-4 mb-4 pt-4 border-t border-gray-700">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Face Recognition:</label>
-              <button
-                onClick={() => setRecognitionEnabled(!recognitionEnabled)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
-                  recognitionEnabled
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-gray-600 hover:bg-gray-700'
-                }`}
-              >
-                {recognitionEnabled ? 'Enabled' : 'Disabled'}
-              </button>
-            </div>
-
-            {recognitionEnabled && (
-              <>
-
-
+          {/* Recognition Controls */}
+          {recognitionEnabled && (
+            <div className="px-4 py-4 border-b border-white/[0.08]">
+              <h3 className="text-lg font-light mb-3">Recognition Controls</h3>
+              <div className="space-y-2">
                 <button
                   onClick={() => setShowRegistrationDialog(true)}
                   disabled={!currentDetections?.faces?.length}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded text-sm transition-colors"
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 disabled:bg-white/[0.05] disabled:text-white/40 backdrop-blur-xl border border-green-500/30 text-green-200 hover:text-green-100 rounded-xl font-light transition-all duration-300"
                 >
-                  Register Face
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  <span className="text-sm font-light tracking-wider uppercase">Register Face</span>
                 </button>
-
+                
                 <button
                   onClick={handleClearDatabase}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 backdrop-blur-xl border border-red-500/30 text-red-200 hover:text-red-100 rounded-xl font-light transition-all duration-300"
                 >
-                  Clear Database
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  <span className="text-sm font-light tracking-wider uppercase">Clear Database</span>
                 </button>
-              </>
-            )}
-          </div>
-
-          {/* Status */}
-          <div className="flex flex-wrap items-center gap-6 text-sm">
-            <div className={`px-2 py-1 rounded ${isStreaming ? 'bg-green-600' : 'bg-gray-600'}`}>
-              Camera: {isStreaming ? 'Active' : 'Inactive'}
-            </div>
-            <div className={`px-2 py-1 rounded ${detectionEnabled ? 'bg-orange-600' : 'bg-gray-600'}`}>
-              Detection: {detectionEnabled ? 'Active' : 'Inactive'}
-            </div>
-            <div className={`px-2 py-1 rounded ${websocketStatus === 'connected' ? 'bg-blue-600' : websocketStatus === 'connecting' ? 'bg-yellow-600' : 'bg-gray-600'}`}>
-              WebSocket: {websocketStatus === 'connected' ? 'Connected' : websocketStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-            </div>
-            <div className={`px-2 py-1 rounded ${antispoofingEnabled ? 'bg-purple-600' : 'bg-gray-600'}`}>
-              Anti-Spoofing: {antispoofingEnabled ? 'Enabled' : 'Disabled'}
-            </div>
-            <div className={`px-2 py-1 rounded ${recognitionEnabled ? 'bg-indigo-600' : 'bg-gray-600'}`}>
-              Recognition: {recognitionEnabled ? 'Enabled' : 'Disabled'}
-            </div>
-            <div className="text-gray-300">Detection FPS: {detectionFps}</div>
-            {currentDetections && (
-              <div className="text-gray-300">
-                Faces: {currentDetections.faces.length}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-900 border border-red-600 p-3 rounded mb-6 text-red-200">
-            {error}
-          </div>
-        )}
-
-        {/* Video Display */}
-        <div className="bg-gray-800 p-4 rounded-lg">
-          <div className="relative inline-block">
-            <video
-              ref={videoRef}
-              className="max-w-full h-auto rounded border border-gray-600"
-              playsInline
-              muted
-            />
-            <canvas
-              ref={overlayCanvasRef}
-              className="absolute top-0 left-0 pointer-events-none"
-              style={{
-                width: '100%',
-                height: '100%'
-              }}
-            />
-          </div>
-          
-          {/* Hidden canvas for frame capture */}
-          <canvas ref={canvasRef} className="hidden" />
-        </div>
-
-        {/* Detection Info */}
-        {currentDetections && (
-          <div className="bg-gray-800 p-4 rounded-lg mt-6">
-            <h3 className="text-lg font-semibold mb-3">Latest Detection Results</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div className="text-gray-300">
-                <span className="font-medium">Processing Time:</span> {currentDetections.processing_time.toFixed(3)}s
-              </div>
-              <div className="text-gray-300">
-                <span className="font-medium">Faces Detected:</span> {currentDetections.faces.length}
               </div>
             </div>
-            
-            {currentDetections.faces.map((face, index) => {
-              const recognitionResult = currentRecognitionResults.get(index);
-              const isRecognized = recognitionEnabled && recognitionResult?.person_id;
-              
-              return (
-                <div key={index} className="bg-gray-700 p-3 rounded mt-3">
-                  <div className="text-white font-medium">
-                     Face {index + 1}
-                     {isRecognized && recognitionResult?.person_id && (
-                       <span className="ml-2 text-green-400">
-                         - {recognitionResult.person_id.toUpperCase()}
-                       </span>
-                     )}
-                   </div>
-                  <div className="text-gray-300 text-xs mt-1 space-y-1">
-                    <div>Detection Confidence: {(face.confidence * 100).toFixed(1)}%</div>
-                    {isRecognized && (
-                      <div className="text-green-300">
-                        Similarity: {recognitionResult.similarity ? (recognitionResult.similarity * 100).toFixed(1) : 'N/A'}%
-                      </div>
-                    )}
-                    {face.antispoofing && (
-                      <div className={`${
-                        face.antispoofing.status === 'real' ? 'text-green-300' : 
-                        face.antispoofing.status === 'fake' ? 'text-red-300' : 'text-yellow-300'
-                      }`}>
-                        Anti-spoofing: {face.antispoofing.status.toUpperCase()} ({(face.antispoofing.confidence * 100).toFixed(1)}%)
-                      </div>
-                    )}
-                    {!recognitionEnabled && (
-                      <div className="text-yellow-300">Recognition: DISABLED</div>
-                    )}
-                    <div>
-                      BBox: [{face.bbox.x.toFixed(0)}, {face.bbox.y.toFixed(0)}, {face.bbox.width.toFixed(0)}, {face.bbox.height.toFixed(0)}]
-                    </div>
-                  </div>
+          )}
+
+          {/* Live Detections */}
+           <div className="p-4 border-b border-white/[0.08]">
+             <h3 className="text-lg font-light mb-4">Live Detections</h3>
+             <div className="space-y-2 h-32 overflow-y-auto recent-logs-scroll">
+              {!currentDetections?.faces?.length ? (
+                <div className="text-white/50 text-sm text-center py-4">
+                  No faces detected
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ) : (
+                currentDetections.faces.map((face, index) => {
+                  const recognitionResult = currentRecognitionResults.get(index);
+                  const isRecognized = recognitionEnabled && recognitionResult?.person_id;
+                  
+                  return (
+                    <div key={index} className="bg-white/[0.05] border border-white/[0.08] rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-medium">
+                            {isRecognized && recognitionResult?.person_id ? 
+                              recognitionResult.person_id.toUpperCase() : 
+                              `Face ${index + 1}`
+                            }
+                          </div>
+                          <div className="text-xs text-white/60">
+                            Confidence: {(face.confidence * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {isRecognized && recognitionResult?.similarity && (
+                            <div className="text-xs text-green-300">
+                              {(recognitionResult.similarity * 100).toFixed(1)}% match
+                            </div>
+                          )}
+                          {face.antispoofing && (
+                            <div className={`text-xs px-2 py-1 rounded mt-1 ${
+                              face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' : 
+                              face.antispoofing.status === 'fake' ? 'bg-red-900 text-red-300' : 
+                              'bg-yellow-900 text-yellow-300'
+                            }`}>
+                              {face.antispoofing.status === 'real' ? '✓ Live' : 
+                               face.antispoofing.status === 'fake' ? '⚠ Spoof' : '? Unknown'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+               )}
+             </div>
+           </div>
 
-        {/* Face Registration Dialog */}
+           {/* Recent Logs */}
+           <div className="flex-1 p-4 min-h-0 h-full">
+             <h3 className="text-lg font-light mb-4">Recent Logs</h3>
+             <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
+               <div className="text-white/50 text-sm text-center py-4">
+                 No logs yet
+               </div>
+             </div>
+           </div>
+         </div>
+
+       {/* Face Registration Dialog */}
         {showRegistrationDialog && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
@@ -1353,6 +1407,17 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
                   className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
                 >
                   Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (currentDetections?.faces && currentDetections.faces.length > 0) {
+                      handleRegisterFace(0);
+                    }
+                  }}
+                  disabled={!newPersonId.trim() || !currentDetections?.faces?.length}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded transition-colors"
+                >
+                  Register
                 </button>
               </div>
             </div>
