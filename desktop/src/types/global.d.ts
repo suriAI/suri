@@ -31,7 +31,14 @@ declare global {
 
   interface BackendAPI {
     checkAvailability: () => Promise<{ available: boolean; status?: number; error?: string }>
-    getModels: () => Promise<Record<string, any>>
+    getModels: () => Promise<Record<string, {
+      name: string;
+      type: string;
+      version: string;
+      loaded: boolean;
+      size?: number;
+      accuracy?: number;
+    }>>
     detectFaces: (imageBase64: string, options?: {
       model_type?: string;
       confidence_threshold?: number;

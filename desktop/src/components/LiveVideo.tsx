@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackendService } from '../services/BackendService';
 import { Settings } from './Settings';
+import { attendanceManager } from '../services/AttendanceManager';
+import { AttendanceDashboard } from './AttendanceDashboard';
 import type { 
   PersonInfo, 
   FaceRecognitionResponse,
+  AttendanceGroup,
+  AttendanceMember,
+  AttendanceStats,
+  AttendanceRecord,
+  GroupType
 } from '../types/recognition';
 
 interface DetectionResult {
@@ -33,7 +40,7 @@ interface DetectionResult {
 }
 
 interface LiveVideoProps {
-  onBack?: () => void;
+  onBack?: (menu?: string) => void;
 }
 
 interface WebSocketFaceData {
@@ -113,6 +120,24 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
   // Settings view state
   const [showSettings, setShowSettings] = useState(false);
 
+  // Attendance system state
+  const [attendanceEnabled, setAttendanceEnabled] = useState(false);
+  const [currentGroup, setCurrentGroup] = useState<AttendanceGroup | null>(null);
+  const [attendanceGroups, setAttendanceGroups] = useState<AttendanceGroup[]>([]);
+  const [groupMembers, setGroupMembers] = useState<AttendanceMember[]>([]);
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
+  const [showGroupManagement, setShowGroupManagement] = useState(false);
+  const [showMemberManagement, setShowMemberManagement] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupType, setNewGroupType] = useState<GroupType>('general');
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('');
+  const [newMemberEmployeeId, setNewMemberEmployeeId] = useState('');
+  const [newMemberStudentId, setNewMemberStudentId] = useState('');
+  const [selectedPersonForMember, setSelectedPersonForMember] = useState<string>('');
+  const [showAttendanceDashboard, setShowAttendanceDashboard] = useState(false);
+
   // Optimized capture frame with reduced logging
   const captureFrame = useCallback((): string | null => {
     const video = videoRef.current;
@@ -174,6 +199,27 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
 
           if (response.success && response.person_id) {
             console.log(`🎯 Face ${index} recognized as: ${response.person_id} (${((response.similarity || 0) * 100).toFixed(1)}%)`);
+            
+            // Process attendance if enabled and person is a member of current group
+            if (attendanceEnabled && currentGroup && response.person_id) {
+              const member = attendanceManager.getMember(response.person_id);
+              if (member && member.group_id === currentGroup.id) {
+                try {
+                  const attendanceEvent = await attendanceManager.processAttendanceEvent(
+                    response.person_id,
+                    response.similarity || 0
+                  );
+                  if (attendanceEvent) {
+                    console.log(`📋 Attendance recorded: ${response.person_id} - ${attendanceEvent.type}`);
+                    // Refresh attendance data
+                    loadAttendanceData();
+                  }
+                } catch (error) {
+                  console.error('❌ Failed to process attendance:', error);
+                }
+              }
+            }
+            
             return { index, result: response };
           } else if (response.success) {
             console.log(`👤 Face ${index} not recognized (similarity: ${((response.similarity || 0) * 100).toFixed(1)}%)`);
@@ -205,6 +251,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
     } catch (error) {
       console.error('❌ Face recognition processing failed:', error);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [captureFrame, currentRecognitionResults]);
 
   // Initialize WebSocket connection
@@ -925,6 +972,137 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
     }
   }, [loadRegisteredPersons, loadDatabaseStats]);
 
+  // Attendance Management Functions
+  const loadAttendanceData = useCallback(async () => {
+    try {
+      const groups = attendanceManager.getGroups();
+      setAttendanceGroups(groups);
+      
+      if (currentGroup) {
+        const members = attendanceManager.getGroupMembers(currentGroup.id);
+        setGroupMembers(members);
+        
+        const stats = attendanceManager.getGroupStats(currentGroup.id);
+        setAttendanceStats(stats);
+        
+        // Load recent attendance records (last 50)
+        const allRecords = attendanceManager['records'] || [];
+        const groupRecords = allRecords
+          .filter(record => record.group_id === currentGroup.id)
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+          .slice(0, 50);
+        setRecentAttendance(groupRecords);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load attendance data:', error);
+    }
+  }, [currentGroup]);
+
+  const handleCreateGroup = useCallback(async () => {
+    if (!newGroupName.trim()) return;
+    
+    try {
+      const group = attendanceManager.createGroup(newGroupName.trim(), newGroupType);
+      setNewGroupName('');
+      setNewGroupType('general');
+      setShowGroupManagement(false);
+      await loadAttendanceData();
+      
+      // Auto-select the new group if no group is currently selected
+      if (!currentGroup) {
+        setCurrentGroup(group);
+      }
+      
+      console.log('✅ Group created successfully:', group.name);
+    } catch (error) {
+      console.error('❌ Failed to create group:', error);
+      setError('Failed to create group');
+    }
+  }, [newGroupName, newGroupType, currentGroup, loadAttendanceData]);
+
+  const handleSelectGroup = useCallback(async (group: AttendanceGroup) => {
+    setCurrentGroup(group);
+    await loadAttendanceData();
+  }, [loadAttendanceData]);
+
+  const handleAddMember = useCallback(async () => {
+    if (!selectedPersonForMember || !newMemberName.trim() || !currentGroup) return;
+    
+    try {
+      const options: {
+        role?: string;
+        employee_id?: string;
+        student_id?: string;
+      } = {};
+      
+      if (newMemberRole.trim()) options.role = newMemberRole.trim();
+      if (newMemberEmployeeId.trim()) options.employee_id = newMemberEmployeeId.trim();
+      if (newMemberStudentId.trim()) options.student_id = newMemberStudentId.trim();
+      
+      attendanceManager.addMember(
+        selectedPersonForMember,
+        currentGroup.id,
+        newMemberName.trim(),
+        options
+      );
+      
+      // Reset form
+      setSelectedPersonForMember('');
+      setNewMemberName('');
+      setNewMemberRole('');
+      setNewMemberEmployeeId('');
+      setNewMemberStudentId('');
+      setShowMemberManagement(false);
+      
+      await loadAttendanceData();
+      console.log('✅ Member added successfully');
+    } catch (error) {
+      console.error('❌ Failed to add member:', error);
+      setError('Failed to add member');
+    }
+  }, [selectedPersonForMember, newMemberName, newMemberRole, newMemberEmployeeId, newMemberStudentId, currentGroup, loadAttendanceData]);
+
+  const handleRemoveMember = useCallback(async (personId: string) => {
+    try {
+      attendanceManager.removeMember(personId);
+      await loadAttendanceData();
+      console.log('✅ Member removed successfully');
+    } catch (error) {
+      console.error('❌ Failed to remove member:', error);
+      setError('Failed to remove member');
+    }
+  }, [loadAttendanceData]);
+
+  const handleToggleAttendance = useCallback(() => {
+    setAttendanceEnabled(!attendanceEnabled);
+    if (!attendanceEnabled && attendanceGroups.length === 0) {
+      // Auto-create a default group if none exists
+      const defaultGroup = attendanceManager.createGroup('Default Group', 'general');
+      setCurrentGroup(defaultGroup);
+      loadAttendanceData();
+    }
+  }, [attendanceEnabled, attendanceGroups.length, loadAttendanceData]);
+
+  const formatAttendanceType = (type: string): string => {
+    switch (type) {
+      case 'check_in': return 'Check In';
+      case 'check_out': return 'Check Out';
+      case 'break_start': return 'Break Start';
+      case 'break_end': return 'Break End';
+      default: return type;
+    }
+  };
+
+  const getGroupTypeIcon = (type: GroupType): string => {
+    switch (type) {
+      case 'employee': return '👔';
+      case 'student': return '🎓';
+      case 'visitor': return '👤';
+      case 'general': return '👥';
+      default: return '👥';
+    }
+  };
+
   const handleClearDatabase = useCallback(async () => {
     try {
       if (!backendServiceRef.current) {
@@ -1041,12 +1219,50 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
     }
   }, [recognitionEnabled, backendServiceReady, loadRegisteredPersons, loadDatabaseStats]);
 
+  // Load attendance data when component mounts
+  useEffect(() => {
+    loadAttendanceData();
+  }, [loadAttendanceData]);
+
+  // Load attendance data when attendance is enabled or current group changes
+  useEffect(() => {
+    if (attendanceEnabled) {
+      loadAttendanceData();
+    }
+  }, [attendanceEnabled, currentGroup, loadAttendanceData]);
+
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <h1 className="text-xl font-light">Live Video Detection</h1>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={handleToggleAttendance}
+            className={`flex items-center space-x-2 px-4 py-2 backdrop-blur-xl border rounded-xl font-light transition-all duration-300 ${
+              attendanceEnabled 
+                ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/30 text-blue-300 hover:text-blue-200'
+                : 'bg-white/[0.03] hover:bg-white/[0.08] border-white/[0.08] text-white/80 hover:text-white'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c0 .621-.504 1.125-1.125 1.125H18a2.25 2.25 0 01-2.25-2.25V9.375c0-.621.504-1.125 1.125-1.125H20.25a2.25 2.25 0 012.25 2.25v.75m-6 0V9.375c0-.621-.504-1.125-1.125-1.125H9.375c-.621 0-1.125.504-1.125 1.125v3.75m6 0V20.25" />
+            </svg>
+            <span className="text-sm font-light tracking-wider uppercase">
+              {attendanceEnabled ? 'Attendance ON' : 'Attendance OFF'}
+            </span>
+          </button>
+          {onBack && (
+            <button
+              onClick={() => onBack('advanced-recognition')}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600/20 to-blue-600/20 hover:from-purple-600/30 hover:to-blue-600/30 backdrop-blur-xl border border-purple-500/30 text-purple-200 hover:text-purple-100 rounded-xl font-light transition-all duration-300"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+              </svg>
+              <span className="text-sm font-light tracking-wider uppercase">Advanced Recognition</span>
+            </button>
+          )}
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center space-x-2 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
@@ -1059,7 +1275,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
           </button>
           {onBack && (
             <button
-              onClick={onBack}
+              onClick={() => onBack()}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
             >
               ← Back
@@ -1196,6 +1412,41 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
                 <span className="text-white/60">Processing Time</span>
                 <span className="font-mono">{currentDetections?.processing_time?.toFixed(1) || 0}ms</span>
               </div>
+              
+              {/* Attendance Status */}
+              {attendanceEnabled && (
+                <>
+                  <div className="border-t border-white/[0.08] pt-3 mt-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white/60">Attendance</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <span className="text-xs font-light tracking-wider uppercase text-blue-300">Active</span>
+                      </div>
+                    </div>
+                    {currentGroup && (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/60">Current Group</span>
+                          <span className="text-sm">{getGroupTypeIcon(currentGroup.type)} {currentGroup.name}</span>
+                        </div>
+                        {attendanceStats && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-white/60">Present Today</span>
+                              <span className="font-mono text-green-400">{attendanceStats.present_today}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-white/60">Total Members</span>
+                              <span className="font-mono">{attendanceStats.total_members}</span>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1313,14 +1564,175 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
              </div>
            </div>
 
-           {/* Recent Logs */}
+           {/* Attendance Management or Recent Logs */}
            <div className="flex-1 p-4 min-h-0 h-full">
-             <h3 className="text-lg font-light mb-4">Recent Logs</h3>
-             <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
-               <div className="text-white/50 text-sm text-center py-4">
-                 No logs yet
-               </div>
-             </div>
+             {attendanceEnabled ? (
+               <>
+                 <div className="flex items-center justify-between mb-4">
+                   <h3 className="text-lg font-light">Attendance Management</h3>
+                   <div className="flex space-x-2">
+                     <button
+                       onClick={() => setShowAttendanceDashboard(true)}
+                       className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded text-xs transition-colors"
+                     >
+                       Dashboard
+                     </button>
+                     <button
+                       onClick={() => setShowGroupManagement(true)}
+                       className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded text-xs transition-colors"
+                     >
+                       Groups
+                     </button>
+                     {currentGroup && (
+                       <button
+                         onClick={() => setShowMemberManagement(true)}
+                         className="px-3 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded text-xs transition-colors"
+                       >
+                         Members
+                       </button>
+                     )}
+                   </div>
+                 </div>
+
+                 <div className="space-y-4 h-full overflow-y-auto">
+                   {/* Group Selection */}
+                   {attendanceGroups.length > 0 && (
+                     <div>
+                       <label className="block text-sm font-medium mb-2 text-white/80">Active Group:</label>
+                       <select
+                         value={currentGroup?.id || ''}
+                         onChange={(e) => {
+                           const group = attendanceGroups.find(g => g.id === e.target.value);
+                           if (group) handleSelectGroup(group);
+                         }}
+                         className="w-full bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                       >
+                         <option value="">Select a group...</option>
+                         {attendanceGroups.map(group => (
+                           <option key={group.id} value={group.id} className="bg-black text-white">
+                             {getGroupTypeIcon(group.type)} {group.name}
+                           </option>
+                         ))}
+                       </select>
+                     </div>
+                   )}
+
+                   {/* Group Members */}
+                   {currentGroup && groupMembers.length > 0 && (
+                     <div>
+                       <h4 className="text-sm font-medium mb-2 text-white/80">Members ({groupMembers.length}):</h4>
+                       <div className="space-y-2 max-h-40 overflow-y-auto">
+                         {groupMembers.map(member => {
+                           const today = new Date().toISOString().split('T')[0];
+                           const sessionKey = `${member.person_id}_${today}`;
+                           const session = attendanceManager['sessions']?.get(sessionKey);
+                           
+                           return (
+                             <div key={member.person_id} className="bg-white/[0.03] border border-white/[0.08] rounded p-2">
+                               <div className="flex justify-between items-start">
+                                 <div className="flex-1">
+                                   <div className="font-medium text-sm">{member.name}</div>
+                                   <div className="text-xs text-white/60">
+                                     {member.role && `${member.role} • `}
+                                     {member.employee_id && `ID: ${member.employee_id}`}
+                                     {member.student_id && `Student: ${member.student_id}`}
+                                   </div>
+                                   {session && (
+                                     <div className="text-xs mt-1">
+                                       <span className={`px-2 py-1 rounded text-xs ${
+                                         session.status === 'present' ? 'bg-green-600/20 text-green-300' :
+                                         session.status === 'late' ? 'bg-yellow-600/20 text-yellow-300' :
+                                         session.status === 'on_break' ? 'bg-blue-600/20 text-blue-300' :
+                                         session.status === 'checked_out' ? 'bg-gray-600/20 text-gray-300' :
+                                         'bg-red-600/20 text-red-300'
+                                       }`}>
+                                         {session.status === 'present' ? 'Present' :
+                                          session.status === 'late' ? `Late (${session.late_minutes}m)` :
+                                          session.status === 'on_break' ? 'On Break' :
+                                          session.status === 'checked_out' ? 'Checked Out' :
+                                          'Absent'}
+                                       </span>
+                                       {session.check_in && (
+                                         <span className="ml-2 text-white/50">
+                                           In: {session.check_in.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                         </span>
+                                       )}
+                                     </div>
+                                   )}
+                                 </div>
+                                 <button
+                                   onClick={() => handleRemoveMember(member.person_id)}
+                                   className="text-red-400 hover:text-red-300 text-xs ml-2"
+                                 >
+                                   Remove
+                                 </button>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   )}
+
+                   {/* Recent Attendance */}
+                   {recentAttendance.length > 0 && (
+                     <div>
+                       <h4 className="text-sm font-medium mb-2 text-white/80">Recent Activity:</h4>
+                       <div className="space-y-1 max-h-40 overflow-y-auto">
+                         {recentAttendance.slice(0, 10).map(record => {
+                           const member = groupMembers.find(m => m.person_id === record.person_id);
+                           return (
+                             <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded p-2">
+                               <div className="flex justify-between items-center">
+                                 <span className="font-medium">{member?.name || record.person_id}</span>
+                                 <span className="text-white/50">
+                                   {record.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                 </span>
+                               </div>
+                               <div className="flex justify-between items-center mt-1">
+                                 <span className={`px-2 py-1 rounded text-xs ${
+                                   record.type === 'check_in' ? 'bg-green-600/20 text-green-300' :
+                                   record.type === 'check_out' ? 'bg-red-600/20 text-red-300' :
+                                   record.type === 'break_start' ? 'bg-blue-600/20 text-blue-300' :
+                                   'bg-purple-600/20 text-purple-300'
+                                 }`}>
+                                   {formatAttendanceType(record.type)}
+                                 </span>
+                                 <span className="text-white/40 text-xs">
+                                   {(record.confidence * 100).toFixed(0)}%
+                                 </span>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   )}
+
+                   {/* No data states */}
+                   {attendanceGroups.length === 0 && (
+                     <div className="text-white/50 text-sm text-center py-4">
+                       No groups created yet. Click "Groups" to create one.
+                     </div>
+                   )}
+                   
+                   {currentGroup && groupMembers.length === 0 && (
+                     <div className="text-white/50 text-sm text-center py-4">
+                       No members in this group. Click "Members" to add some.
+                     </div>
+                   )}
+                 </div>
+               </>
+             ) : (
+               <>
+                 <h3 className="text-lg font-light mb-4">Recent Logs</h3>
+                 <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
+                   <div className="text-white/50 text-sm text-center py-4">
+                     No logs yet
+                   </div>
+                 </div>
+               </>
+             )}
            </div>
          </div>
 
@@ -1412,6 +1824,221 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Group Management Modal */}
+        {showGroupManagement && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold mb-4">Group Management</h3>
+              
+              {/* Create New Group */}
+              <div className="mb-6">
+                <h4 className="text-lg font-medium mb-3">Create New Group</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Group Name:</label>
+                    <input
+                      type="text"
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                      placeholder="Enter group name"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Group Type:</label>
+                    <select
+                      value={newGroupType}
+                      onChange={(e) => setNewGroupType(e.target.value as GroupType)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="general">👥 General</option>
+                      <option value="employee">👔 Employee</option>
+                      <option value="student">🎓 Student</option>
+                      <option value="visitor">👤 Visitor</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleCreateGroup}
+                    disabled={!newGroupName.trim()}
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
+                  >
+                    Create Group
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing Groups */}
+              {attendanceGroups.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-lg font-medium mb-3">Existing Groups</h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {attendanceGroups.map(group => (
+                      <div key={group.id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
+                        <div>
+                          <span className="font-medium">{getGroupTypeIcon(group.type)} {group.name}</span>
+                          <div className="text-sm text-gray-400">
+                            {group.type} • {attendanceManager.getGroupMembers(group.id).length} members
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleSelectGroup(group)}
+                            className={`px-3 py-1 rounded text-sm transition-colors ${
+                              currentGroup?.id === group.id
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                            }`}
+                          >
+                            {currentGroup?.id === group.id ? 'Active' : 'Select'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowGroupManagement(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Member Management Modal */}
+        {showMemberManagement && currentGroup && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">Member Management</h3>
+              <p className="text-gray-400 mb-4">Group: {getGroupTypeIcon(currentGroup.type)} {currentGroup.name}</p>
+              
+              {/* Add New Member */}
+              <div className="mb-6">
+                <h4 className="text-lg font-medium mb-3">Add New Member</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Select Registered Person:</label>
+                    <select
+                      value={selectedPersonForMember}
+                      onChange={(e) => setSelectedPersonForMember(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">Select a person...</option>
+                      {registeredPersons
+                        .filter(person => !groupMembers.some(member => member.person_id === person.person_id))
+                        .map(person => (
+                          <option key={person.person_id} value={person.person_id}>
+                            {person.person_id}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Display Name:</label>
+                    <input
+                      type="text"
+                      value={newMemberName}
+                      onChange={(e) => setNewMemberName(e.target.value)}
+                      placeholder="Enter display name"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Role (Optional):</label>
+                    <input
+                      type="text"
+                      value={newMemberRole}
+                      onChange={(e) => setNewMemberRole(e.target.value)}
+                      placeholder="e.g., Teacher, Manager, Student"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  {currentGroup.type === 'employee' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Employee ID:</label>
+                      <input
+                        type="text"
+                        value={newMemberEmployeeId}
+                        onChange={(e) => setNewMemberEmployeeId(e.target.value)}
+                        placeholder="Enter employee ID"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+                  {currentGroup.type === 'student' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Student ID:</label>
+                      <input
+                        type="text"
+                        value={newMemberStudentId}
+                        onChange={(e) => setNewMemberStudentId(e.target.value)}
+                        placeholder="Enter student ID"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+                  <button
+                    onClick={handleAddMember}
+                    disabled={!selectedPersonForMember || !newMemberName.trim()}
+                    className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded transition-colors"
+                  >
+                    Add Member
+                  </button>
+                </div>
+              </div>
+
+              {/* Current Members */}
+              {groupMembers.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-lg font-medium mb-3">Current Members ({groupMembers.length})</h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {groupMembers.map(member => (
+                      <div key={member.person_id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
+                        <div>
+                          <div className="font-medium">{member.name}</div>
+                          <div className="text-sm text-gray-400">
+                            ID: {member.person_id}
+                            {member.role && ` • ${member.role}`}
+                            {member.employee_id && ` • Emp: ${member.employee_id}`}
+                            {member.student_id && ` • Student: ${member.student_id}`}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveMember(member.person_id)}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowMemberManagement(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Attendance Dashboard */}
+        {showAttendanceDashboard && (
+          <div className="fixed inset-0 z-50">
+            <AttendanceDashboard onBack={() => setShowAttendanceDashboard(false)} />
           </div>
         )}
 

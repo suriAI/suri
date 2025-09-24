@@ -94,3 +94,128 @@ export interface DetectionWithRecognitionResult {
   model_used: string;
   processing_time: number;
 }
+
+/**
+ * Attendance System Types and Interfaces
+ */
+
+export type AttendanceType = 'check_in' | 'check_out' | 'break_start' | 'break_end';
+export type GroupType = 'employee' | 'student' | 'visitor' | 'general';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'on_break' | 'checked_out';
+
+export interface AttendanceGroup {
+  id: string;
+  name: string;
+  type: GroupType;
+  description?: string;
+  created_at: Date;
+  is_active: boolean;
+  settings: {
+    auto_checkout_hours?: number;
+    late_threshold_minutes?: number;
+    break_duration_minutes?: number;
+    require_checkout: boolean;
+  };
+}
+
+export interface AttendanceMember {
+  person_id: string;
+  group_id: string;
+  name: string;
+  role?: string;
+  employee_id?: string;
+  student_id?: string;
+  email?: string;
+  joined_at: Date;
+  is_active: boolean;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  person_id: string;
+  group_id: string;
+  timestamp: Date;
+  type: AttendanceType;
+  confidence: number;
+  location?: string;
+  notes?: string;
+  is_manual: boolean;
+  created_by?: string;
+}
+
+export interface AttendanceSession {
+  id: string;
+  person_id: string;
+  group_id: string;
+  date: string; // YYYY-MM-DD format
+  check_in?: Date;
+  check_out?: Date;
+  break_start?: Date;
+  break_end?: Date;
+  total_hours?: number;
+  break_duration?: number;
+  status: AttendanceStatus;
+  is_late: boolean;
+  late_minutes?: number;
+  notes?: string;
+}
+
+export interface AttendanceStats {
+  total_members: number;
+  present_today: number;
+  absent_today: number;
+  late_today: number;
+  on_break: number;
+  average_hours_today: number;
+  total_hours_today: number;
+}
+
+export interface AttendanceReport {
+  group_id: string;
+  date_range: {
+    start: Date;
+    end: Date;
+  };
+  members: {
+    person_id: string;
+    name: string;
+    total_days: number;
+    present_days: number;
+    absent_days: number;
+    late_days: number;
+    total_hours: number;
+    average_hours: number;
+    attendance_rate: number;
+  }[];
+  summary: {
+    total_working_days: number;
+    average_attendance_rate: number;
+    total_hours_logged: number;
+    most_punctual: string;
+    most_absent: string;
+  };
+}
+
+export interface AttendanceSettings {
+  default_group_type: GroupType;
+  auto_checkout_enabled: boolean;
+  auto_checkout_hours: number;
+  late_threshold_minutes: number;
+  break_duration_minutes: number;
+  require_manual_checkout: boolean;
+  enable_break_tracking: boolean;
+  enable_location_tracking: boolean;
+  confidence_threshold: number;
+}
+
+export interface AttendanceEvent {
+  id: string;
+  person_id: string;
+  group_id: string;
+  type: AttendanceType;
+  timestamp: Date;
+  confidence: number;
+  location?: string;
+  processed: boolean;
+  error?: string;
+}

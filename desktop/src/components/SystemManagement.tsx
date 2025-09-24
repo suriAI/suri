@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { faceLogService } from '../services/FaceLogService.ts';
-import type { FaceLogEntry } from '../services/FaceLogService.ts';
+import { faceLogService } from '../services/FaceLogService.js';
+import type { FaceLogEntry } from '../services/FaceLogService.js';
 import '../types/global.d.ts';
 
 interface SystemOverview {

@@ -19,7 +19,7 @@ interface DetectionResult {
 }
 
 interface LiveCameraRecognitionProps {
-  onMenuSelect: (menu: 'live-camera' | 'system-management' | 'live-video') => void;
+  onMenuSelect: (menu: 'live-camera' | 'system-management' | 'live-video' | 'advanced-recognition') => void;
 }
 
 export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecognitionProps) {
@@ -1564,6 +1564,17 @@ export default function LiveCameraRecognition({ onMenuSelect }: LiveCameraRecogn
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                   <span className="text-sm font-light tracking-wider uppercase">Live Video</span>
+                </button>
+                
+                {/* Advanced Recognition Button */}
+                <button
+                  onClick={() => onMenuSelect('advanced-recognition')}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 hover:from-blue-600/30 hover:to-cyan-600/30 backdrop-blur-xl border border-blue-500/30 text-blue-200 hover:text-blue-100 rounded-xl font-light transition-all duration-300"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                  </svg>
+                  <span className="text-sm font-light tracking-wider uppercase">Advanced AI</span>
                 </button>
               </div>
 

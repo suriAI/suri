@@ -69,7 +69,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getModels: () => {
             return ipcRenderer.invoke('backend:get-models')
         },
-        detectFaces: (imageBase64: string, options?: any) => {
+        detectFaces: (imageBase64: string, options?: { threshold?: number; max_faces?: number }) => {
             return ipcRenderer.invoke('backend:detect-faces', imageBase64, options)
         }
     }
