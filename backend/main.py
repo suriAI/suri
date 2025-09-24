@@ -24,6 +24,8 @@ from models.antispoofing_detector import OptimizedAntiSpoofingDetector
 from models.edgeface_detector import EdgeFaceDetector
 from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
+from utils.attendance_database import AttendanceDatabaseManager
+from routes import attendance
 from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_MODEL_PATH, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG
 
 # Configure logging
@@ -52,6 +54,12 @@ app.add_middleware(
 yunet_detector = None
 optimized_antispoofing_detector = None
 edgeface_detector = None
+
+# Initialize attendance database
+attendance_database = None
+
+# Include attendance routes
+app.include_router(attendance.router)
 
 # Pydantic models for request/response
 class DetectionRequest(BaseModel):
@@ -110,7 +118,7 @@ class PersonUpdateRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize models on startup"""
-    global yunet_detector, optimized_antispoofing_detector, edgeface_detector
+    global yunet_detector, optimized_antispoofing_detector, edgeface_detector, attendance_database
     try:
         yunet_detector = YuNetDetector(
             model_path=str(YUNET_MODEL_PATH),
@@ -135,6 +143,12 @@ async def startup_event():
             providers=EDGEFACE_CONFIG["providers"],
             database_path=str(EDGEFACE_CONFIG["database_path"])
         )
+        
+        # Initialize attendance database
+        attendance_database = AttendanceDatabaseManager("data/attendance.db")
+        
+        # Set the database instance in the attendance routes module
+        attendance.attendance_db = attendance_database
         
     except Exception as e:
         logger.error(f"Failed to initialize models: {e}")
