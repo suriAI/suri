@@ -1831,33 +1831,6 @@ export default function LiveVideo() {
           <div className="px-4 py-4 border-b border-white/[0.08]">
             <h3 className="text-lg font-light mb-3">Detection Settings</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-white/60">Anti-Spoofing</span>
-                <button
-                  onClick={() => setAntispoofingEnabled(!antispoofingEnabled)}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors duration-150 ${
-                    antispoofingEnabled
-                      ? 'bg-green-600 text-white'
-                      : 'bg-white/[0.05] text-white/70 hover:bg-white/[0.08] border border-white/[0.1]'
-                  }`}
-                >
-                  {antispoofingEnabled ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-white/60">Face Recognition</span>
-                <button
-                  onClick={() => setRecognitionEnabled(!recognitionEnabled)}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors duration-150 ${
-                    recognitionEnabled
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white/[0.05] text-white/70 hover:bg-white/[0.08] border border-white/[0.1]'
-                  }`}
-                >
-                  {recognitionEnabled ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
-              
               {/* Elite Tracking Mode */}
               <div className="flex items-center justify-between">
                 <span className="text-white/60">Tracking Mode</span>
