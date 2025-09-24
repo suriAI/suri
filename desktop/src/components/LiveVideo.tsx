@@ -198,9 +198,9 @@ export default function LiveVideo() {
             
             // Process attendance if enabled and person is a member of current group
             if (attendanceEnabled && currentGroup && response.person_id) {
-              const member = attendanceManager.getMember(response.person_id);
-              if (member && member.group_id === currentGroup.id) {
-                try {
+              try {
+                const member = await attendanceManager.getMember(response.person_id);
+                if (member && member.group_id === currentGroup.id) {
                   const attendanceEvent = await attendanceManager.processAttendanceEvent(
                     response.person_id,
                     response.similarity || 0
@@ -210,9 +210,9 @@ export default function LiveVideo() {
                     // Refresh attendance data
                     loadAttendanceData();
                   }
-                } catch (error) {
-                  console.error('❌ Failed to process attendance:', error);
                 }
+              } catch (error) {
+                console.error('❌ Failed to process attendance:', error);
               }
             }
             
@@ -971,23 +971,22 @@ export default function LiveVideo() {
   // Attendance Management Functions
   const loadAttendanceData = useCallback(async () => {
     try {
-      const groups = attendanceManager.getGroups();
+      const groups = await attendanceManager.getGroups();
       setAttendanceGroups(groups);
       
       if (currentGroup) {
-        const members = attendanceManager.getGroupMembers(currentGroup.id);
+        const [members, stats, records] = await Promise.all([
+          attendanceManager.getGroupMembers(currentGroup.id),
+          attendanceManager.getGroupStats(currentGroup.id),
+          attendanceManager.getRecords({
+            group_id: currentGroup.id,
+            limit: 50
+          })
+        ]);
+        
         setGroupMembers(members);
-        
-        const stats = attendanceManager.getGroupStats(currentGroup.id);
         setAttendanceStats(stats);
-        
-        // Load recent attendance records (last 50)
-        const allRecords = attendanceManager['records'] || [];
-        const groupRecords = allRecords
-          .filter(record => record.group_id === currentGroup.id)
-          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-          .slice(0, 50);
-        setRecentAttendance(groupRecords);
+        setRecentAttendance(records);
       }
     } catch (error) {
       console.error('❌ Failed to load attendance data:', error);
@@ -998,7 +997,7 @@ export default function LiveVideo() {
     if (!newGroupName.trim()) return;
     
     try {
-      const group = attendanceManager.createGroup(newGroupName.trim(), newGroupType);
+      const group = await attendanceManager.createGroup(newGroupName.trim(), newGroupType);
       setNewGroupName('');
       setNewGroupType('general');
       setShowGroupManagement(false);
@@ -1035,7 +1034,7 @@ export default function LiveVideo() {
       if (newMemberEmployeeId.trim()) options.employee_id = newMemberEmployeeId.trim();
       if (newMemberStudentId.trim()) options.student_id = newMemberStudentId.trim();
       
-      attendanceManager.addMember(
+      await attendanceManager.addMember(
         selectedPersonForMember,
         currentGroup.id,
         newMemberName.trim(),
@@ -1060,7 +1059,7 @@ export default function LiveVideo() {
 
   const handleRemoveMember = useCallback(async (personId: string) => {
     try {
-      attendanceManager.removeMember(personId);
+      await attendanceManager.removeMember(personId);
       await loadAttendanceData();
       console.log('✅ Member removed successfully');
     } catch (error) {

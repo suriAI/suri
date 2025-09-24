@@ -11,17 +11,86 @@ import type {
   GroupType
 } from '../types/recognition.js';
 
+// API Configuration
+const API_BASE_URL = 'http://127.0.0.1:8700';
+const API_ENDPOINTS = {
+  groups: '/attendance/groups',
+  members: '/attendance/members',
+  records: '/attendance/records',
+  sessions: '/attendance/sessions',
+  events: '/attendance/events',
+  settings: '/attendance/settings',
+  stats: '/attendance/stats'
+};
+
+// HTTP Client utility
+class HttpClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    const defaultOptions: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    };
+
+    const response = await fetch(url, { ...defaultOptions, ...options });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+    const url = params 
+      ? `${endpoint}?${new URLSearchParams(params).toString()}`
+      : endpoint;
+    return this.request<T>(url);
+  }
+
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async put<T>(endpoint: string, data?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+    });
+  }
+}
+
 export class AttendanceManager {
-  private groups: Map<string, AttendanceGroup> = new Map();
-  private members: Map<string, AttendanceMember> = new Map();
-  private records: AttendanceRecord[] = [];
-  private sessions: Map<string, AttendanceSession> = new Map();
+  private httpClient: HttpClient;
   private settings: AttendanceSettings;
   private eventQueue: AttendanceEvent[] = [];
 
   constructor() {
+    this.httpClient = new HttpClient(API_BASE_URL);
     this.settings = this.getDefaultSettings();
-    this.loadData();
+    this.loadSettings();
   }
 
   private getDefaultSettings(): AttendanceSettings {
@@ -38,488 +107,307 @@ export class AttendanceManager {
     };
   }
 
-  private loadData(): void {
+  private async loadSettings(): Promise<void> {
     try {
-      // Load from localStorage
-      const groupsData = localStorage.getItem('attendance_groups');
-      const membersData = localStorage.getItem('attendance_members');
-      const recordsData = localStorage.getItem('attendance_records');
-      const sessionsData = localStorage.getItem('attendance_sessions');
-      const settingsData = localStorage.getItem('attendance_settings');
-
-      if (groupsData) {
-        const groups = JSON.parse(groupsData);
-        groups.forEach((group: AttendanceGroup) => {
-          group.created_at = new Date(group.created_at);
-          this.groups.set(group.id, group);
-        });
-      }
-
-      if (membersData) {
-        const members = JSON.parse(membersData);
-        members.forEach((member: AttendanceMember) => {
-          member.joined_at = new Date(member.joined_at);
-          this.members.set(member.person_id, member);
-        });
-      }
-
-      if (recordsData) {
-        this.records = JSON.parse(recordsData).map((record: AttendanceRecord) => ({
-          ...record,
-          timestamp: new Date(record.timestamp)
-        }));
-      }
-
-      if (sessionsData) {
-        const sessions = JSON.parse(sessionsData);
-        sessions.forEach((session: AttendanceSession) => {
-          session.check_in = session.check_in ? new Date(session.check_in) : undefined;
-          session.check_out = session.check_out ? new Date(session.check_out) : undefined;
-          session.break_start = session.break_start ? new Date(session.break_start) : undefined;
-          session.break_end = session.break_end ? new Date(session.break_end) : undefined;
-          this.sessions.set(session.id, session);
-        });
-      }
-
-      if (settingsData) {
-        this.settings = { ...this.settings, ...JSON.parse(settingsData) };
-      }
+      this.settings = await this.httpClient.get<AttendanceSettings>(API_ENDPOINTS.settings);
     } catch (error) {
-      console.error('Error loading attendance data:', error);
-    }
-  }
-
-  private saveData(): void {
-    try {
-      localStorage.setItem('attendance_groups', JSON.stringify(Array.from(this.groups.values())));
-      localStorage.setItem('attendance_members', JSON.stringify(Array.from(this.members.values())));
-      localStorage.setItem('attendance_records', JSON.stringify(this.records));
-      localStorage.setItem('attendance_sessions', JSON.stringify(Array.from(this.sessions.values())));
-      localStorage.setItem('attendance_settings', JSON.stringify(this.settings));
-    } catch (error) {
-      console.error('Error saving attendance data:', error);
+      console.error('Error loading settings from backend:', error);
+      // Keep default settings if backend is not available
     }
   }
 
   // Group Management
-  createGroup(name: string, type: GroupType, description?: string): AttendanceGroup {
-    const group: AttendanceGroup = {
-      id: this.generateId(),
-      name,
-      type,
-      description,
-      created_at: new Date(),
-      is_active: true,
-      settings: {
-        auto_checkout_hours: this.settings.auto_checkout_hours,
-        late_threshold_minutes: this.settings.late_threshold_minutes,
-        break_duration_minutes: this.settings.break_duration_minutes,
-        require_checkout: !this.settings.auto_checkout_enabled
-      }
-    };
+  async createGroup(name: string, type: GroupType, description?: string): Promise<AttendanceGroup> {
+    try {
+      const groupData = {
+        name,
+        type,
+        description,
+        settings: {
+          auto_checkout_hours: this.settings.auto_checkout_hours,
+          late_threshold_minutes: this.settings.late_threshold_minutes,
+          break_duration_minutes: this.settings.break_duration_minutes,
+          require_checkout: !this.settings.auto_checkout_enabled
+        }
+      };
 
-    this.groups.set(group.id, group);
-    this.saveData();
-    return group;
+      const group = await this.httpClient.post<AttendanceGroup>(API_ENDPOINTS.groups, groupData);
+      return {
+        ...group,
+        created_at: new Date(group.created_at)
+      };
+    } catch (error) {
+      console.error('Error creating group:', error);
+      throw error;
+    }
   }
 
-  getGroups(): AttendanceGroup[] {
-    return Array.from(this.groups.values()).filter(group => group.is_active);
+  async getGroups(): Promise<AttendanceGroup[]> {
+    try {
+      const groups = await this.httpClient.get<AttendanceGroup[]>(API_ENDPOINTS.groups, { active_only: 'true' });
+      return groups.map(group => ({
+        ...group,
+        created_at: new Date(group.created_at)
+      }));
+    } catch (error) {
+      console.error('Error getting groups:', error);
+      return [];
+    }
   }
 
-  getGroup(groupId: string): AttendanceGroup | undefined {
-    return this.groups.get(groupId);
+  async getGroup(groupId: string): Promise<AttendanceGroup | undefined> {
+    try {
+      const group = await this.httpClient.get<AttendanceGroup>(`${API_ENDPOINTS.groups}/${groupId}`);
+      return {
+        ...group,
+        created_at: new Date(group.created_at)
+      };
+    } catch (error) {
+      console.error('Error getting group:', error);
+      return undefined;
+    }
   }
 
-  updateGroup(groupId: string, updates: Partial<AttendanceGroup>): boolean {
-    const group = this.groups.get(groupId);
-    if (!group) return false;
-
-    Object.assign(group, updates);
-    this.groups.set(groupId, group);
-    this.saveData();
-    return true;
+  async updateGroup(groupId: string, updates: Partial<AttendanceGroup>): Promise<boolean> {
+    try {
+      await this.httpClient.put<AttendanceGroup>(`${API_ENDPOINTS.groups}/${groupId}`, updates);
+      return true;
+    } catch (error) {
+      console.error('Error updating group:', error);
+      return false;
+    }
   }
 
-  deleteGroup(groupId: string): boolean {
-    const group = this.groups.get(groupId);
-    if (!group) return false;
-
-    group.is_active = false;
-    this.groups.set(groupId, group);
-    this.saveData();
-    return true;
+  async deleteGroup(groupId: string): Promise<boolean> {
+    try {
+      await this.httpClient.delete(`${API_ENDPOINTS.groups}/${groupId}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      return false;
+    }
   }
 
   // Member Management
-  addMember(personId: string, groupId: string, name: string, options?: {
+  async addMember(personId: string, groupId: string, name: string, options?: {
     role?: string;
     employee_id?: string;
     student_id?: string;
     email?: string;
-  }): AttendanceMember {
-    const member: AttendanceMember = {
-      person_id: personId,
-      group_id: groupId,
-      name,
-      role: options?.role,
-      employee_id: options?.employee_id,
-      student_id: options?.student_id,
-      email: options?.email,
-      joined_at: new Date(),
-      is_active: true
-    };
+  }): Promise<AttendanceMember> {
+    try {
+      const memberData = {
+        person_id: personId,
+        group_id: groupId,
+        name,
+        role: options?.role,
+        employee_id: options?.employee_id,
+        student_id: options?.student_id,
+        email: options?.email
+      };
 
-    this.members.set(personId, member);
-    this.saveData();
-    return member;
+      const member = await this.httpClient.post<AttendanceMember>(API_ENDPOINTS.members, memberData);
+      return {
+        ...member,
+        joined_at: new Date(member.joined_at)
+      };
+    } catch (error) {
+      console.error('Error adding member:', error);
+      throw error;
+    }
   }
 
-  getMember(personId: string): AttendanceMember | undefined {
-    return this.members.get(personId);
+  async getMember(personId: string): Promise<AttendanceMember | undefined> {
+    try {
+      const member = await this.httpClient.get<AttendanceMember>(`${API_ENDPOINTS.members}/${personId}`);
+      return {
+        ...member,
+        joined_at: new Date(member.joined_at)
+      };
+    } catch (error) {
+      console.error('Error getting member:', error);
+      return undefined;
+    }
   }
 
-  getGroupMembers(groupId: string): AttendanceMember[] {
-    return Array.from(this.members.values()).filter(
-      member => member.group_id === groupId && member.is_active
-    );
+  async getGroupMembers(groupId: string): Promise<AttendanceMember[]> {
+    try {
+      const members = await this.httpClient.get<AttendanceMember[]>(`${API_ENDPOINTS.groups}/${groupId}/members`);
+      return members.map(member => ({
+        ...member,
+        joined_at: new Date(member.joined_at)
+      }));
+    } catch (error) {
+      console.error('Error getting group members:', error);
+      return [];
+    }
   }
 
-  updateMember(personId: string, updates: Partial<AttendanceMember>): boolean {
-    const member = this.members.get(personId);
-    if (!member) return false;
-
-    Object.assign(member, updates);
-    this.members.set(personId, member);
-    this.saveData();
-    return true;
+  async updateMember(personId: string, updates: Partial<AttendanceMember>): Promise<boolean> {
+    try {
+      await this.httpClient.put<AttendanceMember>(`${API_ENDPOINTS.members}/${personId}`, updates);
+      return true;
+    } catch (error) {
+      console.error('Error updating member:', error);
+      return false;
+    }
   }
 
-  removeMember(personId: string): boolean {
-    const member = this.members.get(personId);
-    if (!member) return false;
-
-    member.is_active = false;
-    this.members.set(personId, member);
-    this.saveData();
-    return true;
+  async removeMember(personId: string): Promise<boolean> {
+    try {
+      await this.httpClient.delete(`${API_ENDPOINTS.members}/${personId}`);
+      return true;
+    } catch (error) {
+      console.error('Error removing member:', error);
+      return false;
+    }
   }
 
   // Attendance Tracking
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async processAttendanceEvent(personId: string, confidence: number, _location?: string): Promise<AttendanceEvent | null> {
-    const member = this.getMember(personId);
-    if (!member || confidence < this.settings.confidence_threshold) {
+  async processAttendanceEvent(personId: string, confidence: number, location?: string): Promise<AttendanceEvent | null> {
+    try {
+      const eventData = {
+        person_id: personId,
+        confidence,
+        location
+      };
+
+      const event = await this.httpClient.post<AttendanceEvent>(API_ENDPOINTS.events, eventData);
+      
+      // Convert timestamp to Date object
+      const processedEvent: AttendanceEvent = {
+        ...event,
+        timestamp: new Date(event.timestamp)
+      };
+
+      this.eventQueue.push(processedEvent);
+      return processedEvent;
+    } catch (error) {
+      console.error('Error processing attendance event:', error);
       return null;
     }
-
-    const event: AttendanceEvent = {
-      id: this.generateId(),
-      person_id: personId,
-      group_id: member.group_id,
-      type: this.determineAttendanceType(personId),
-      timestamp: new Date(),
-      confidence,
-      processed: false
-    };
-
-    this.eventQueue.push(event);
-    await this.processEvent(event);
-    return event;
-  }
-
-  private determineAttendanceType(personId: string): AttendanceType {
-    const today = new Date().toISOString().split('T')[0];
-    const sessionKey = `${personId}_${today}`;
-    const session = this.sessions.get(sessionKey);
-
-    if (!session || !session.check_in) {
-      return 'check_in';
-    }
-
-    if (session.status === 'on_break') {
-      return 'break_end';
-    }
-
-    if (session.status === 'present' && this.settings.enable_break_tracking) {
-      const now = new Date();
-      const checkInTime = session.check_in;
-      const hoursWorked = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursWorked >= 4 && !session.break_start) {
-        return 'break_start';
-      }
-    }
-
-    return 'check_out';
-  }
-
-  private async processEvent(event: AttendanceEvent): Promise<void> {
-    try {
-      const record: AttendanceRecord = {
-        id: event.id,
-        person_id: event.person_id,
-        group_id: event.group_id,
-        timestamp: event.timestamp,
-        type: event.type,
-        confidence: event.confidence,
-        location: event.location,
-        is_manual: false
-      };
-
-      this.records.push(record);
-      await this.updateSession(event);
-      event.processed = true;
-      this.saveData();
-    } catch (error) {
-      event.error = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error processing attendance event:', error);
-    }
-  }
-
-  private async updateSession(event: AttendanceEvent): Promise<void> {
-    const today = new Date().toISOString().split('T')[0];
-    const sessionKey = `${event.person_id}_${today}`;
-    let session = this.sessions.get(sessionKey);
-
-    if (!session) {
-      session = {
-        id: sessionKey,
-        person_id: event.person_id,
-        group_id: event.group_id,
-        date: today,
-        status: 'absent',
-        is_late: false
-      };
-    }
-
-    const group = this.getGroup(event.group_id);
-    const lateThreshold = group?.settings.late_threshold_minutes || this.settings.late_threshold_minutes;
-
-    switch (event.type) {
-      case 'check_in': {
-        session.check_in = event.timestamp;
-        session.status = 'present';
-        
-        // Check if late
-        const workStartTime = new Date(event.timestamp);
-        workStartTime.setHours(9, 0, 0, 0); // Assuming 9 AM start time
-        
-        if (event.timestamp > workStartTime) {
-          const lateMinutes = (event.timestamp.getTime() - workStartTime.getTime()) / (1000 * 60);
-          if (lateMinutes > lateThreshold) {
-            session.is_late = true;
-            session.late_minutes = Math.round(lateMinutes);
-            session.status = 'late';
-          }
-        }
-        break;
-      }
-
-      case 'check_out':
-        session.check_out = event.timestamp;
-        session.status = 'checked_out';
-        if (session.check_in) {
-          session.total_hours = this.calculateTotalHours(session);
-        }
-        break;
-
-      case 'break_start':
-        session.break_start = event.timestamp;
-        session.status = 'on_break';
-        break;
-
-      case 'break_end':
-        session.break_end = event.timestamp;
-        session.status = 'present';
-        if (session.break_start) {
-          session.break_duration = (event.timestamp.getTime() - session.break_start.getTime()) / (1000 * 60);
-        }
-        break;
-    }
-
-    this.sessions.set(sessionKey, session);
-  }
-
-  private calculateTotalHours(session: AttendanceSession): number {
-    if (!session.check_in || !session.check_out) return 0;
-
-    let totalMs = session.check_out.getTime() - session.check_in.getTime();
-    
-    // Subtract break time if applicable
-    if (session.break_duration) {
-      totalMs -= session.break_duration * 60 * 1000;
-    }
-
-    return Math.round((totalMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
   }
 
   // Manual Attendance
-  addManualRecord(personId: string, type: AttendanceType, timestamp?: Date, notes?: string): AttendanceRecord {
-    const member = this.getMember(personId);
-    if (!member) {
-      throw new Error('Member not found');
+  async addManualRecord(personId: string, type: AttendanceType, timestamp?: Date, notes?: string): Promise<AttendanceRecord> {
+    try {
+      const recordData = {
+        person_id: personId,
+        type,
+        timestamp: timestamp?.toISOString(),
+        confidence: 1.0,
+        notes,
+        is_manual: true
+      };
+
+      const record = await this.httpClient.post<AttendanceRecord>(API_ENDPOINTS.records, recordData);
+      return {
+        ...record,
+        timestamp: new Date(record.timestamp)
+      };
+    } catch (error) {
+      console.error('Error adding manual record:', error);
+      throw error;
     }
-
-    const record: AttendanceRecord = {
-      id: this.generateId(),
-      person_id: personId,
-      group_id: member.group_id,
-      timestamp: timestamp || new Date(),
-      type,
-      confidence: 1.0,
-      notes,
-      is_manual: true
-    };
-
-    this.records.push(record);
-    
-    // Process the manual record as an event
-    const event: AttendanceEvent = {
-      id: record.id,
-      person_id: personId,
-      group_id: member.group_id,
-      type,
-      timestamp: record.timestamp,
-      confidence: 1.0,
-      processed: false
-    };
-
-    this.updateSession(event);
-    this.saveData();
-    return record;
   }
 
   // Statistics and Reports
-  getGroupStats(groupId: string, date?: Date): AttendanceStats {
-    const targetDate = date || new Date();
-    const dateStr = targetDate.toISOString().split('T')[0];
-    const members = this.getGroupMembers(groupId);
-    
-    const stats: AttendanceStats = {
-      total_members: members.length,
-      present_today: 0,
-      absent_today: 0,
-      late_today: 0,
-      on_break: 0,
-      average_hours_today: 0,
-      total_hours_today: 0
-    };
-
-    let totalHours = 0;
-    let membersWithHours = 0;
-
-    members.forEach(member => {
-      const sessionKey = `${member.person_id}_${dateStr}`;
-      const session = this.sessions.get(sessionKey);
-
-      if (session) {
-        switch (session.status) {
-          case 'present':
-          case 'late':
-            stats.present_today++;
-            if (session.is_late) stats.late_today++;
-            break;
-          case 'on_break':
-            stats.on_break++;
-            break;
-          case 'checked_out':
-            stats.present_today++;
-            if (session.is_late) stats.late_today++;
-            break;
-          default:
-            stats.absent_today++;
-        }
-
-        if (session.total_hours) {
-          totalHours += session.total_hours;
-          membersWithHours++;
-        }
-      } else {
-        stats.absent_today++;
+  async getGroupStats(groupId: string, date?: Date): Promise<AttendanceStats> {
+    try {
+      const params: Record<string, string> = {};
+      if (date) {
+        params.date = date.toISOString().split('T')[0];
       }
-    });
 
-    stats.total_hours_today = Math.round(totalHours * 100) / 100;
-    stats.average_hours_today = membersWithHours > 0 ? 
-      Math.round((totalHours / membersWithHours) * 100) / 100 : 0;
-
-    return stats;
+      return await this.httpClient.get<AttendanceStats>(`${API_ENDPOINTS.groups}/${groupId}/stats`, params);
+    } catch (error) {
+      console.error('Error getting group stats:', error);
+      return {
+        total_members: 0,
+        present_today: 0,
+        absent_today: 0,
+        late_today: 0,
+        on_break: 0,
+        average_hours_today: 0,
+        total_hours_today: 0
+      };
+    }
   }
 
-  generateReport(groupId: string, startDate: Date, endDate: Date): AttendanceReport {
-    const group = this.getGroup(groupId);
-    if (!group) {
-      throw new Error('Group not found');
-    }
+  async generateReport(groupId: string, startDate: Date, endDate: Date): Promise<AttendanceReport> {
+    try {
+      // For now, we'll implement a basic report generation
+      // This would typically be a dedicated backend endpoint
+      const [group, members, records, sessions] = await Promise.all([
+        this.getGroup(groupId),
+        this.getGroupMembers(groupId),
+        this.getRecords({ 
+          group_id: groupId, 
+          start_date: startDate.toISOString(), 
+          end_date: endDate.toISOString() 
+        }),
+        this.getSessions({ 
+          group_id: groupId, 
+          start_date: startDate.toISOString().split('T')[0], 
+          end_date: endDate.toISOString().split('T')[0] 
+        })
+      ]);
 
-    const members = this.getGroupMembers(groupId);
-    const workingDays = this.getWorkingDaysBetween(startDate, endDate);
-    
-    const memberReports = members.map(member => {
-      const memberSessions = this.getMemberSessionsInRange(member.person_id, startDate, endDate);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      const workingDays = this.getWorkingDaysBetween(startDate, endDate);
       
-      const presentDays = memberSessions.filter(s => s.status !== 'absent').length;
-      const absentDays = workingDays - presentDays;
-      const lateDays = memberSessions.filter(s => s.is_late).length;
-      const totalHours = memberSessions.reduce((sum, s) => sum + (s.total_hours || 0), 0);
-      const averageHours = presentDays > 0 ? totalHours / presentDays : 0;
-      const attendanceRate = workingDays > 0 ? (presentDays / workingDays) * 100 : 0;
+      const memberReports = members.map(member => {
+        const memberSessions = sessions.filter(s => s.person_id === member.person_id);
+        
+        const presentDays = memberSessions.filter(s => s.status !== 'absent').length;
+        const absentDays = workingDays - presentDays;
+        const lateDays = memberSessions.filter(s => s.is_late).length;
+        const totalHours = memberSessions.reduce((sum, s) => sum + (s.total_hours || 0), 0);
+        const averageHours = presentDays > 0 ? totalHours / presentDays : 0;
+        const attendanceRate = workingDays > 0 ? (presentDays / workingDays) * 100 : 0;
+
+        return {
+          person_id: member.person_id,
+          name: member.name,
+          total_days: workingDays,
+          present_days: presentDays,
+          absent_days: absentDays,
+          late_days: lateDays,
+          total_hours: Math.round(totalHours * 100) / 100,
+          average_hours: Math.round(averageHours * 100) / 100,
+          attendance_rate: Math.round(attendanceRate * 100) / 100
+        };
+      });
+
+      const totalHoursLogged = memberReports.reduce((sum, m) => sum + m.total_hours, 0);
+      const averageAttendanceRate = memberReports.length > 0 ?
+        memberReports.reduce((sum, m) => sum + m.attendance_rate, 0) / memberReports.length : 0;
+
+      const mostPunctual = memberReports.reduce((best, current) => 
+        current.late_days < best.late_days ? current : best, memberReports[0])?.name || 'N/A';
+      
+      const mostAbsent = memberReports.reduce((worst, current) => 
+        current.absent_days > worst.absent_days ? current : worst, memberReports[0])?.name || 'N/A';
 
       return {
-        person_id: member.person_id,
-        name: member.name,
-        total_days: workingDays,
-        present_days: presentDays,
-        absent_days: absentDays,
-        late_days: lateDays,
-        total_hours: Math.round(totalHours * 100) / 100,
-        average_hours: Math.round(averageHours * 100) / 100,
-        attendance_rate: Math.round(attendanceRate * 100) / 100
+        group_id: groupId,
+        date_range: { start: startDate, end: endDate },
+        members: memberReports,
+        summary: {
+          total_working_days: workingDays,
+          average_attendance_rate: Math.round(averageAttendanceRate * 100) / 100,
+          total_hours_logged: Math.round(totalHoursLogged * 100) / 100,
+          most_punctual: mostPunctual,
+          most_absent: mostAbsent
+        }
       };
-    });
-
-    const totalHoursLogged = memberReports.reduce((sum, m) => sum + m.total_hours, 0);
-    const averageAttendanceRate = memberReports.length > 0 ?
-      memberReports.reduce((sum, m) => sum + m.attendance_rate, 0) / memberReports.length : 0;
-
-    const mostPunctual = memberReports.reduce((best, current) => 
-      current.late_days < best.late_days ? current : best, memberReports[0])?.name || 'N/A';
-    
-    const mostAbsent = memberReports.reduce((worst, current) => 
-      current.absent_days > worst.absent_days ? current : worst, memberReports[0])?.name || 'N/A';
-
-    return {
-      group_id: groupId,
-      date_range: { start: startDate, end: endDate },
-      members: memberReports,
-      summary: {
-        total_working_days: workingDays,
-        average_attendance_rate: Math.round(averageAttendanceRate * 100) / 100,
-        total_hours_logged: Math.round(totalHoursLogged * 100) / 100,
-        most_punctual: mostPunctual,
-        most_absent: mostAbsent
-      }
-    };
-  }
-
-  private getMemberSessionsInRange(personId: string, startDate: Date, endDate: Date): AttendanceSession[] {
-    const sessions: AttendanceSession[] = [];
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      const sessionKey = `${personId}_${dateStr}`;
-      const session = this.sessions.get(sessionKey);
-      
-      if (session) {
-        sessions.push(session);
-      }
-      
-      currentDate.setDate(currentDate.getDate() + 1);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      throw error;
     }
-
-    return sessions;
   }
 
   private getWorkingDaysBetween(startDate: Date, endDate: Date): number {
@@ -537,14 +425,73 @@ export class AttendanceManager {
     return count;
   }
 
+  // Data Access Methods
+  async getRecords(filters?: {
+    group_id?: string;
+    person_id?: string;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+  }): Promise<AttendanceRecord[]> {
+    try {
+      const params: Record<string, string> = {};
+      if (filters?.group_id) params.group_id = filters.group_id;
+      if (filters?.person_id) params.person_id = filters.person_id;
+      if (filters?.start_date) params.start_date = filters.start_date;
+      if (filters?.end_date) params.end_date = filters.end_date;
+      if (filters?.limit) params.limit = filters.limit.toString();
+
+      const records = await this.httpClient.get<AttendanceRecord[]>(API_ENDPOINTS.records, params);
+      return records.map(record => ({
+        ...record,
+        timestamp: new Date(record.timestamp)
+      }));
+    } catch (error) {
+      console.error('Error getting records:', error);
+      return [];
+    }
+  }
+
+  async getSessions(filters?: {
+    group_id?: string;
+    person_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<AttendanceSession[]> {
+    try {
+      const params: Record<string, string> = {};
+      if (filters?.group_id) params.group_id = filters.group_id;
+      if (filters?.person_id) params.person_id = filters.person_id;
+      if (filters?.start_date) params.start_date = filters.start_date;
+      if (filters?.end_date) params.end_date = filters.end_date;
+
+      const sessions = await this.httpClient.get<AttendanceSession[]>(API_ENDPOINTS.sessions, params);
+      return sessions.map(session => ({
+        ...session,
+        check_in: session.check_in ? new Date(session.check_in) : undefined,
+        check_out: session.check_out ? new Date(session.check_out) : undefined,
+        break_start: session.break_start ? new Date(session.break_start) : undefined,
+        break_end: session.break_end ? new Date(session.break_end) : undefined
+      }));
+    } catch (error) {
+      console.error('Error getting sessions:', error);
+      return [];
+    }
+  }
+
   // Settings
   getSettings(): AttendanceSettings {
     return { ...this.settings };
   }
 
-  updateSettings(newSettings: Partial<AttendanceSettings>): void {
-    this.settings = { ...this.settings, ...newSettings };
-    this.saveData();
+  async updateSettings(newSettings: Partial<AttendanceSettings>): Promise<void> {
+    try {
+      const updatedSettings = await this.httpClient.put<AttendanceSettings>(API_ENDPOINTS.settings, newSettings);
+      this.settings = updatedSettings;
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
   }
 
   // Utility
@@ -553,85 +500,69 @@ export class AttendanceManager {
   }
 
   // Export/Import
-  exportData(): string {
-    return JSON.stringify({
-      groups: Array.from(this.groups.values()),
-      members: Array.from(this.members.values()),
-      records: this.records,
-      sessions: Array.from(this.sessions.values()),
-      settings: this.settings,
-      exported_at: new Date().toISOString()
-    }, null, 2);
+  async exportData(): Promise<string> {
+    try {
+      const [groups, members, records, sessions, settings] = await Promise.all([
+        this.getGroups(),
+        this.httpClient.get<AttendanceMember[]>(API_ENDPOINTS.members),
+        this.getRecords(),
+        this.getSessions(),
+        Promise.resolve(this.settings)
+      ]);
+
+      return JSON.stringify({
+        groups,
+        members: members.map(m => ({ ...m, joined_at: new Date(m.joined_at) })),
+        records,
+        sessions,
+        settings,
+        exported_at: new Date().toISOString()
+      }, null, 2);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      throw error;
+    }
   }
 
-  importData(jsonData: string): boolean {
+  async importData(jsonData: string): Promise<boolean> {
     try {
-      const data = JSON.parse(jsonData);
-      
-      if (data.groups) {
-        this.groups.clear();
-        data.groups.forEach((group: AttendanceGroup) => {
-          group.created_at = new Date(group.created_at);
-          this.groups.set(group.id, group);
-        });
-      }
-
-      if (data.members) {
-        this.members.clear();
-        data.members.forEach((member: AttendanceMember) => {
-          member.joined_at = new Date(member.joined_at);
-          this.members.set(member.person_id, member);
-        });
-      }
-
-      if (data.records) {
-        this.records = data.records.map((record: AttendanceRecord) => ({
-          ...record,
-          timestamp: new Date(record.timestamp)
-        }));
-      }
-
-      if (data.sessions) {
-        this.sessions.clear();
-        data.sessions.forEach((session: AttendanceSession) => {
-          session.check_in = session.check_in ? new Date(session.check_in) : undefined;
-          session.check_out = session.check_out ? new Date(session.check_out) : undefined;
-          session.break_start = session.break_start ? new Date(session.break_start) : undefined;
-          session.break_end = session.break_end ? new Date(session.break_end) : undefined;
-          this.sessions.set(session.id, session);
-        });
-      }
-
-      if (data.settings) {
-        this.settings = { ...this.settings, ...data.settings };
-      }
-
-      this.saveData();
-      return true;
+      // This would require a dedicated import endpoint on the backend
+      // For now, we'll throw an error indicating this needs backend support
+      throw new Error('Import functionality requires backend implementation');
     } catch (error) {
-      console.error('Error importing attendance data:', error);
+      console.error('Error importing data:', error);
       return false;
     }
   }
 
   // Cleanup old data
-  cleanupOldData(daysToKeep: number = 90): void {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+  async cleanupOldData(daysToKeep: number = 90): Promise<void> {
+    try {
+      await this.httpClient.post('/attendance/cleanup', { days_to_keep: daysToKeep });
+    } catch (error) {
+      console.error('Error cleaning up old data:', error);
+      throw error;
+    }
+  }
 
-    // Remove old records
-    this.records = this.records.filter(record => record.timestamp >= cutoffDate);
+  // Health check
+  async isBackendAvailable(): Promise<boolean> {
+    try {
+      await this.httpClient.get('/');
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
 
-    // Remove old sessions
-    const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
-    Array.from(this.sessions.keys()).forEach(key => {
-      const dateStr = key.split('_')[1];
-      if (dateStr < cutoffDateStr) {
-        this.sessions.delete(key);
-      }
-    });
-
-    this.saveData();
+  // Get backend statistics
+  async getBackendStats(): Promise<any> {
+    try {
+      return await this.httpClient.get(API_ENDPOINTS.stats);
+    } catch (error) {
+      console.error('Error getting backend stats:', error);
+      return {};
+    }
   }
 }
 

@@ -28,60 +28,65 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
   );
   const [reportEndDate, setReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'reports' | 'settings'>('overview');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const allGroups = attendanceManager.getGroups();
+      const allGroups = await attendanceManager.getGroups();
       setGroups(allGroups);
 
       if (selectedGroup) {
-        const groupMembers = attendanceManager.getGroupMembers(selectedGroup.id);
+        const [groupMembers, groupStats, sessions, records] = await Promise.all([
+          attendanceManager.getGroupMembers(selectedGroup.id),
+          attendanceManager.getGroupStats(selectedGroup.id, new Date(selectedDate)),
+          attendanceManager.getSessions({
+            group_id: selectedGroup.id,
+            start_date: selectedDate,
+            end_date: selectedDate
+          }),
+          attendanceManager.getRecords({
+            group_id: selectedGroup.id,
+            limit: 100
+          })
+        ]);
+
         setMembers(groupMembers);
-
-        const groupStats = attendanceManager.getGroupStats(selectedGroup.id, new Date(selectedDate));
         setStats(groupStats);
-
-        // Load today's sessions
-        const today = new Date(selectedDate).toISOString().split('T')[0];
-        const sessions: AttendanceSession[] = [];
-        groupMembers.forEach(member => {
-          const sessionKey = `${member.person_id}_${today}`;
-          const session = attendanceManager['sessions']?.get(sessionKey);
-          if (session) {
-            sessions.push(session);
-          }
-        });
         setTodaySessions(sessions);
-
-        // Load recent records
-        const allRecords = attendanceManager['records'] || [];
-        const groupRecords = allRecords
-          .filter(record => record.group_id === selectedGroup.id)
-          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-          .slice(0, 100);
-        setRecentRecords(groupRecords);
+        setRecentRecords(records);
       }
     } catch (error) {
       console.error('Error loading attendance data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
     }
   }, [selectedGroup, selectedDate]);
 
   const generateReport = useCallback(async () => {
     if (!selectedGroup) return;
 
+    setLoading(true);
     try {
       const startDate = new Date(reportStartDate);
       const endDate = new Date(reportEndDate);
-      const generatedReport = attendanceManager.generateReport(selectedGroup.id, startDate, endDate);
+      const generatedReport = await attendanceManager.generateReport(selectedGroup.id, startDate, endDate);
       setReport(generatedReport);
     } catch (error) {
       console.error('Error generating report:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate report');
+    } finally {
+      setLoading(false);
     }
   }, [selectedGroup, reportStartDate, reportEndDate]);
 
-  const exportData = useCallback(() => {
+  const exportData = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = attendanceManager.exportData();
+      const data = await attendanceManager.exportData();
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -93,6 +98,9 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error exporting data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to export data');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -164,9 +172,16 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <h1 className="text-xl font-light">Attendance Dashboard</h1>
         <div className="flex items-center space-x-3">
+          {loading && (
+            <div className="flex items-center space-x-2 text-blue-300">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-300"></div>
+              <span className="text-sm">Loading...</span>
+            </div>
+          )}
           <button
             onClick={exportData}
-            className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded transition-colors"
+            className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded transition-colors disabled:opacity-50"
+            disabled={loading}
           >
             Export Data
           </button>
@@ -178,6 +193,21 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
           </button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="px-4 py-3 bg-red-600/20 border-b border-red-500/30 text-red-300">
+          <div className="flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-300 hover:text-red-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Group Selection */}
       <div className="px-4 py-3 border-b border-white/[0.08]">
@@ -567,15 +597,24 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
                     <div className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-4">
                       <div className="space-y-4">
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (confirm('Are you sure you want to clean up old data? This will remove records older than 30 days.')) {
-                              attendanceManager.cleanupOldData(30);
-                              loadData();
+                              setLoading(true);
+                              try {
+                                await attendanceManager.cleanupOldData(30);
+                                await loadData();
+                              } catch (error) {
+                                console.error('Error cleaning up data:', error);
+                                setError(error instanceof Error ? error.message : 'Failed to cleanup data');
+                              } finally {
+                                setLoading(false);
+                              }
                             }
                           }}
-                          className="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded transition-colors"
+                          className="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded transition-colors disabled:opacity-50"
+                          disabled={loading}
                         >
-                          Clean Up Old Data (30+ days)
+                          {loading ? 'Cleaning...' : 'Clean Up Old Data (30+ days)'}
                         </button>
                         <button
                           onClick={exportData}
