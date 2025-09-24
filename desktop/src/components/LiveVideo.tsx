@@ -118,7 +118,7 @@ export default function LiveVideo() {
   const [showSettings, setShowSettings] = useState(false);
 
   // Attendance system state
-  const [attendanceEnabled, setAttendanceEnabled] = useState(false);
+  const attendanceEnabled = true;
   const [currentGroup, setCurrentGroup] = useState<AttendanceGroup | null>(null);
   
   // Elite Tracking System States
@@ -1464,38 +1464,7 @@ export default function LiveVideo() {
     }
   }, [loadAttendanceData]);
 
-  const handleToggleAttendance = useCallback(async () => {
-    const newAttendanceState = !attendanceEnabled;
-    setAttendanceEnabled(newAttendanceState);
-    
-    if (newAttendanceState) {
-      console.log('🔄 Enabling attendance system...');
-      
-      // Load existing groups first
-      await loadAttendanceData();
-      
-      // Create a default group if none exists
-      if (attendanceGroups.length === 0) {
-        console.log('📝 Creating default group...');
-        try {
-          const defaultGroup = await attendanceManager.createGroup('Default Group', 'general', 'Auto-created default group');
-          setCurrentGroup(defaultGroup);
-          console.log('✅ Default group created:', defaultGroup);
-          await loadAttendanceData();
-        } catch (error) {
-          console.error('❌ Failed to create default group:', error);
-          setError('Failed to create default group');
-        }
-      } else if (!currentGroup) {
-        // Select the first available group
-        setCurrentGroup(attendanceGroups[0]);
-        console.log('📌 Selected first available group:', attendanceGroups[0]);
-      }
-    } else {
-      console.log('⏸️ Disabling attendance system...');
-      setCurrentGroup(null);
-    }
-  }, [attendanceEnabled, attendanceGroups, currentGroup, loadAttendanceData]);
+
 
   const formatAttendanceType = (type: string): string => {
     switch (type) {
@@ -1615,12 +1584,40 @@ export default function LiveVideo() {
     loadAttendanceData();
   }, [loadAttendanceData]);
 
-  // Load attendance data when attendance is enabled or current group changes
+  // Load attendance data when current group changes
   useEffect(() => {
-    if (attendanceEnabled) {
-      loadAttendanceData();
-    }
-  }, [attendanceEnabled, currentGroup, loadAttendanceData]);
+    loadAttendanceData();
+  }, [currentGroup, loadAttendanceData]);
+
+  // Initialize attendance system on component mount
+  useEffect(() => {
+    const initializeAttendance = async () => {
+      console.log('🔄 Initializing attendance system...');
+      
+      // Load existing groups first
+      await loadAttendanceData();
+      
+      // Create a default group if none exists
+      if (attendanceGroups.length === 0) {
+        console.log('📝 Creating default group...');
+        try {
+          const defaultGroup = await attendanceManager.createGroup('Default Group', 'general', 'Auto-created default group');
+          setCurrentGroup(defaultGroup);
+          console.log('✅ Default group created:', defaultGroup);
+          await loadAttendanceData();
+        } catch (error) {
+          console.error('❌ Failed to create default group:', error);
+          setError('Failed to create default group');
+        }
+      } else if (!currentGroup) {
+        // Select the first available group
+        setCurrentGroup(attendanceGroups[0]);
+        console.log('📌 Selected first available group:', attendanceGroups[0]);
+      }
+    };
+
+    initializeAttendance();
+  }, []); // Empty dependency array means this runs only on mount
 
   return (
     <div className="pt-8 h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -1628,21 +1625,6 @@ export default function LiveVideo() {
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <h1 className="text-xl font-light">Live Video Detection</h1>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleToggleAttendance}
-            className={`flex items-center space-x-2 px-4 py-2 backdrop-blur-xl border rounded-xl font-light transition-all duration-300 ${
-              attendanceEnabled 
-                ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/30 text-blue-300 hover:text-blue-200'
-                : 'bg-white/[0.03] hover:bg-white/[0.08] border-white/[0.08] text-white/80 hover:text-white'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c0 .621-.504 1.125-1.125 1.125H18a2.25 2.25 0 01-2.25-2.25V9.375c0-.621.504-1.125 1.125-1.125H20.25a2.25 2.25 0 012.25 2.25v.75m-6 0V9.375c0-.621-.504-1.125-1.125-1.125H9.375c-.621 0-1.125.504-1.125 1.125v3.75m6 0V20.25" />
-            </svg>
-            <span className="text-sm font-light tracking-wider uppercase">
-              {attendanceEnabled ? 'Attendance ON' : 'Attendance OFF'}
-            </span>
-          </button>
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center space-x-2 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.08] text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
