@@ -638,7 +638,7 @@ export default function LiveVideo({ onBack }: LiveVideoProps) {
     return scaleFactorsRef.current;
   }, []);
 
-  // Advanced futuristic drawing system (adapted from Main.tsx)
+  // Advanced futuristic drawing system
   const drawOverlays = useCallback(() => {
     const video = videoRef.current;
     const overlayCanvas = overlayCanvasRef.current;

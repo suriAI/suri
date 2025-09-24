@@ -1,19 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
-import LiveCameraRecognition from './components/Main.tsx'
+import { useState, useEffect } from 'react'
 import SystemManagement from './components/SystemManagement.tsx'
 import LiveVideo from './components/LiveVideo.tsx'
 import TitleBar from './components/TitleBar.tsx'
-import { faceLogService } from './services/FaceLogService.js'
 import { globalWorkerPool, type GlobalWorkerPoolState } from './services/GlobalWorkerPool'
 
 export type MenuOption = 
-  | 'live-camera'
   | 'system-management'
   | 'live-video'
   | 'advanced-recognition'
 
 function App() {
-  const [currentMenu, setCurrentMenu] = useState<MenuOption>('live-camera')
+  const [currentMenu, setCurrentMenu] = useState<MenuOption>('live-video')
   const [workerPoolState, setWorkerPoolState] = useState<GlobalWorkerPoolState>({
     isInitialized: false,
     isInitializing: true, // Start with loader showing
@@ -23,62 +20,32 @@ function App() {
     stats: null
   })
 
-  const fetchSystemStats = useCallback(async () => {
-    try {
-      // Use SqliteFaceLogService instead of API
-      await Promise.all([
-        faceLogService.getTodayStats(),
-        faceLogService.getRecentLogs(1000)
-      ])
-
-
-    } catch (error) {
-      console.error('Failed to fetch system stats:', error)
-    }
-  }, [])
-
   useEffect(() => {
     // Subscribe to worker pool state changes
     const unsubscribe = globalWorkerPool.subscribe(setWorkerPoolState)
-    
-    // Initialize with SQLite3 database and background worker pool
+
     const initializeApp = async () => {
       try {
-        // Check if SQLite3 database is available
-        const isAvailable = await faceLogService.isAvailable()
-        if (isAvailable) {
-          await fetchSystemStats()
-        } else {
-          // SQLite3 database not available
-        }
-        
-        // Initialize worker pool in background for instant face detection
-        globalWorkerPool.initializeInBackground().catch(error => {
-          console.error('Background worker pool initialization failed:', error)
-          // Don't block app startup on worker pool failure, but ensure loader disappears
-        })
-      } catch {
-        // Failed to initialize app
+        await globalWorkerPool.initializeInBackground()
+      } catch (error) {
+        console.error('Failed to initialize app:', error)
       }
     }
 
     initializeApp()
     
     return unsubscribe
-  }, [fetchSystemStats])
+  }, [])
 
 
 
   const renderCurrentComponent = () => {
     switch (currentMenu) {
-      case 'live-camera':
-        return <LiveCameraRecognition onMenuSelect={setCurrentMenu} />
       case 'system-management':
-        return <SystemManagement onBack={() => setCurrentMenu('live-camera')} />
+        return <SystemManagement onBack={() => setCurrentMenu('live-video')} />
       case 'live-video':
-        return <LiveVideo onBack={(menu) => setCurrentMenu(menu as MenuOption || 'live-camera')} />
       default:
-        return <LiveCameraRecognition onMenuSelect={setCurrentMenu} />
+        return <LiveVideo onBack={(menu) => setCurrentMenu(menu as MenuOption || 'live-video')} />
     }
   }
 
