@@ -7,9 +7,6 @@ import { backendService, type DetectionOptions } from './backendService.js';
 
 // Pre-loaded model buffers for better performance
 const modelBuffers: Map<string, ArrayBuffer> = new Map();
-// Legacy SCRFD service (node-onnx) is unused now; using WebWorker-based pipeline in renderer
-import { setupFaceLogIPC } from "./faceLogIPC.js";
-import { faceDatabase } from "../services/FaceDatabase.js";
 // Set consistent app name across all platforms for userData directory
 app.setName('Suri');
 
@@ -323,17 +320,6 @@ app.whenReady().then(async () => {
     } catch (error) {
         console.error('[ERROR] Failed to pre-load models:', error);
     }
-    
-    // Initialize SQLite database first
-    try {
-        await faceDatabase.initialize();
-    
-    } catch (error) {
-        console.error('[ERROR] Failed to initialize SQLite3 database:', error);
-    }
-    
-    // Setup database IPC handlers
-    setupFaceLogIPC()
 
     app.on('activate', function () {
         // On macOS it's common to re-create a window in the app when the
