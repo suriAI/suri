@@ -243,6 +243,10 @@ export default function LiveVideo() {
 
       // Capture current group at start of processing to validate later
       const processingGroup = currentGroup;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🎯 Starting face recognition for group: ${processingGroup?.name || 'null'} (ID: ${processingGroup?.id || 'null'})`);
+      }
 
       // Process each detected face for recognition
       const recognitionPromises = detectionResult.faces.map(async (face, index) => {
@@ -1778,22 +1782,25 @@ export default function LiveVideo() {
 
   // Clear recognition state whenever group changes to prevent data mixing
   useEffect(() => {
-    if (currentGroup) {
-      console.log(`🔄 Group switched to: ${currentGroup.name} - Clearing recognition state`);
-      
-      // Clear all recognition and tracking state to prevent data mixing
-      setCurrentRecognitionResults(new Map());
-      setTrackedFaces(new Map());
-      setCurrentDetections(null);
-      setSelectedTrackingTarget(null);
-      
-      // Stop detection if running
-      if (isStreaming) {
-        console.log(`🛑 Stopping detection due to group switch`);
-        stopCamera();
-      }
+    // Handle group changes (including switching to null when group is deleted)
+    console.log(`🔄 Group changed to: ${currentGroup?.name || 'null'} - Clearing recognition state`);
+    
+    // Clear all recognition and tracking state to prevent data mixing
+    setCurrentRecognitionResults(new Map());
+    setTrackedFaces(new Map());
+    setCurrentDetections(null);
+    setSelectedTrackingTarget(null);
+    setPendingAttendance([]);
+    
+    // Clear delayed recognition state to prevent cross-group recognition
+    setLastDetectionForRecognition(null);
+    
+    // Stop detection if running (use ref for synchronous check)
+    if (isStreamingRef.current) {
+      console.log(`🛑 Stopping detection due to group change`);
+      stopCamera();
     }
-  }, [currentGroup]);
+  }, [currentGroup, stopCamera]);
 
   // Load attendance data when current group changes
   useEffect(() => {
