@@ -576,13 +576,7 @@ async def process_attendance_event(
         
         # Get current settings to check confidence threshold
         settings = db.get_settings()
-        confidence_threshold = settings.get("confidence_threshold", 0.7)
-        
-        if event_data.confidence < confidence_threshold:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Confidence {event_data.confidence} below threshold {confidence_threshold}"
-            )
+        confidence_threshold = settings.get("confidence_threshold", 0.6)
         
         # Determine attendance type based on current session state
         today = datetime.now().date().strftime('%Y-%m-%d')
