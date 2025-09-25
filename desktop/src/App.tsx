@@ -16,7 +16,7 @@ function App() {
       {/* Scrollable content wrapper */}
       <div className="app-content-wrapper">
         {/* Main content area */}
-        <div className="text-white pl-4">
+        <div className="text-white">
           {renderCurrentComponent()}
         </div>
       </div>
