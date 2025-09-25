@@ -61,3 +61,4 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+backend/__pycache__/
