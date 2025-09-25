@@ -346,19 +346,8 @@ export default function LiveVideo() {
                 // Backend handles all confidence thresholding - frontend processes all valid responses
                 const actualConfidence = response.similarity || 0;
                 
-                // Check anti-spoofing if available
-                console.log(`🛡️ Anti-spoofing check:`, {
-                  hasAntispoofing: !!face.antispoofing,
-                  status: face.antispoofing?.status,
-                  isReal: face.antispoofing?.status === 'real'
-                });
-                
-                if (face.antispoofing && face.antispoofing.status !== 'real') {
-                  console.warn(`⚠️ Anti-spoofing failed for ${response.person_id}: ${face.antispoofing.status}`);
-                  return { index, result: response };
-                }
-                
-                console.log(`✅ All checks passed, processing attendance event...`);
+                // Anti-spoofing validation is handled by optimized backend
+                console.log(`✅ Processing attendance event (backend handles anti-spoofing validation)...`);
                 
                 if (trackingMode === 'auto') {
                   // AUTO MODE: Process attendance event immediately
@@ -1234,14 +1223,9 @@ export default function LiveVideo() {
     const face = currentDetections.faces[faceIndex];
     if (!face) return;
 
-    // Enhanced validation
+    // Enhanced validation - backend handles anti-spoofing validation
     if (face.confidence <= 0.8) {
       setError('Face quality too low for registration (minimum 80% confidence required)');
-      return;
-    }
-
-    if (face.antispoofing && face.antispoofing.status !== 'real') {
-      setError('Anti-spoofing check failed - live face required');
       return;
     }
 
@@ -2403,8 +2387,7 @@ export default function LiveVideo() {
                       <h4 className="text-lg font-medium mb-3">Step 2: Select & Validate Face</h4>
                       <div className="space-y-3">
                         {currentDetections.faces.map((face, index) => {
-                          const isValidForRegistration = face.confidence > 0.8 && 
-                            (!face.antispoofing || face.antispoofing.status === 'real');
+                          const isValidForRegistration = face.confidence > 0.8; // Backend handles anti-spoofing
                           
                           return (
                             <div
@@ -2439,7 +2422,7 @@ export default function LiveVideo() {
                                              face.confidence > 0.6 ? '🟠 Fair' : '🔴 Poor'}
                                     {!isValidForRegistration && (
                                       <span className="text-red-300 ml-2">
-                                        {face.confidence <= 0.8 ? 'Low quality' : 'Failed anti-spoofing'}
+                                        Low quality (minimum 80% required)
                                       </span>
                                     )}
                                   </div>
