@@ -1683,14 +1683,28 @@ export default function LiveVideo() {
     }
   }, [recognitionEnabled, backendServiceReady, loadRegisteredPersons, loadDatabaseStats]);
 
-  // Load attendance data when component mounts
+  // Clear tracked faces when switching groups to ensure fresh recognition
   useEffect(() => {
-    loadAttendanceData();
-  }, [loadAttendanceData]);
+    if (currentGroup) {
+      console.log(`🔄 Switching to group: ${currentGroup.name} - Clearing tracked faces`);
+      setTrackedFaces(new Map());
+      setPendingAttendance([]);
+      setSelectedTrackingTarget(null);
+      // Reset tracking stats
+      setTrackingStats({
+        totalTracked: 0,
+        activeTracking: 0,
+        reacquisitions: 0,
+        attendanceEvents: 0
+      });
+    }
+  }, [currentGroup]);
 
   // Load attendance data when current group changes
   useEffect(() => {
-    loadAttendanceData();
+    if (currentGroup) {
+      loadAttendanceData();
+    }
   }, [currentGroup, loadAttendanceData]);
 
   // Initialize attendance system on component mount
@@ -1698,25 +1712,39 @@ export default function LiveVideo() {
     const initializeAttendance = async () => {
       console.log('🔄 Initializing attendance system...');
       
-      // Load existing groups first
-      await loadAttendanceData();
-      
-      // Create a default group if none exists
-      if (attendanceGroups.length === 0) {
-        console.log('📝 Creating default group...');
-        try {
-          const defaultGroup = await attendanceManager.createGroup('Default Group', 'general', 'Auto-created default group');
-          setCurrentGroup(defaultGroup);
-          console.log('✅ Default group created:', defaultGroup);
-          await loadAttendanceData();
-        } catch (error) {
-          console.error('❌ Failed to create default group:', error);
-          setError('Failed to create default group');
+      try {
+        // Load existing groups first
+        const groups = await attendanceManager.getGroups();
+        setAttendanceGroups(groups);
+        
+        if (groups.length === 0) {
+          console.log('📝 Creating default group...');
+          try {
+            const defaultGroup = await attendanceManager.createGroup('Default Group', 'general', 'Auto-created default group');
+            setCurrentGroup(defaultGroup);
+            console.log('✅ Default group created:', defaultGroup);
+          } catch (createError: any) {
+            // If group already exists (409 error), just reload groups
+            if (createError?.response?.status === 409) {
+              console.log('ℹ️ Default group already exists, reloading groups...');
+              const updatedGroups = await attendanceManager.getGroups();
+              setAttendanceGroups(updatedGroups);
+              if (updatedGroups.length > 0) {
+                setCurrentGroup(updatedGroups[0]);
+                console.log('📌 Selected existing group:', updatedGroups[0]);
+              }
+            } else {
+              throw createError;
+            }
+          }
+        } else if (!currentGroup) {
+          // Select the first available group
+          setCurrentGroup(groups[0]);
+          console.log('📌 Selected first available group:', groups[0]);
         }
-      } else if (!currentGroup) {
-        // Select the first available group
-        setCurrentGroup(attendanceGroups[0]);
-        console.log('📌 Selected first available group:', attendanceGroups[0]);
+      } catch (error) {
+        console.error('❌ Failed to initialize attendance system:', error);
+        setError('Failed to initialize attendance system');
       }
     };
 
