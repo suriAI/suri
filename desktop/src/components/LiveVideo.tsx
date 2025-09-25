@@ -100,7 +100,6 @@ export default function LiveVideo() {
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   
   // Anti-spoofing settings
-  const [antispoofingEnabled, setAntispoofingEnabled] = useState(true);
 
   // Face recognition settings
   const [recognitionEnabled, setRecognitionEnabled] = useState(true);
@@ -634,7 +633,7 @@ export default function LiveVideo() {
       backendServiceRef.current.sendDetectionRequest(frameData, {
         model_type: 'yunet',
         nms_threshold: 0.3,
-        enable_antispoofing: antispoofingEnabled
+        enable_antispoofing: true
       }).catch(error => {
         console.error('❌ WebSocket detection request failed:', error);
         isProcessingRef.current = false;
@@ -643,7 +642,7 @@ export default function LiveVideo() {
       console.error('❌ Frame capture failed:', error);
       isProcessingRef.current = false;
     }
-  }, [antispoofingEnabled, isStreaming, captureFrame]);
+  }, [isStreaming, captureFrame]);
 
   // Get available camera devices
   const getCameraDevices = useCallback(async () => {
