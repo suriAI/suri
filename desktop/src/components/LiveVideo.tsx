@@ -355,7 +355,9 @@ export default function LiveVideo() {
                     const attendanceEvent = await attendanceManager.processAttendanceEvent(
                       response.person_id,
                       actualConfidence,
-                      'LiveVideo Camera' // location
+                      'LiveVideo Camera', // location
+                      face.antispoofing?.status,
+                      face.antispoofing?.confidence
                     );
                     
                     console.log(`📋 ✅ Attendance automatically recorded: ${response.person_id} - ${attendanceEvent.type} at ${attendanceEvent.timestamp}`);

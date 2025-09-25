@@ -264,12 +264,20 @@ export class AttendanceManager {
   }
 
   // Attendance Tracking
-  async processAttendanceEvent(personId: string, confidence: number, location?: string): Promise<AttendanceEvent | null> {
+  async processAttendanceEvent(
+    personId: string, 
+    confidence: number, 
+    location?: string,
+    antispoofingStatus?: string,
+    antispoofingConfidence?: number
+  ): Promise<AttendanceEvent | null> {
     try {
       const eventData = {
         person_id: personId,
         confidence,
-        location
+        location,
+        antispoofing_status: antispoofingStatus,
+        antispoofing_confidence: antispoofingConfidence
       };
 
       const event = await this.httpClient.post<AttendanceEvent>(API_ENDPOINTS.events, eventData);
