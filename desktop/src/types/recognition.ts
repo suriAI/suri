@@ -207,7 +207,6 @@ export interface AttendanceSettings {
   require_manual_checkout: boolean;
   enable_break_tracking: boolean;
   enable_location_tracking: boolean;
-  confidence_threshold: number;
 }
 
 export interface AttendanceEvent {

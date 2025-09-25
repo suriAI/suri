@@ -81,6 +81,7 @@ export default function LiveVideo() {
   const detectionEnabledRef = useRef<boolean>(false);
   const backendServiceRef = useRef<BackendService | null>(null);
   const isProcessingRef = useRef<boolean>(false);
+  const isStreamingRef = useRef<boolean>(false);
   
   // Performance optimization refs
   const lastCanvasSizeRef = useRef<{width: number, height: number}>({width: 0, height: 0});
@@ -121,6 +122,9 @@ export default function LiveVideo() {
   
   // Recognition is enabled when backend is ready and a group is selected
   const recognitionEnabled = backendServiceReady && currentGroup !== null;
+  
+  // Store last detection result for delayed recognition
+  const [lastDetectionForRecognition, setLastDetectionForRecognition] = useState<any>(null);
   
   // Elite Tracking System States
   const [trackingMode, setTrackingMode] = useState<'auto' | 'manual'>('auto');
@@ -184,17 +188,28 @@ export default function LiveVideo() {
   }, []);
   const [showAttendanceDashboard, setShowAttendanceDashboard] = useState(false);
 
-  // Optimized capture frame with reduced logging
+  // Optimized capture frame with better error handling
   const captureFrame = useCallback((): string | null => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    if (!video || !canvas || video.videoWidth === 0) {
+    if (!video || !canvas) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ captureFrame: Missing video or canvas element');
+      }
+      return null;
+    }
+    
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ captureFrame: Video dimensions not ready:', video.videoWidth, 'x', video.videoHeight);
+      }
       return null;
     }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) {
+      console.warn('⚠️ captureFrame: Failed to get canvas context');
       return null;
     }
 
@@ -204,12 +219,17 @@ export default function LiveVideo() {
       canvas.height = video.videoHeight;
     }
 
-    // Draw current video frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    try {
+      // Draw current video frame
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // OPTIMIZATION: Further reduced quality for better performance (was 0.6, now 0.4)
-    const base64 = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
-    return base64;
+      // OPTIMIZATION: Further reduced quality for better performance (was 0.6, now 0.4)
+      const base64 = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
+      return base64;
+    } catch (error) {
+      console.error('❌ captureFrame: Failed to capture frame:', error);
+      return null;
+    }
   }, []);
 
   // Face recognition function
@@ -560,8 +580,21 @@ export default function LiveVideo() {
           lastDetectionRef.current = detectionResult;
 
           // Perform face recognition if enabled
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 Recognition check:', {
+              recognitionEnabled,
+              backendServiceReady,
+              currentGroup: currentGroup?.name || 'null',
+              facesDetected: detectionResult.faces.length
+            });
+          }
+          
           if (recognitionEnabled && detectionResult.faces.length > 0) {
             performFaceRecognition(detectionResult);
+          } else if (!recognitionEnabled && detectionResult.faces.length > 0) {
+            // Store detection result for delayed recognition when recognition becomes enabled
+            console.log('💾 Storing detection result for delayed recognition');
+            setLastDetectionForRecognition(detectionResult);
           }
         }
 
@@ -610,17 +643,32 @@ export default function LiveVideo() {
     if (isProcessingRef.current || 
         !backendServiceRef.current?.isWebSocketReady() || 
         !detectionEnabledRef.current ||
-        !isStreaming) {
+        !isStreamingRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 processCurrentFrame skipped:', {
+          isProcessing: isProcessingRef.current,
+          websocketReady: backendServiceRef.current?.isWebSocketReady(),
+          detectionEnabled: detectionEnabledRef.current,
+          isStreaming: isStreamingRef.current
+        });
+      }
       return;
     }
 
     try {
       const frameData = captureFrame();
       if (!frameData || !backendServiceRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ processCurrentFrame: No frame data or backend service');
+        }
         return;
       }
 
       isProcessingRef.current = true;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📤 Sending detection request with frame data length:', frameData.length);
+      }
       
       // Backend handles all threshold configuration
       backendServiceRef.current.sendDetectionRequest(frameData, {
@@ -635,7 +683,7 @@ export default function LiveVideo() {
       console.error('❌ Frame capture failed:', error);
       isProcessingRef.current = false;
     }
-  }, [isStreaming, captureFrame]);
+  }, [captureFrame]);
 
   // Get available camera devices
   const getCameraDevices = useCallback(async () => {
@@ -699,8 +747,40 @@ export default function LiveVideo() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        
+        // Wait for video to be ready before starting detection
+        const waitForVideoReady = () => {
+          return new Promise<void>((resolve) => {
+            const video = videoRef.current;
+            if (!video) {
+              resolve();
+              return;
+            }
+
+            const checkVideoReady = () => {
+              if (video.videoWidth > 0 && video.videoHeight > 0) {
+                console.log('✅ Video is ready with dimensions:', video.videoWidth, 'x', video.videoHeight);
+                resolve();
+              } else {
+                setTimeout(checkVideoReady, 50); // Check every 50ms
+              }
+            };
+
+            // Start playing and check readiness
+            video.play().then(() => {
+              checkVideoReady();
+            }).catch((error) => {
+              console.warn('Video play failed, but continuing:', error);
+              checkVideoReady();
+            });
+          });
+        };
+
+        await waitForVideoReady();
+        
+        // Set streaming state and refs immediately
         setIsStreaming(true);
+        isStreamingRef.current = true; // Set ref immediately for synchronous access
         
         // Automatically start detection when camera starts
         setDetectionEnabled(true);
@@ -709,9 +789,30 @@ export default function LiveVideo() {
         if (websocketStatus === 'disconnected') {
           try {
             await initializeWebSocket();
-            // Detection interval will be started by the useEffect that monitors websocketStatus
+            // Wait for WebSocket to be fully ready before starting detection
+            let attempts = 0;
+            const maxAttempts = 20; // Increased attempts for better reliability
+            const waitForReady = () => {
+              return new Promise<void>((resolve, reject) => {
+                const checkReady = () => {
+                  if (backendServiceRef.current?.isWebSocketReady()) {
+                    console.log('✅ WebSocket is ready, starting detection interval');
+                    startDetectionInterval();
+                    resolve();
+                  } else if (attempts < maxAttempts) {
+                    attempts++;
+                    setTimeout(checkReady, 100); // Check every 100ms
+                  } else {
+                    reject(new Error('WebSocket readiness timeout'));
+                  }
+                };
+                checkReady();
+              });
+            };
+            
+            await waitForReady();
           } catch (error) {
-            console.error('❌ Failed to initialize WebSocket:', error);
+            console.error('❌ Failed to initialize WebSocket or start detection:', error);
             setDetectionEnabled(false);
             detectionEnabledRef.current = false;
             setError('Failed to connect to detection service');
@@ -751,6 +852,7 @@ export default function LiveVideo() {
     setDetectionEnabled(false);
     detectionEnabledRef.current = false;
     setIsStreaming(false);
+    isStreamingRef.current = false;
     
     // Reset processing state
     isProcessingRef.current = false;
@@ -1715,7 +1817,7 @@ export default function LiveVideo() {
           try {
             const defaultGroup = await attendanceManager.createGroup('Default Group', 'general', 'Auto-created default group');
             setCurrentGroup(defaultGroup);
-            console.log('✅ Default group created:', defaultGroup);
+            console.log('✅ Default group created and set as current:', defaultGroup);
           } catch (createError: any) {
             // If group already exists (409 error), just reload groups
             if (createError?.response?.status === 409) {
@@ -1724,7 +1826,7 @@ export default function LiveVideo() {
               setAttendanceGroups(updatedGroups);
               if (updatedGroups.length > 0) {
                 setCurrentGroup(updatedGroups[0]);
-                console.log('📌 Selected existing group:', updatedGroups[0]);
+                console.log('📌 Selected existing group as current:', updatedGroups[0]);
               }
             } else {
               throw createError;
@@ -1733,7 +1835,7 @@ export default function LiveVideo() {
         } else if (!currentGroup) {
           // Select the first available group
           setCurrentGroup(groups[0]);
-          console.log('📌 Selected first available group:', groups[0]);
+          console.log('📌 Selected first available group as current:', groups[0]);
         }
       } catch (error) {
         console.error('❌ Failed to initialize attendance system:', error);
@@ -1743,6 +1845,15 @@ export default function LiveVideo() {
 
     initializeAttendance();
   }, []); // Empty dependency array means this runs only on mount
+
+  // Handle delayed recognition when recognitionEnabled becomes true
+  useEffect(() => {
+    if (recognitionEnabled && lastDetectionForRecognition && lastDetectionForRecognition.faces.length > 0) {
+      console.log('🔄 Performing delayed recognition for stored detection result');
+      performFaceRecognition(lastDetectionForRecognition);
+      setLastDetectionForRecognition(null); // Clear after processing
+    }
+  }, [recognitionEnabled, lastDetectionForRecognition, performFaceRecognition]);
 
   return (
     <div className="pt-8 h-screen bg-black text-white flex flex-col overflow-hidden">

@@ -102,8 +102,7 @@ export class AttendanceManager {
       break_duration_minutes: 60,
       require_manual_checkout: false,
       enable_break_tracking: true,
-      enable_location_tracking: false,
-      confidence_threshold: 0.7
+      enable_location_tracking: false
     };
   }
 
@@ -297,8 +296,7 @@ export class AttendanceManager {
       const errorMessage = error.message || error.toString();
       
       if (errorMessage.includes('below threshold')) {
-        const confidenceThreshold = this.settings.confidence_threshold;
-        throw new Error(`Recognition confidence (${(confidence * 100).toFixed(1)}%) is below the required threshold (${(confidenceThreshold * 100).toFixed(1)}%). Please ensure good lighting and face the camera directly.`);
+        throw new Error(`Recognition confidence (${(confidence * 100).toFixed(1)}%) is below the required threshold. Please ensure good lighting and face the camera directly.`);
       } else if (errorMessage.includes('Member not found') || errorMessage.includes('Person not found')) {
         throw new Error(`Person not found in the system. Please register this person first.`);
       } else if (errorMessage.includes('Group not found')) {
