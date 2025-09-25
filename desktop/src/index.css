@@ -174,28 +174,32 @@ input::placeholder, textarea::placeholder {
 /* Scrollbar styling - contained within rounded window */
 .app-content-wrapper::-webkit-scrollbar,
 .recent-logs-scroll::-webkit-scrollbar,
-.live-detections::-webkit-scrollbar {
+.live-detections::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
   width: 7px;
   height: 8px;
 }
 
 .app-content-wrapper::-webkit-scrollbar-track,
 .recent-logs-scroll::-webkit-scrollbar-track,
-.live-detections::-webkit-scrollbar-track {
+.live-detections::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 0 0 12px 0;
 }
 
 .app-content-wrapper::-webkit-scrollbar-thumb,
 .recent-logs-scroll::-webkit-scrollbar-thumb,
-.live-detections::-webkit-scrollbar-thumb {
+.live-detections::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
 
 .app-content-wrapper::-webkit-scrollbar-thumb:hover,
 .recent-logs-scroll::-webkit-scrollbar-thumb:hover,
-.live-detections::-webkit-scrollbar-thumb:hover {
+.live-detections::-webkit-scrollbar-thumb:hover,
+.sidebar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 

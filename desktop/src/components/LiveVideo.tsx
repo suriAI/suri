@@ -1947,7 +1947,7 @@ export default function LiveVideo() {
                       : 'bg-green-600 hover:bg-green-700 text-white'
                   }`}
                 >
-                  {isStreaming ? 'Stop' : 'Start Detection'}
+                  {isStreaming ? 'Stop' : 'Start Scan'}
                 </button>
               </div>
             </div>
