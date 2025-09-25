@@ -180,10 +180,10 @@ async def get_available_models():
     else:
         models_info["yunet"] = {"available": False}
     
-    if antispoofing_detector:
+    if optimized_antispoofing_detector:
         models_info["antispoofing"] = {
             "available": True,
-            "info": antispoofing_detector.get_model_info()
+            "info": optimized_antispoofing_detector.get_model_info()
         }
     else:
         models_info["antispoofing"] = {"available": False}
