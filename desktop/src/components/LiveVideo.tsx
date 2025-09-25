@@ -762,7 +762,7 @@ export default function LiveVideo() {
     if (detectionEnabledRef.current && 
         backendServiceRef.current?.isWebSocketReady() && 
         !detectionIntervalRef.current) {
-      detectionIntervalRef.current = setInterval(processFrameForDetection, 0);
+      detectionIntervalRef.current = setInterval(processFrameForDetection, 100);
       if (process.env.NODE_ENV === 'development') {
         console.log('🎯 Detection interval started at 14 FPS (optimized for YuNet speed)');
       }
