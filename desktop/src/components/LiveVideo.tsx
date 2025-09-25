@@ -119,8 +119,8 @@ export default function LiveVideo() {
   const attendanceEnabled = true;
   const [currentGroup, setCurrentGroup] = useState<AttendanceGroup | null>(null);
   
-  // Recognition is enabled when backend is ready and a group is selected
-  const recognitionEnabled = backendServiceReady && currentGroup !== null;
+  // Recognition is enabled when backend is ready (removed group dependency for instant recognition)
+  const recognitionEnabled = backendServiceReady;
   
   // Store last detection result for delayed recognition
   const [lastDetectionForRecognition, setLastDetectionForRecognition] = useState<any>(null);
@@ -712,10 +712,10 @@ export default function LiveVideo() {
     if (detectionEnabledRef.current && 
         backendServiceRef.current?.isWebSocketReady() && 
         !detectionIntervalRef.current) {
-      // OPTIMIZATION: Reduced frequency for better performance (was 100ms/10fps, now 150ms/6.7fps)
-      detectionIntervalRef.current = setInterval(processFrameForDetection, 150);
+      // OPTIMIZATION: Balanced frequency for instant recognition (100ms/10fps)
+      detectionIntervalRef.current = setInterval(processFrameForDetection, 100);
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎯 Detection interval started at 6.7 FPS');
+        console.log('🎯 Detection interval started at 10 FPS');
       }
     }
   }, [processFrameForDetection]);
