@@ -486,12 +486,6 @@ export default function LiveVideo() {
       
       setCurrentRecognitionResults(newRecognitionResults);
 
-      if (process.env.NODE_ENV === 'development') {
-        const recognizedCount = recognitionResults.filter(r => r?.result.person_id).length;
-        if (recognizedCount > 0) {
-          console.log(`🎯 Face recognition: ${recognizedCount}/${detectionResult.faces.length} faces recognized`);
-        }
-      }
     } catch (error) {
       console.error('❌ Face recognition processing failed:', error);
     }
@@ -695,14 +689,6 @@ export default function LiveVideo() {
         !backendServiceRef.current?.isWebSocketReady() || 
         !detectionEnabledRef.current ||
         !isStreamingRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 processCurrentFrame skipped:', {
-          isProcessing: isProcessingRef.current,
-          websocketReady: backendServiceRef.current?.isWebSocketReady(),
-          detectionEnabled: detectionEnabledRef.current,
-          isStreaming: isStreamingRef.current
-        });
-      }
       return;
     }
 
@@ -716,10 +702,6 @@ export default function LiveVideo() {
       }
 
       isProcessingRef.current = true;
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📤 Sending detection request with frame data length:', frameData.length);
-      }
       
       // Backend handles all threshold configuration
       backendServiceRef.current.sendDetectionRequest(frameData, {
@@ -784,10 +766,7 @@ export default function LiveVideo() {
 
       const constraints: MediaStreamConstraints = {
         video: {
-          deviceId: selectedCamera ? { exact: selectedCamera } : undefined,
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 30 }
+          deviceId: selectedCamera ? { exact: selectedCamera } : undefined
         },
         audio: false
       };
