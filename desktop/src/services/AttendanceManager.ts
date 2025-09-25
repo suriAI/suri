@@ -188,15 +188,15 @@ export class AttendanceManager {
   }
 
   // Member Management
-  async addMember(personId: string, groupId: string, name: string, options?: {
+  async addMember(groupId: string, name: string, options?: {
+    personId?: string;
     role?: string;
     employee_id?: string;
     student_id?: string;
     email?: string;
   }): Promise<AttendanceMember> {
     try {
-      const memberData = {
-        person_id: personId,
+      const memberData: any = {
         group_id: groupId,
         name,
         role: options?.role,
@@ -204,6 +204,11 @@ export class AttendanceManager {
         student_id: options?.student_id,
         email: options?.email
       };
+
+      // Only include person_id if explicitly provided
+      if (options?.personId) {
+        memberData.person_id = options.personId;
+      }
 
       const member = await this.httpClient.post<AttendanceMember>(API_ENDPOINTS.members, memberData);
       return {

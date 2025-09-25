@@ -105,7 +105,6 @@ export default function LiveVideo() {
   // Face recognition settings
   const [registeredPersons, setRegisteredPersons] = useState<PersonInfo[]>([]);
 
-  const [newPersonId, setNewPersonId] = useState<string>('');
   const [selectedPersonForRegistration, setSelectedPersonForRegistration] = useState<string>('');
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
   const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, FaceRecognitionResponse>>(new Map());
@@ -168,7 +167,6 @@ export default function LiveVideo() {
   // Reset member form function
   const resetMemberForm = useCallback(() => {
     setSelectedPersonForMember('');
-    setNewPersonId('');
     setNewMemberName('');
     setNewMemberRole('');
     setNewMemberEmployeeId('');
@@ -179,7 +177,6 @@ export default function LiveVideo() {
   // Handle mode switching with form reset
   const handleMemberModeSwitch = useCallback((mode: 'existing' | 'new') => {
     setSelectedPersonForMember('');
-    setNewPersonId('');
     setNewMemberName('');
     setNewMemberRole('');
     setNewMemberEmployeeId('');
@@ -1224,8 +1221,8 @@ export default function LiveVideo() {
   }, []);
 
   const handleRegisterFace = useCallback(async (faceIndex: number) => {
-    if (!currentDetections?.faces?.[faceIndex] || !newPersonId.trim()) {
-      setError('Please enter a person ID and select a valid face');
+    if (!currentDetections?.faces?.[faceIndex] || !selectedPersonForRegistration.trim()) {
+      setError('Please select a person and a valid face');
       return;
     }
 
@@ -1254,13 +1251,13 @@ export default function LiveVideo() {
       
       const response = await backendServiceRef.current.registerFace(
         frameData,
-        newPersonId.trim(),
+        selectedPersonForRegistration.trim(),
         landmarks,
         currentGroup?.id
       );
 
       if (response.success) {
-        setNewPersonId('');
+        setSelectedPersonForRegistration('');
         setShowRegistrationDialog(false);
         await loadRegisteredPersons();
         await loadDatabaseStats();
@@ -1278,7 +1275,7 @@ export default function LiveVideo() {
       console.error('❌ Face recognition failed:', error);
       setError('Failed to register face');
     }
-  }, [currentDetections, newPersonId, captureFrame, loadRegisteredPersons, loadDatabaseStats, performFaceRecognition]);
+  }, [currentDetections, selectedPersonForRegistration, captureFrame, loadRegisteredPersons, loadDatabaseStats, performFaceRecognition]);
 
   const handleRemovePerson = useCallback(async (personId: string) => {
     try {
@@ -1575,17 +1572,18 @@ export default function LiveVideo() {
   }, [loadAttendanceData]);
 
   const handleAddMember = useCallback(async () => {
-    if (!currentGroup) return;
+    if (!currentGroup) return null;
     
     // Validation based on mode
     if (memberAddMode === 'existing') {
-      if (!selectedPersonForMember || !newMemberName.trim()) return;
+      if (!selectedPersonForMember || !newMemberName.trim()) return null;
     } else {
-      if (!newPersonId.trim() || !newMemberName.trim()) return;
+      if (!newMemberName.trim()) return null;
     }
     
     try {
       const options: {
+        personId?: string;
         role?: string;
         employee_id?: string;
         student_id?: string;
@@ -1595,11 +1593,12 @@ export default function LiveVideo() {
       if (newMemberEmployeeId.trim()) options.employee_id = newMemberEmployeeId.trim();
       if (newMemberStudentId.trim()) options.student_id = newMemberStudentId.trim();
       
-      // Use the appropriate person ID based on mode
-      const personId = memberAddMode === 'existing' ? selectedPersonForMember : newPersonId.trim();
+      // For existing members, provide the person ID; for new members, let it auto-generate
+      if (memberAddMode === 'existing') {
+        options.personId = selectedPersonForMember;
+      }
       
-      await attendanceManager.addMember(
-        personId,
+      const newMember = await attendanceManager.addMember(
         currentGroup.id,
         newMemberName.trim(),
         options
@@ -1611,11 +1610,14 @@ export default function LiveVideo() {
       
       await loadAttendanceData();
       console.log(`✅ ${memberAddMode === 'existing' ? 'Existing person added' : 'New person created and added'} successfully`);
+      
+      return newMember;
     } catch (error) {
       console.error('❌ Failed to add member:', error);
       setError(`Failed to ${memberAddMode === 'existing' ? 'add existing person' : 'create new person'}`);
+      return null;
     }
-  }, [memberAddMode, selectedPersonForMember, newPersonId, newMemberName, newMemberRole, newMemberEmployeeId, newMemberStudentId, currentGroup, loadAttendanceData, resetMemberForm]);
+  }, [memberAddMode, selectedPersonForMember, newMemberName, newMemberRole, newMemberEmployeeId, newMemberStudentId, currentGroup, loadAttendanceData, resetMemberForm]);
 
   const handleRemoveMember = useCallback(async (personId: string) => {
     try {
@@ -2469,29 +2471,24 @@ export default function LiveVideo() {
                     {/* Create New Member */}
                     <div className="border-t border-gray-600 pt-4">
                       <label className="block text-sm font-medium mb-2">Or Create New Member:</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="text"
-                          value={newPersonId}
-                          onChange={(e) => setNewPersonId(e.target.value)}
-                          placeholder="Person ID (e.g., john_doe)"
-                          className="px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                        />
+                      <div className="space-y-3">
                         <input
                           type="text"
                           value={newMemberName}
                           onChange={(e) => setNewMemberName(e.target.value)}
-                          placeholder="Full Name"
-                          className="px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                          placeholder="Enter full name"
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
                         />
                       </div>
-                      {newPersonId.trim() && newMemberName.trim() && (
+                      {newMemberName.trim() && (
                         <button
                           onClick={async () => {
                             try {
-                              await handleAddMember();
-                              setSelectedPersonForRegistration(newPersonId);
-                              setNewPersonId('');
+                              const newMember = await handleAddMember();
+                              // The backend will return the member with the auto-generated person_id
+                              if (newMember && newMember.person_id) {
+                                setSelectedPersonForRegistration(newMember.person_id);
+                              }
                               setNewMemberName('');
                             } catch (error) {
                               console.error('Failed to add member:', error);
@@ -2617,7 +2614,6 @@ export default function LiveVideo() {
                 <button
                   onClick={() => {
                     setShowRegistrationDialog(false);
-                    setNewPersonId('');
                     setSelectedPersonForRegistration('');
                   }}
                   className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
@@ -2806,19 +2802,6 @@ export default function LiveVideo() {
                     /* Create New Person */
                     <>
                       <div>
-                        <label className="block text-sm font-medium mb-2">Person ID:</label>
-                        <input
-                          type="text"
-                          value={newPersonId}
-                          onChange={(e) => setNewPersonId(e.target.value)}
-                          placeholder="e.g., john_doe, emp_001, student_123"
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                        />
-                        <p className="text-gray-400 text-xs mt-1">
-                          Unique identifier for this person (no spaces, use underscore)
-                        </p>
-                      </div>
-                      <div>
                         <label className="block text-sm font-medium mb-2">Full Name:</label>
                         <input
                           type="text"
@@ -2871,20 +2854,14 @@ export default function LiveVideo() {
                     disabled={
                       memberAddMode === 'existing' 
                         ? (!selectedPersonForMember || !newMemberName.trim())
-                        : (!newPersonId.trim() || !newMemberName.trim())
+                        : (!newMemberName.trim())
                     }
                     className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded transition-colors"
                   >
                     {memberAddMode === 'existing' ? 'Add Existing Person' : 'Create & Add New Person'}
                   </button>
                   
-                  {memberAddMode === 'new' && (
-                    <div className="bg-blue-600/10 border border-blue-500/30 rounded-lg p-3">
-                      <p className="text-blue-300 text-xs">
-                        💡 <strong>Note:</strong> After creating this person, you can register their face using the "Register" button for automatic attendance tracking.
-                      </p>
-                    </div>
-                  )}
+
                 </div>
               </div>
 
