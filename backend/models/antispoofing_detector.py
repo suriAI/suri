@@ -26,7 +26,6 @@ class OptimizedAntiSpoofingDetector:
         providers: Optional[List[str]] = None,
         max_batch_size: int = 1,
         cache_duration: float = 0.0,  # No caching
-        frame_skip: int = 1,  # Process every frame
         session_options: Optional[Dict] = None
     ):
         self.model_path = model_path
@@ -261,10 +260,7 @@ class OptimizedAntiSpoofingDetector:
         self.threshold = threshold
         logger.info(f"Threshold updated to: {threshold}")
     
-    def set_frame_skip(self, frame_skip: int):
-        """Set frame skip (not used in simple version)"""
-        pass  # No-op in simple version
-    
+
     def clear_cache(self):
         """Clear cache (not used in simple version)"""
         pass  # No-op in simple version

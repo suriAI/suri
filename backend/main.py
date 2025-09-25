@@ -135,7 +135,6 @@ async def startup_event():
             providers=ANTISPOOFING_CONFIG["providers"],
             max_batch_size=ANTISPOOFING_CONFIG.get("max_batch_size", 1),
             cache_duration=1.0,
-            frame_skip=2,
             session_options=ANTISPOOFING_CONFIG.get("session_options")
         )
         
@@ -209,7 +208,6 @@ async def get_available_models():
     }
 
 class OptimizationRequest(BaseModel):
-    frame_skip: int = 2
     cache_duration: float = 1.0
     clear_cache: bool = False
 
@@ -223,14 +221,12 @@ async def configure_antispoofing_optimization(request: OptimizationRequest):
         if request.clear_cache:
             optimized_antispoofing_detector.clear_cache()
         
-        optimized_antispoofing_detector.set_frame_skip(request.frame_skip)
         optimized_antispoofing_detector.cache_duration = request.cache_duration
         
         return {
             "success": True,
             "message": "Optimization settings updated",
             "settings": {
-                "frame_skip": request.frame_skip,
                 "cache_duration": request.cache_duration,
                 "cache_cleared": request.clear_cache
             }
