@@ -1912,6 +1912,11 @@ export default function LiveVideo() {
                 <div className="text-sm text-white/60">
                   FPS: {detectionFps}
                 </div>
+
+                              <div className="flex justify-between items-center">
+                <span className="text-white/60">Process time: &nbsp;</span>
+                <span className="font-mono"> {currentDetections?.processing_time?.toFixed(1) || 0}ms</span>
+              </div>
                 
                 {/* Camera Selection */}
                 {cameraDevices.length > 0 && (
@@ -1973,10 +1978,6 @@ export default function LiveVideo() {
               <div className="flex justify-between items-center">
                 <span className="text-white/60">Registered Persons</span>
                 <span className="font-mono">{registeredPersons.length}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-white/60">Processing Time</span>
-                <span className="font-mono">{currentDetections?.processing_time?.toFixed(1) || 0}ms</span>
               </div>
               
               {/* Attendance Status */}
@@ -2066,7 +2067,7 @@ export default function LiveVideo() {
           {/* Live Detections */}
            <div className="p-4 border-b border-white/[0.08]">
              <h3 className="text-lg font-light mb-4">Live Detections</h3>
-             <div className="space-y-2 h-32 overflow-y-auto recent-logs-scroll">
+             <div className="space-y-2 h-auto max-h-32 overflow-y-auto recent-logs-scroll">
               {!currentDetections?.faces?.length ? (
                 <div className="text-white/50 text-sm text-center py-4">
                   No faces detected
@@ -2092,7 +2093,7 @@ export default function LiveVideo() {
                             <div className="font-medium">
                               {isRecognized && recognitionResult?.person_id ? 
                                 (recognitionResult.memberName || recognitionResult.person_id).toUpperCase() : 
-                                `Face ${index + 1}`
+                                `Unknown`
                               }
                             </div>
                             {trackedFace && (
@@ -2159,7 +2160,7 @@ export default function LiveVideo() {
                <>
                  <div className="flex items-center justify-between mb-4 flex-col">
                    <h3 className="text-lg font-light">Attendance Management</h3>
-                   <div className="flex space-x-2">
+                   <div className="flex space-x-2 flex-col w-full">
                      <button
                        onClick={() => setShowAttendanceDashboard(true)}
                        className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded text-xs transition-colors"
