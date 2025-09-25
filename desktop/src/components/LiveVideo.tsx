@@ -343,15 +343,8 @@ export default function LiveVideo() {
               
               try {
                 // Note: Group validation is now done at recognition level
-                // Enhanced confidence check with anti-spoofing validation
-                const minConfidence = 0.7; // Minimum confidence for attendance
+                // Backend handles all confidence thresholding - frontend processes all valid responses
                 const actualConfidence = response.similarity || 0;
-                console.log(`🎯 Confidence check: ${actualConfidence} >= ${minConfidence} = ${actualConfidence >= minConfidence}`);
-                
-                if (actualConfidence < minConfidence) {
-                  console.warn(`⚠️ Recognition confidence ${actualConfidence} below threshold ${minConfidence}`);
-                  return { index, result: { ...response, memberName } };
-                }
                 
                 // Check anti-spoofing if available
                 console.log(`🛡️ Anti-spoofing check:`, {
@@ -631,10 +624,9 @@ export default function LiveVideo() {
 
       isProcessingRef.current = true;
       
-      // OPTIMIZATION: Reduced confidence threshold for better detection sensitivity
+      // Backend handles all threshold configuration
       backendServiceRef.current.sendDetectionRequest(frameData, {
         model_type: 'yunet',
-        confidence_threshold: 0.4, // Reduced from 0.5
         nms_threshold: 0.3,
         enable_antispoofing: antispoofingEnabled
       }).catch(error => {
