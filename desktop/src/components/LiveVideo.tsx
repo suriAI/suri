@@ -1289,11 +1289,8 @@ export default function LiveVideo() {
         ctx.fillStyle = "#00ff00";
         ctx.fillText("RECOGNIZED", scaledX1 + 10, scaledY2 + 15);
       }
-
-      // OPTIMIZATION: Removed animated border glow for better performance
-      // The pulse effect was causing unnecessary redraws
     });
-  }, [currentDetections, calculateScaleFactors, currentRecognitionResults, recognitionEnabled, isStreaming]);
+  }, [currentDetections, isStreaming, getVideoRect, calculateScaleFactors, currentRecognitionResults, recognitionEnabled]);
 
   // OPTIMIZED animation loop with better performance
   const animate = useCallback(() => {
