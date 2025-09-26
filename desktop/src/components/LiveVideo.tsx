@@ -77,7 +77,6 @@ export default function LiveVideo() {
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
-  const detectionIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const detectionEnabledRef = useRef<boolean>(false);
   const backendServiceRef = useRef<BackendService | null>(null);
   const isProcessingRef = useRef<boolean>(false);
@@ -305,7 +304,7 @@ export default function LiveVideo() {
                     const memberGroupName = memberGroup ? memberGroup.name : 'unknown group';
                     console.log(`🚫 Face ${index} filtered out: ${memberName} belongs to group "${memberGroupName}" (ID: ${member.group_id}), not current group "${currentGroup.name}" (ID: ${currentGroup.id})`);
                   } catch (groupError) {
-                    console.log(`🚫 Face ${index} filtered out: ${memberName} belongs to group ID ${member.group_id}, not current group "${currentGroup.name}" (ID: ${currentGroup.id})`);
+                    console.warn(groupError)
                   }
                   return null; // Filter out this face completely
                 }
@@ -321,7 +320,7 @@ export default function LiveVideo() {
                 if (member && member.name) {
                   memberName = member.name;
                 }
-              } catch (error) {
+              } catch {
                 // Silently fail and use person_id as fallback
               }
             }
