@@ -834,7 +834,7 @@ export default function LiveVideo() {
               if (video.videoWidth > 0 && video.videoHeight > 0) {
                 resolve();
               } else {
-                setTimeout(checkVideoReady, 50); // Check every 50ms
+                setTimeout(checkVideoReady, 16);
               }
             };
 
