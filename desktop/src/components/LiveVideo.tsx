@@ -2014,8 +2014,7 @@ export default function LiveVideo() {
         </div>
 
         {/* Sidebar */}
-        <div className="sidebar w-80 my-3 bg-white/[0.02] border-l border-white/[0.08] flex flex-col max-h-full overflow-auto">
-          {/* System Status */}
+        <div className="w-80 my-3 bg-white/[0.02] border-l border-white/[0.08] flex flex-col max-h-full">
           <div className="px-4 pt-2 pb-4 border-b border-white/[0.08]">
             <div className="space-y-3">
                 <div className="flex justify-between">
@@ -2037,838 +2036,837 @@ export default function LiveVideo() {
                 </div>
             </div>
           </div>
-
-
-
-          {/* Recognition Controls */}
-          {recognitionEnabled && (
-            <div className="px-4 py-4 border-b border-white/[0.08]">
-              <div className="space-y-2">
-                <button
-                  onClick={() => setShowRegistrationDialog(true)}
-                  disabled={!currentDetections?.faces?.length}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 disabled:bg-white/[0.05] disabled:text-white/40 backdrop-blur-xl border border-green-500/30 text-green-200 hover:text-green-100 rounded-xl font-light transition-all duration-300"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  <span className="text-sm font-light tracking-wider uppercase">Register Face</span>
-                </button>
-              <div className="flex justify-between items-center">
-                <span className="text-white/60">Registered Persons</span>
-                <span className="font-mono">{registeredPersons.length}</span>
-              </div>
-              </div>
-            </div>
-          )}
-           <div className="p-4 border-b border-white/[0.08]">
-             <div className="space-y-2 h-auto max-h-32 overflow-y-auto recent-logs-scroll">
-              {!currentDetections?.faces?.length ? (
-                <div className="text-white/50 text-sm text-center py-4">
-                  No faces detected
+<div className="sidebar h-full overflow-auto">
+  
+            {recognitionEnabled && (
+              <div className="px-4 py-4 border-b border-white/[0.08]">
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowRegistrationDialog(true)}
+                    disabled={!currentDetections?.faces?.length}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 disabled:bg-white/[0.05] disabled:text-white/40 backdrop-blur-xl border border-green-500/30 text-green-200 hover:text-green-100 rounded-xl font-light transition-all duration-300"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    <span className="text-sm font-light tracking-wider uppercase">Register Face</span>
+                  </button>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/60">Registered Persons</span>
+                  <span className="font-mono">{registeredPersons.length}</span>
                 </div>
-              ) : (
-                currentDetections.faces.map((face, index) => {
-                  const recognitionResult = currentRecognitionResults.get(index);
-                  const isRecognized = recognitionEnabled && recognitionResult?.person_id;
-                  
-                  // Find corresponding tracked face
-                  const trackedFace = Array.from(trackedFaces.values()).find(track => 
-                    track.personId === recognitionResult?.person_id ||
-                    (Math.abs(track.bbox.x - face.bbox.x) < 30 && Math.abs(track.bbox.y - face.bbox.y) < 30)
-                  );
-                  
-                  return (
-                    <div key={index} className={`bg-white/[0.05] border rounded p-3 transition-all duration-200 ${
-                      trackedFace?.isLocked ? 'border-cyan-500/50 bg-cyan-500/10' : 'border-white/[0.08]'
-                    }`}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <div className="font-medium">
-                              {isRecognized && recognitionResult?.person_id ? 
-                                (recognitionResult.memberName || recognitionResult.person_id) : 
-                                `Unknown`
-                              }
+                </div>
+              </div>
+            )}
+             <div className="p-4 border-b border-white/[0.08]">
+               <div className="space-y-2 h-auto max-h-32 overflow-y-auto recent-logs-scroll">
+                {!currentDetections?.faces?.length ? (
+                  <div className="text-white/50 text-sm text-center py-4">
+                    No faces detected
+                  </div>
+                ) : (
+                  currentDetections.faces.map((face, index) => {
+                    const recognitionResult = currentRecognitionResults.get(index);
+                    const isRecognized = recognitionEnabled && recognitionResult?.person_id;
+  
+                    // Find corresponding tracked face
+                    const trackedFace = Array.from(trackedFaces.values()).find(track =>
+                      track.personId === recognitionResult?.person_id ||
+                      (Math.abs(track.bbox.x - face.bbox.x) < 30 && Math.abs(track.bbox.y - face.bbox.y) < 30)
+                    );
+  
+                    return (
+                      <div key={index} className={`bg-white/[0.05] border rounded p-3 transition-all duration-200 ${
+                        trackedFace?.isLocked ? 'border-cyan-500/50 bg-cyan-500/10' : 'border-white/[0.08]'
+                      }`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <div className="font-medium">
+                                {isRecognized && recognitionResult?.person_id ?
+                                  (recognitionResult.memberName || recognitionResult.person_id) :
+                                  `Unknown`
+                                }
+                              </div>
+                              {trackedFace && (
+                                <div className={`w-2 h-2 rounded-full ${
+                                  trackedFace.isLocked ? 'bg-cyan-400' : 'bg-orange-400'
+                                }`} title={trackedFace.isLocked ? 'Locked Track' : 'Active Track'}></div>
+                              )}
                             </div>
-                            {trackedFace && (
-                              <div className={`w-2 h-2 rounded-full ${
-                                trackedFace.isLocked ? 'bg-cyan-400' : 'bg-orange-400'
-                              }`} title={trackedFace.isLocked ? 'Locked Track' : 'Active Track'}></div>
+                            <div className="text-xs text-white/60">
+                              Confidence: {(face.confidence * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {isRecognized && recognitionResult?.similarity && (
+                              <div className="text-xs text-green-300">
+                                {(recognitionResult.similarity * 100).toFixed(1)}% match
+                              </div>
+                            )}
+                            {face.antispoofing && (
+                              <div className={`text-xs px-2 py-1 rounded mt-1 ${
+                                face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' :
+                                face.antispoofing.status === 'fake' ? 'bg-red-900 text-red-300' :
+                                'bg-yellow-900 text-yellow-300'
+                              }`}>
+                                {face.antispoofing.status === 'real' ? '✓ Live' :
+                                 face.antispoofing.status === 'fake' ? '⚠ Spoof' : '? Unknown'}
+                              </div>
+                            )}
+  
+                            {/* Manual Tracking Controls */}
+                            {trackingMode === 'manual' && trackedFace && (
+                              <div className="flex space-x-1 mt-2">
+                                <button
+                                  onClick={() => trackedFace.isLocked ? unlockTrackingTarget(trackedFace.id) : lockTrackingTarget(trackedFace.id)}
+                                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                                    trackedFace.isLocked
+                                      ? 'bg-cyan-600 text-white hover:bg-cyan-700'
+                                      : 'bg-orange-600 text-white hover:bg-orange-700'
+                                  }`}
+                                >
+                                  {trackedFace.isLocked ? '🔒' : '🔓'}
+                                </button>
+                              </div>
                             )}
                           </div>
-                          <div className="text-xs text-white/60">
-                            Confidence: {(face.confidence * 100).toFixed(1)}%
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          {isRecognized && recognitionResult?.similarity && (
-                            <div className="text-xs text-green-300">
-                              {(recognitionResult.similarity * 100).toFixed(1)}% match
-                            </div>
-                          )}
-                          {face.antispoofing && (
-                            <div className={`text-xs px-2 py-1 rounded mt-1 ${
-                              face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' : 
-                              face.antispoofing.status === 'fake' ? 'bg-red-900 text-red-300' : 
-                              'bg-yellow-900 text-yellow-300'
-                            }`}>
-                              {face.antispoofing.status === 'real' ? '✓ Live' : 
-                               face.antispoofing.status === 'fake' ? '⚠ Spoof' : '? Unknown'}
-                            </div>
-                          )}
-                          
-                          {/* Manual Tracking Controls */}
-                          {trackingMode === 'manual' && trackedFace && (
-                            <div className="flex space-x-1 mt-2">
-                              <button
-                                onClick={() => trackedFace.isLocked ? unlockTrackingTarget(trackedFace.id) : lockTrackingTarget(trackedFace.id)}
-                                className={`px-2 py-1 rounded text-xs transition-colors ${
-                                  trackedFace.isLocked 
-                                    ? 'bg-cyan-600 text-white hover:bg-cyan-700' 
-                                    : 'bg-orange-600 text-white hover:bg-orange-700'
-                                }`}
-                              >
-                                {trackedFace.isLocked ? '🔒' : '🔓'}
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })
+                 )}
+               </div>
+             </div>
+  
+             {/* Attendance Management or Recent Logs */}
+             <div className="flex-1 p-4 min-h-0 h-full">
+               {attendanceEnabled ? (
+                 <>
+                   <div className="flex items-center justify-between mb-4 flex-col">
+                     <div className="flex space-x-2  w-full">
+                       <button
+                         onClick={() => setShowGroupManagement(true)}
+                         className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded text-xs transition-colors"
+                       >
+                         Groups
+                       </button>
+                       {currentGroup && (
+                         <button
+                           onClick={() => setShowMemberManagement(true)}
+                           className="px-3 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded text-xs transition-colors"
+                         >
+                           Members
+                         </button>
+                       )}
+                     </div>
+                   </div>
+  
+                   <div className="space-y-4 h-full overflow-y-auto">
+                     {/* Group Selection */}
+                     {attendanceGroups.length > 0 && (
+                       <div>
+                         <label className="block text-sm font-medium mb-2 text-white/80">Active Group:</label>
+                         <select
+                           value={currentGroup?.id || ''}
+                           onChange={(e) => {
+                             const group = attendanceGroups.find(g => g.id === e.target.value);
+                             if (group) handleSelectGroup(group);
+                           }}
+                           className="w-full bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                         >
+                           {attendanceGroups.map(group => (
+                             <option key={group.id} value={group.id} className="bg-black text-white">
+                               {getGroupTypeIcon(group.type)} {group.name}
+                             </option>
+                           ))}
+                         </select>
+                       </div>
+                     )}
+  
+                     {/* Manual Confirmation Queue */}
+                     {trackingMode === 'manual' && pendingAttendance.length > 0 && (
+                       <div>
+                         <h4 className="text-sm font-medium mb-2 text-white/80">
+                           Pending Confirmations ({pendingAttendance.length}):
+                         </h4>
+                         <div className="space-y-2 max-h-60 overflow-y-auto">
+                           {pendingAttendance.map(pending => {
+                             const member = groupMembers.find(m => m.person_id === pending.personId);
+                             return (
+                               <div key={pending.id} className="bg-yellow-600/10 border border-yellow-500/30 rounded p-3">
+                                 <div className="flex justify-between items-start">
+                                   <div className="flex-1">
+                                     <div className="font-medium text-sm text-yellow-300">
+                                       {member ? member.name : pending.personId}
+                                     </div>
+                                     <div className="text-xs text-white/60">
+                                       Confidence: {(pending.confidence * 100).toFixed(1)}%
+                                     </div>
+                                     <div className="text-xs text-white/50">
+                                       {new Date(pending.timestamp).toLocaleTimeString()}
+                                     </div>
+                                   </div>
+                                   <div className="flex space-x-2">
+                                     <button
+                                       onClick={async () => {
+                                         // Confirm attendance
+                                         try {
+                                           const attendanceEvent = await attendanceManager.processAttendanceEvent(
+                                             pending.personId,
+                                             pending.confidence,
+                                             'LiveVideo Camera'
+                                           );
+  
+                                           console.log(`📋 ✅ Manual confirmation: ${pending.personId} - ${attendanceEvent.type}`);
+  
+  
+  
+                                           // Remove from pending queue
+                                           setPendingAttendance(prev => prev.filter(p => p.id !== pending.id));
+  
+                                           // Refresh attendance data
+                                           await loadAttendanceData();
+                                           setError(null);
+                                         } catch (error: any) {
+                                           console.error('Failed to confirm attendance:', error);
+                                           setError(error.message || 'Failed to confirm attendance');
+                                         }
+                                       }}
+                                       className="px-2 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded text-xs transition-colors"
+                                     >
+                                       ✓ Confirm
+                                     </button>
+                                     <button
+                                       onClick={() => {
+                                         // Reject attendance
+                                         setPendingAttendance(prev => prev.filter(p => p.id !== pending.id));
+                                         console.log(`❌ Manual rejection: ${pending.personId}`);
+                                       }}
+                                       className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded text-xs transition-colors"
+                                     >
+                                       ✗ Reject
+                                     </button>
+                                   </div>
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     )}
+  
+                     {/* Group Members */}
+                     {currentGroup && groupMembers.length > 0 && (
+                       <div>
+                         <h4 className="text-sm font-medium mb-2 text-white/80">Members ({groupMembers.length}):</h4>
+                         <div className="space-y-2 max-h-40 overflow-y-auto">
+                           {groupMembers.map(member => {
+                             const today = new Date().toISOString().split('T')[0];
+                             const sessionKey = `${member.person_id}_${today}`;
+                             const session = attendanceManager['sessions']?.get(sessionKey);
+  
+                             return (
+                               <div key={member.person_id} className="bg-white/[0.03] border border-white/[0.08] rounded p-2">
+                                 <div className="flex justify-between items-start">
+                                   <div className="flex-1">
+                                     <div className="font-medium text-sm">{member.name}</div>
+                                     <div className="text-xs text-white/60">
+                                       {member.role && `${member.role} • `}
+                                       {member.employee_id && `ID: ${member.employee_id}`}
+                                       {member.student_id && `Student: ${member.student_id}`}
+                                     </div>
+                                     {session && (
+                                       <div className="text-xs mt-1">
+                                         <span className={`px-2 py-1 rounded text-xs ${
+                                           session.status === 'present' ? 'bg-green-600/20 text-green-300' :
+                                           session.status === 'late' ? 'bg-yellow-600/20 text-yellow-300' :
+                                           session.status === 'on_break' ? 'bg-blue-600/20 text-blue-300' :
+                                           session.status === 'checked_out' ? 'bg-gray-600/20 text-gray-300' :
+                                           'bg-red-600/20 text-red-300'
+                                         }`}>
+                                           {session.status === 'present' ? 'Present' :
+                                            session.status === 'late' ? `Late (${session.late_minutes}m)` :
+                                            session.status === 'on_break' ? 'On Break' :
+                                            session.status === 'checked_out' ? 'Checked Out' :
+                                            'Absent'}
+                                         </span>
+                                         {session.check_in && (
+                                           <span className="ml-2 text-white/50">
+                                             In: {session.check_in.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                           </span>
+                                         )}
+                                       </div>
+                                     )}
+                                   </div>
+                                   <button
+                                     onClick={() => handleRemoveMember(member.person_id)}
+                                     className="text-red-400 hover:text-red-300 text-xs ml-2"
+                                   >
+                                     Remove
+                                   </button>
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     )}
+  
+                     {/* Recent Attendance */}
+                     {recentAttendance.length > 0 && (
+                       <div>
+                         <h4 className="text-sm font-medium mb-2 text-white/80">Log:</h4>
+                         <div className="space-y-1 max-h-40 overflow-y-auto">
+                           {recentAttendance.slice(0, 10).map(record => {
+                             const member = groupMembers.find(m => m.person_id === record.person_id);
+                             return (
+                               <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded p-2">
+                                 <div className="flex justify-between items-center">
+                                   <span className="font-medium">{member?.name || record.person_id}</span>
+                                   <span className="text-white/50">
+                                     {record.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                   </span>
+                                 </div>
+                                 <div className="flex justify-between items-center mt-1">
+                                   <span className={`px-2 py-1 rounded text-xs ${
+                                     record.type === 'check_in' ? 'bg-green-600/20 text-green-300' :
+                                     record.type === 'check_out' ? 'bg-red-600/20 text-red-300' :
+                                     record.type === 'break_start' ? 'bg-blue-600/20 text-blue-300' :
+                                     'bg-purple-600/20 text-purple-300'
+                                   }`}>
+                                     {formatAttendanceType(record.type)}
+                                   </span>
+                                   <span className="text-white/40 text-xs">
+                                     {(record.confidence * 100).toFixed(0)}%
+                                   </span>
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     )}
+  
+                     {/* No data states */}
+                     {attendanceGroups.length === 0 && (
+                       <div className="text-white/50 text-sm text-center py-4">
+                         No groups created yet. <br /> Click "Groups" to create one.
+                       </div>
+                     )}
+  
+                     {currentGroup && groupMembers.length === 0 && (
+                       <div className="text-white/50 text-sm text-center py-4">
+                         No members in this group. Click "Members" to add some.
+                       </div>
+                     )}
+                   </div>
+                 </>
+               ) : (
+                 <>
+                   <h3 className="text-lg font-light mb-4">Recent Logs</h3>
+                   <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
+                     <div className="text-white/50 text-sm text-center py-4">
+                       No logs yet
+                     </div>
+                   </div>
+                 </>
                )}
              </div>
            </div>
-
-           {/* Attendance Management or Recent Logs */}
-           <div className="flex-1 p-4 min-h-0 h-full">
-             {attendanceEnabled ? (
-               <>
-                 <div className="flex items-center justify-between mb-4 flex-col">
-                   <div className="flex space-x-2  w-full">
-                     <button
-                       onClick={() => setShowGroupManagement(true)}
-                       className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded text-xs transition-colors"
-                     >
-                       Groups
-                     </button>
-                     {currentGroup && (
-                       <button
-                         onClick={() => setShowMemberManagement(true)}
-                         className="px-3 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded text-xs transition-colors"
-                       >
-                         Members
-                       </button>
-                     )}
-                   </div>
-                 </div>
-
-                 <div className="space-y-4 h-full overflow-y-auto">
-                   {/* Group Selection */}
-                   {attendanceGroups.length > 0 && (
-                     <div>
-                       <label className="block text-sm font-medium mb-2 text-white/80">Active Group:</label>
-                       <select
-                         value={currentGroup?.id || ''}
-                         onChange={(e) => {
-                           const group = attendanceGroups.find(g => g.id === e.target.value);
-                           if (group) handleSelectGroup(group);
-                         }}
-                         className="w-full bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
-                       >
-                         {attendanceGroups.map(group => (
-                           <option key={group.id} value={group.id} className="bg-black text-white">
-                             {getGroupTypeIcon(group.type)} {group.name}
-                           </option>
-                         ))}
-                       </select>
-                     </div>
-                   )}
-
-                   {/* Manual Confirmation Queue */}
-                   {trackingMode === 'manual' && pendingAttendance.length > 0 && (
-                     <div>
-                       <h4 className="text-sm font-medium mb-2 text-white/80">
-                         Pending Confirmations ({pendingAttendance.length}):
-                       </h4>
-                       <div className="space-y-2 max-h-60 overflow-y-auto">
-                         {pendingAttendance.map(pending => {
-                           const member = groupMembers.find(m => m.person_id === pending.personId);
-                           return (
-                             <div key={pending.id} className="bg-yellow-600/10 border border-yellow-500/30 rounded p-3">
-                               <div className="flex justify-between items-start">
-                                 <div className="flex-1">
-                                   <div className="font-medium text-sm text-yellow-300">
-                                     {member ? member.name : pending.personId}
-                                   </div>
-                                   <div className="text-xs text-white/60">
-                                     Confidence: {(pending.confidence * 100).toFixed(1)}%
-                                   </div>
-                                   <div className="text-xs text-white/50">
-                                     {new Date(pending.timestamp).toLocaleTimeString()}
-                                   </div>
-                                 </div>
-                                 <div className="flex space-x-2">
-                                   <button
-                                     onClick={async () => {
-                                       // Confirm attendance
-                                       try {
-                                         const attendanceEvent = await attendanceManager.processAttendanceEvent(
-                                           pending.personId,
-                                           pending.confidence,
-                                           'LiveVideo Camera'
-                                         );
-                                         
-                                         console.log(`📋 ✅ Manual confirmation: ${pending.personId} - ${attendanceEvent.type}`);
-                                         
-
-                                         
-                                         // Remove from pending queue
-                                         setPendingAttendance(prev => prev.filter(p => p.id !== pending.id));
-                                         
-                                         // Refresh attendance data
-                                         await loadAttendanceData();
-                                         setError(null);
-                                       } catch (error: any) {
-                                         console.error('Failed to confirm attendance:', error);
-                                         setError(error.message || 'Failed to confirm attendance');
-                                       }
-                                     }}
-                                     className="px-2 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 text-green-300 rounded text-xs transition-colors"
-                                   >
-                                     ✓ Confirm
-                                   </button>
-                                   <button
-                                     onClick={() => {
-                                       // Reject attendance
-                                       setPendingAttendance(prev => prev.filter(p => p.id !== pending.id));
-                                       console.log(`❌ Manual rejection: ${pending.personId}`);
-                                     }}
-                                     className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded text-xs transition-colors"
-                                   >
-                                     ✗ Reject
-                                   </button>
-                                 </div>
-                               </div>
-                             </div>
-                           );
-                         })}
-                       </div>
-                     </div>
-                   )}
-
-                   {/* Group Members */}
-                   {currentGroup && groupMembers.length > 0 && (
-                     <div>
-                       <h4 className="text-sm font-medium mb-2 text-white/80">Members ({groupMembers.length}):</h4>
-                       <div className="space-y-2 max-h-40 overflow-y-auto">
-                         {groupMembers.map(member => {
-                           const today = new Date().toISOString().split('T')[0];
-                           const sessionKey = `${member.person_id}_${today}`;
-                           const session = attendanceManager['sessions']?.get(sessionKey);
-                           
-                           return (
-                             <div key={member.person_id} className="bg-white/[0.03] border border-white/[0.08] rounded p-2">
-                               <div className="flex justify-between items-start">
-                                 <div className="flex-1">
-                                   <div className="font-medium text-sm">{member.name}</div>
-                                   <div className="text-xs text-white/60">
-                                     {member.role && `${member.role} • `}
-                                     {member.employee_id && `ID: ${member.employee_id}`}
-                                     {member.student_id && `Student: ${member.student_id}`}
-                                   </div>
-                                   {session && (
-                                     <div className="text-xs mt-1">
-                                       <span className={`px-2 py-1 rounded text-xs ${
-                                         session.status === 'present' ? 'bg-green-600/20 text-green-300' :
-                                         session.status === 'late' ? 'bg-yellow-600/20 text-yellow-300' :
-                                         session.status === 'on_break' ? 'bg-blue-600/20 text-blue-300' :
-                                         session.status === 'checked_out' ? 'bg-gray-600/20 text-gray-300' :
-                                         'bg-red-600/20 text-red-300'
-                                       }`}>
-                                         {session.status === 'present' ? 'Present' :
-                                          session.status === 'late' ? `Late (${session.late_minutes}m)` :
-                                          session.status === 'on_break' ? 'On Break' :
-                                          session.status === 'checked_out' ? 'Checked Out' :
-                                          'Absent'}
-                                       </span>
-                                       {session.check_in && (
-                                         <span className="ml-2 text-white/50">
-                                           In: {session.check_in.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                         </span>
-                                       )}
-                                     </div>
-                                   )}
-                                 </div>
-                                 <button
-                                   onClick={() => handleRemoveMember(member.person_id)}
-                                   className="text-red-400 hover:text-red-300 text-xs ml-2"
-                                 >
-                                   Remove
-                                 </button>
-                               </div>
-                             </div>
-                           );
-                         })}
-                       </div>
-                     </div>
-                   )}
-
-                   {/* Recent Attendance */}
-                   {recentAttendance.length > 0 && (
-                     <div>
-                       <h4 className="text-sm font-medium mb-2 text-white/80">Log:</h4>
-                       <div className="space-y-1 max-h-40 overflow-y-auto">
-                         {recentAttendance.slice(0, 10).map(record => {
-                           const member = groupMembers.find(m => m.person_id === record.person_id);
-                           return (
-                             <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded p-2">
-                               <div className="flex justify-between items-center">
-                                 <span className="font-medium">{member?.name || record.person_id}</span>
-                                 <span className="text-white/50">
-                                   {record.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                 </span>
-                               </div>
-                               <div className="flex justify-between items-center mt-1">
-                                 <span className={`px-2 py-1 rounded text-xs ${
-                                   record.type === 'check_in' ? 'bg-green-600/20 text-green-300' :
-                                   record.type === 'check_out' ? 'bg-red-600/20 text-red-300' :
-                                   record.type === 'break_start' ? 'bg-blue-600/20 text-blue-300' :
-                                   'bg-purple-600/20 text-purple-300'
-                                 }`}>
-                                   {formatAttendanceType(record.type)}
-                                 </span>
-                                 <span className="text-white/40 text-xs">
-                                   {(record.confidence * 100).toFixed(0)}%
-                                 </span>
-                               </div>
-                             </div>
-                           );
-                         })}
-                       </div>
-                     </div>
-                   )}
-
-                   {/* No data states */}
-                   {attendanceGroups.length === 0 && (
-                     <div className="text-white/50 text-sm text-center py-4">
-                       No groups created yet. <br /> Click "Groups" to create one.
-                     </div>
-                   )}
-                   
-                   {currentGroup && groupMembers.length === 0 && (
-                     <div className="text-white/50 text-sm text-center py-4">
-                       No members in this group. Click "Members" to add some.
-                     </div>
-                   )}
-                 </div>
-               </>
-             ) : (
-               <>
-                 <h3 className="text-lg font-light mb-4">Recent Logs</h3>
-                 <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
-                   <div className="text-white/50 text-sm text-center py-4">
-                     No logs yet
-                   </div>
-                 </div>
-               </>
-             )}
-           </div>
-         </div>
-
-       {/* Elite Face Registration Dialog */}
-        {showRegistrationDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
-                <span>🎯 Elite Face Registration</span>
-                {currentGroup && (
-                  <span className="text-sm bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-                    {getGroupTypeIcon(currentGroup.type)} {currentGroup.name}
-                  </span>
+  
+         {/* Elite Face Registration Dialog */}
+          {showRegistrationDialog && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
+                  <span>🎯 Elite Face Registration</span>
+                  {currentGroup && (
+                    <span className="text-sm bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+                      {getGroupTypeIcon(currentGroup.type)} {currentGroup.name}
+                    </span>
+                  )}
+                </h3>
+  
+                {!currentGroup && (
+                  <div className="mb-4 p-3 bg-yellow-600/20 border border-yellow-500/30 rounded text-yellow-300">
+                    ⚠️ Please select an attendance group first to register faces.
+                  </div>
                 )}
-              </h3>
-              
-              {!currentGroup && (
-                <div className="mb-4 p-3 bg-yellow-600/20 border border-yellow-500/30 rounded text-yellow-300">
-                  ⚠️ Please select an attendance group first to register faces.
-                </div>
-              )}
-
-              {currentGroup && (
-                <>
-                  {/* Step 1: Select Member or Create New */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-medium mb-3">Step 1: Select Member</h4>
-                    
-                    {/* Existing Members */}
-                    {groupMembers.length > 0 && (
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium mb-2">Existing Members:</label>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {groupMembers.map((member) => (
-                            <div
-                              key={member.person_id}
-                              className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                                selectedPersonForRegistration === member.person_id
-                                  ? 'bg-blue-600/30 border border-blue-500/50'
-                                  : 'bg-gray-700 hover:bg-gray-600'
-                              }`}
-                              onClick={() => setSelectedPersonForRegistration(member.person_id)}
-                            >
-                              <div>
-                                <span className="text-sm font-medium">{member.name}</span>
-                                {member.role && (
-                                  <span className="text-xs text-blue-300 ml-2">{member.role}</span>
-                                )}
+  
+                {currentGroup && (
+                  <>
+                    {/* Step 1: Select Member or Create New */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-medium mb-3">Step 1: Select Member</h4>
+  
+                      {/* Existing Members */}
+                      {groupMembers.length > 0 && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium mb-2">Existing Members:</label>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {groupMembers.map((member) => (
+                              <div
+                                key={member.person_id}
+                                className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
+                                  selectedPersonForRegistration === member.person_id
+                                    ? 'bg-blue-600/30 border border-blue-500/50'
+                                    : 'bg-gray-700 hover:bg-gray-600'
+                                }`}
+                                onClick={() => setSelectedPersonForRegistration(member.person_id)}
+                              >
+                                <div>
+                                  <span className="text-sm font-medium">{member.name}</span>
+                                  {member.role && (
+                                    <span className="text-xs text-blue-300 ml-2">{member.role}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {/* Face data status indicator */}
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    registeredPersons.some(p => p.person_id === member.person_id)
+                                      ? 'bg-green-500'
+                                      : 'bg-red-500'
+                                  }`} title={
+                                    registeredPersons.some(p => p.person_id === member.person_id)
+                                      ? 'Has face data'
+                                      : 'No face data'
+                                  }></div>
+                                  {selectedPersonForRegistration === member.person_id && (
+                                    <span className="text-xs text-blue-300">✓ Selected</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                {/* Face data status indicator */}
-                                <div className={`w-2 h-2 rounded-full ${
-                                  registeredPersons.some(p => p.person_id === member.person_id)
-                                    ? 'bg-green-500'
-                                    : 'bg-red-500'
-                                }`} title={
-                                  registeredPersons.some(p => p.person_id === member.person_id)
-                                    ? 'Has face data'
-                                    : 'No face data'
-                                }></div>
-                                {selectedPersonForRegistration === member.person_id && (
-                                  <span className="text-xs text-blue-300">✓ Selected</span>
-                                )}
+                            ))}
+                          </div>
+                        </div>
+                      )}
+  
+                      {/* Create New Member */}
+                      <div className="border-t border-gray-600 pt-4">
+                        <label className="block text-sm font-medium mb-2">Or Create New Member:</label>
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={newMemberName}
+                            onChange={(e) => setNewMemberName(e.target.value)}
+                            placeholder="Enter full name"
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        {newMemberName.trim() && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const newMember = await handleAddMember();
+                                // The backend will return the member with the auto-generated person_id
+                                if (newMember && newMember.person_id) {
+                                  setSelectedPersonForRegistration(newMember.person_id);
+                                }
+                                setNewMemberName('');
+                              } catch (error) {
+                                console.error('Failed to add member:', error);
+                              }
+                            }}
+                            className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm transition-colors"
+                          >
+                            Add Member
+                          </button>
+                        )}
+                      </div>
+                    </div>
+  
+                    {/* Step 2: Face Selection and Validation */}
+                    {selectedPersonForRegistration && currentDetections?.faces && currentDetections.faces.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="text-lg font-medium mb-3">Step 2: Select & Validate Face</h4>
+                        <div className="space-y-3">
+                          {currentDetections.faces.map((face, index) => {
+                            const isValidForRegistration = face.confidence > 0.8; // Backend handles anti-spoofing
+  
+                            return (
+                              <div
+                                key={index}
+                                className={`p-3 rounded border transition-all ${
+                                  isValidForRegistration
+                                    ? 'bg-green-600/10 border-green-500/30 hover:bg-green-600/20'
+                                    : 'bg-red-600/10 border-red-500/30'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-medium">Face {index + 1}</span>
+                                      <span className="text-sm text-white/60">
+                                        Confidence: {(face.confidence * 100).toFixed(1)}%
+                                      </span>
+                                      {face.antispoofing && (
+                                        <span className={`text-xs px-2 py-1 rounded ${
+                                          face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' :
+                                          'bg-red-900 text-red-300'
+                                        }`}>
+                                          {face.antispoofing.status === 'real' ? '✓ Live' : '⚠ Spoof'}
+                                        </span>
+                                      )}
+                                    </div>
+  
+                                    {/* Quality Assessment */}
+                                    <div className="text-xs text-white/60 mt-1">
+                                      Quality: {face.confidence > 0.9 ? '🟢 Excellent' :
+                                               face.confidence > 0.8 ? '🟡 Good' :
+                                               face.confidence > 0.6 ? '🟠 Fair' : '🔴 Poor'}
+                                      {!isValidForRegistration && (
+                                        <span className="text-red-300 ml-2">
+                                          Low quality (minimum 80% required)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+  
+                                  <button
+                                    onClick={() => handleEliteRegisterFace(index)}
+                                    disabled={!isValidForRegistration}
+                                    className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                                      isValidForRegistration
+                                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    {isValidForRegistration ? '🎯 Register Elite' : '❌ Invalid'}
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
-
-                    {/* Create New Member */}
-                    <div className="border-t border-gray-600 pt-4">
-                      <label className="block text-sm font-medium mb-2">Or Create New Member:</label>
-                      <div className="space-y-3">
+  
+                    {/* Step 3: Current Group Registrations */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-medium mb-3">Step 3: Group Registrations</h4>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {groupMembers.length === 0 ? (
+                          <div className="text-white/50 text-sm text-center py-4">
+                            No members in this group yet.
+                          </div>
+                        ) : (
+                          groupMembers.map((member) => {
+                            const hasRegistration = registeredPersons.some(p => p.person_id === member.person_id);
+                            return (
+                              <div key={member.person_id} className="flex items-center justify-between p-2 bg-gray-700 rounded">
+                                <div>
+                                  <span className="text-sm font-medium">{member.name}</span>
+                                  <span className="text-xs text-white/60 ml-2">({member.person_id})</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    hasRegistration ? 'bg-green-500' : 'bg-red-500'
+                                  }`}></div>
+                                  <span className="text-xs">
+                                    {hasRegistration ? 'Registered' : 'No Face Data'}
+                                  </span>
+                                  {hasRegistration && (
+                                    <button
+                                      onClick={() => handleRemoveGroupPersonFace(member.person_id)}
+                                      className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+  
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowRegistrationDialog(false);
+                      setSelectedPersonForRegistration('');
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                  >
+                    Close
+                  </button>
+                  {currentGroup && (
+                    <button
+                      onClick={() => setShowMemberManagement(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                    >
+                      Manage Members
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+  
+          {/* Group Management Modal */}
+          {showGroupManagement && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+                <h3 className="text-xl font-bold mb-4">Group Management</h3>
+  
+                {/* Create New Group */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-medium mb-3">Create New Group</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Group Name:</label>
+                      <input
+                        type="text"
+                        value={newGroupName}
+                        onChange={(e) => setNewGroupName(e.target.value)}
+                        placeholder="Enter group name"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Group Type:</label>
+                      <select
+                        value={newGroupType}
+                        onChange={(e) => setNewGroupType(e.target.value as GroupType)}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="general">👥 General</option>
+                        <option value="employee">👔 Employee</option>
+                        <option value="student">🎓 Student</option>
+                        <option value="visitor">👤 Visitor</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleCreateGroup}
+                      disabled={!newGroupName.trim()}
+                      className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
+                    >
+                      Create Group
+                    </button>
+                  </div>
+                </div>
+  
+                {/* Existing Groups */}
+                {attendanceGroups.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-lg font-medium mb-3">Existing Groups</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {attendanceGroups.map(group => (
+                        <div key={group.id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
+                          <div>
+                            <span className="font-medium">{getGroupTypeIcon(group.type)} {group.name}</span>
+                            <div className="text-sm text-gray-400">
+                              {group.type} • {attendanceManager.getGroupMembers(group.id).length} members
+                            </div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleSelectGroup(group)}
+                              className={`px-3 py-1 rounded text-sm transition-colors ${
+                                currentGroup?.id === group.id
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                              }`}
+                            >
+                              {currentGroup?.id === group.id ? 'Active' : 'Select'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteGroup(group)}
+                              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
+                              title="Delete Group"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+  
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowGroupManagement(false)}
+                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+  
+          {/* Member Management Modal */}
+          {showMemberManagement && currentGroup && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+                <h3 className="text-xl font-bold mb-4">Add New Member</h3>
+                <p className="text-gray-400 mb-4">Group: {getGroupTypeIcon(currentGroup.type)} {currentGroup.name}</p>
+  
+                {/* Add New Member */}
+                <div className="mb-6">
+  
+  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Full Name:</label>
+                      <input
+                        type="text"
+                        value={newMemberName}
+                        onChange={(e) => setNewMemberName(e.target.value)}
+                        placeholder="Enter full name"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+  
+                    {/* Additional fields */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Role (Optional):</label>
+                      <input
+                        type="text"
+                        value={newMemberRole}
+                        onChange={(e) => setNewMemberRole(e.target.value)}
+                        placeholder="e.g., Teacher, Manager, Student"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    {currentGroup.type === 'employee' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Employee ID:</label>
                         <input
                           type="text"
-                          value={newMemberName}
-                          onChange={(e) => setNewMemberName(e.target.value)}
-                          placeholder="Enter full name"
+                          value={newMemberEmployeeId}
+                          onChange={(e) => setNewMemberEmployeeId(e.target.value)}
+                          placeholder="Enter employee ID"
                           className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
                         />
                       </div>
-                      {newMemberName.trim() && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              const newMember = await handleAddMember();
-                              // The backend will return the member with the auto-generated person_id
-                              if (newMember && newMember.person_id) {
-                                setSelectedPersonForRegistration(newMember.person_id);
-                              }
-                              setNewMemberName('');
-                            } catch (error) {
-                              console.error('Failed to add member:', error);
-                            }
-                          }}
-                          className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm transition-colors"
-                        >
-                          Add Member
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Step 2: Face Selection and Validation */}
-                  {selectedPersonForRegistration && currentDetections?.faces && currentDetections.faces.length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="text-lg font-medium mb-3">Step 2: Select & Validate Face</h4>
-                      <div className="space-y-3">
-                        {currentDetections.faces.map((face, index) => {
-                          const isValidForRegistration = face.confidence > 0.8; // Backend handles anti-spoofing
-                          
-                          return (
-                            <div
-                              key={index}
-                              className={`p-3 rounded border transition-all ${
-                                isValidForRegistration
-                                  ? 'bg-green-600/10 border-green-500/30 hover:bg-green-600/20'
-                                  : 'bg-red-600/10 border-red-500/30'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-medium">Face {index + 1}</span>
-                                    <span className="text-sm text-white/60">
-                                      Confidence: {(face.confidence * 100).toFixed(1)}%
-                                    </span>
-                                    {face.antispoofing && (
-                                      <span className={`text-xs px-2 py-1 rounded ${
-                                        face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' : 
-                                        'bg-red-900 text-red-300'
-                                      }`}>
-                                        {face.antispoofing.status === 'real' ? '✓ Live' : '⚠ Spoof'}
-                                      </span>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Quality Assessment */}
-                                  <div className="text-xs text-white/60 mt-1">
-                                    Quality: {face.confidence > 0.9 ? '🟢 Excellent' : 
-                                             face.confidence > 0.8 ? '🟡 Good' : 
-                                             face.confidence > 0.6 ? '🟠 Fair' : '🔴 Poor'}
-                                    {!isValidForRegistration && (
-                                      <span className="text-red-300 ml-2">
-                                        Low quality (minimum 80% required)
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                <button
-                                  onClick={() => handleEliteRegisterFace(index)}
-                                  disabled={!isValidForRegistration}
-                                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                                    isValidForRegistration
-                                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                  }`}
-                                >
-                                  {isValidForRegistration ? '🎯 Register Elite' : '❌ Invalid'}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
+                    )}
+                    {currentGroup.type === 'student' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Student ID:</label>
+                        <input
+                          type="text"
+                          value={newMemberStudentId}
+                          onChange={(e) => setNewMemberStudentId(e.target.value)}
+                          placeholder="Enter student ID"
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                        />
                       </div>
-                    </div>
-                  )}
-
-                  {/* Step 3: Current Group Registrations */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-medium mb-3">Step 3: Group Registrations</h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {groupMembers.length === 0 ? (
-                        <div className="text-white/50 text-sm text-center py-4">
-                          No members in this group yet.
-                        </div>
-                      ) : (
-                        groupMembers.map((member) => {
-                          const hasRegistration = registeredPersons.some(p => p.person_id === member.person_id);
-                          return (
-                            <div key={member.person_id} className="flex items-center justify-between p-2 bg-gray-700 rounded">
-                              <div>
-                                <span className="text-sm font-medium">{member.name}</span>
-                                <span className="text-xs text-white/60 ml-2">({member.person_id})</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <div className={`w-2 h-2 rounded-full ${
-                                  hasRegistration ? 'bg-green-500' : 'bg-red-500'
-                                }`}></div>
-                                <span className="text-xs">
-                                  {hasRegistration ? 'Registered' : 'No Face Data'}
-                                </span>
-                                {hasRegistration && (
-                                  <button
-                                    onClick={() => handleRemoveGroupPersonFace(member.person_id)}
-                                    className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
-                                  >
-                                    Remove
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setShowRegistrationDialog(false);
-                    setSelectedPersonForRegistration('');
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-                >
-                  Close
-                </button>
-                {currentGroup && (
-                  <button
-                    onClick={() => setShowMemberManagement(true)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                  >
-                    Manage Members
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Group Management Modal */}
-        {showGroupManagement && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Group Management</h3>
-              
-              {/* Create New Group */}
-              <div className="mb-6">
-                <h4 className="text-lg font-medium mb-3">Create New Group</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Group Name:</label>
-                    <input
-                      type="text"
-                      value={newGroupName}
-                      onChange={(e) => setNewGroupName(e.target.value)}
-                      placeholder="Enter group name"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Group Type:</label>
-                    <select
-                      value={newGroupType}
-                      onChange={(e) => setNewGroupType(e.target.value as GroupType)}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                    )}
+                    <button
+                      onClick={handleAddMember}
+                      disabled={!newMemberName.trim()}
+                      className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded transition-colors"
                     >
-                      <option value="general">👥 General</option>
-                      <option value="employee">👔 Employee</option>
-                      <option value="student">🎓 Student</option>
-                      <option value="visitor">👤 Visitor</option>
-                    </select>
+                      Add Member
+                    </button>
+  
+  
                   </div>
+                </div>
+  
+                {/* Current Members */}
+                {groupMembers.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-xxs font-medium mb-3">Current Members ({groupMembers.length})</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {groupMembers.map(member => (
+                        <div key={member.person_id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
+                          <div>
+                            <div className="font-medium">{member.name}</div>
+                            <div className="text-sm text-gray-400">
+                              ID: {member.person_id}
+                              {member.role && ` • ${member.role}`}
+                              {member.employee_id && ` • Emp: ${member.employee_id}`}
+                              {member.student_id && ` • Student: ${member.student_id}`}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveMember(member.person_id)}
+                            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+  
+                <div className="flex gap-2">
                   <button
-                    onClick={handleCreateGroup}
-                    disabled={!newGroupName.trim()}
-                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
+                    onClick={() => {
+                      resetMemberForm();
+                      setShowMemberManagement(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
                   >
-                    Create Group
+                    Close
                   </button>
                 </div>
               </div>
-
-              {/* Existing Groups */}
-              {attendanceGroups.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-lg font-medium mb-3">Existing Groups</h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {attendanceGroups.map(group => (
-                      <div key={group.id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
-                        <div>
-                          <span className="font-medium">{getGroupTypeIcon(group.type)} {group.name}</span>
-                          <div className="text-sm text-gray-400">
-                            {group.type} • {attendanceManager.getGroupMembers(group.id).length} members
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleSelectGroup(group)}
-                            className={`px-3 py-1 rounded text-sm transition-colors ${
-                              currentGroup?.id === group.id
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
-                            }`}
-                          >
-                            {currentGroup?.id === group.id ? 'Active' : 'Select'}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteGroup(group)}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
-                            title="Delete Group"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowGroupManagement(false)}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-                >
-                  Close
-                </button>
-              </div>
             </div>
-          </div>
-        )}
-
-        {/* Member Management Modal */}
-        {showMemberManagement && currentGroup && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
-              <h3 className="text-xl font-bold mb-4">Add New Member</h3>
-              <p className="text-gray-400 mb-4">Group: {getGroupTypeIcon(currentGroup.type)} {currentGroup.name}</p>
-              
-              {/* Add New Member */}
-              <div className="mb-6">
-
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Full Name:</label>
-                    <input
-                      type="text"
-                      value={newMemberName}
-                      onChange={(e) => setNewMemberName(e.target.value)}
-                      placeholder="Enter full name"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  
-                  {/* Additional fields */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Role (Optional):</label>
-                    <input
-                      type="text"
-                      value={newMemberRole}
-                      onChange={(e) => setNewMemberRole(e.target.value)}
-                      placeholder="e.g., Teacher, Manager, Student"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  {currentGroup.type === 'employee' && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Employee ID:</label>
-                      <input
-                        type="text"
-                        value={newMemberEmployeeId}
-                        onChange={(e) => setNewMemberEmployeeId(e.target.value)}
-                        placeholder="Enter employee ID"
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  )}
-                  {currentGroup.type === 'student' && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Student ID:</label>
-                      <input
-                        type="text"
-                        value={newMemberStudentId}
-                        onChange={(e) => setNewMemberStudentId(e.target.value)}
-                        placeholder="Enter student ID"
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  )}
-                  <button
-                    onClick={handleAddMember}
-                    disabled={!newMemberName.trim()}
-                    className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded transition-colors"
-                  >
-                    Add Member
-                  </button>
-                  
-
-                </div>
-              </div>
-
-              {/* Current Members */}
-              {groupMembers.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-xxs font-medium mb-3">Current Members ({groupMembers.length})</h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {groupMembers.map(member => (
-                      <div key={member.person_id} className="flex items-center justify-between p-3 bg-gray-700 rounded">
-                        <div>
-                          <div className="font-medium">{member.name}</div>
-                          <div className="text-sm text-gray-400">
-                            ID: {member.person_id}
-                            {member.role && ` • ${member.role}`}
-                            {member.employee_id && ` • Emp: ${member.employee_id}`}
-                            {member.student_id && ` • Student: ${member.student_id}`}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveMember(member.person_id)}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    resetMemberForm();
-                    setShowMemberManagement(false);
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-                >
-                  Close
-                </button>
-              </div>
+          )}
+  
+          {/* Attendance Dashboard */}
+          {showAttendanceDashboard && (
+            <div className="fixed inset-0 z-50">
+              <AttendanceDashboard onBack={() => setShowAttendanceDashboard(false)} />
             </div>
-          </div>
-        )}
-
-        {/* Attendance Dashboard */}
-        {showAttendanceDashboard && (
-          <div className="fixed inset-0 z-50">
-            <AttendanceDashboard onBack={() => setShowAttendanceDashboard(false)} />
-          </div>
-        )}
-
-        {/* Settings Modal */}
-        {showSettings && (
-          <Settings onBack={() => setShowSettings(false)} isModal={true} />
-        )}
-
-        {/* Delete Group Confirmation Dialog */}
-        {showDeleteConfirmation && groupToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4 text-red-400">⚠️ Delete Group</h3>
-              
-              <div className="mb-6">
-                <p className="text-white mb-4">
-                  Are you sure you want to delete the group <strong>"{groupToDelete.name}"</strong>?
-                </p>
-                <div className="bg-red-900/20 border border-red-500/30 rounded p-3 mb-4">
-                  <p className="text-red-300 text-sm">
-                    <strong>Warning:</strong> This action cannot be undone. All group data, members, and attendance records will be permanently removed.
+          )}
+  
+          {/* Settings Modal */}
+          {showSettings && (
+            <Settings onBack={() => setShowSettings(false)} isModal={true} />
+          )}
+  
+          {/* Delete Group Confirmation Dialog */}
+          {showDeleteConfirmation && groupToDelete && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+                <h3 className="text-xl font-bold mb-4 text-red-400">⚠️ Delete Group</h3>
+  
+                <div className="mb-6">
+                  <p className="text-white mb-4">
+                    Are you sure you want to delete the group <strong>"{groupToDelete.name}"</strong>?
                   </p>
-                </div>
-                {currentGroup?.id === groupToDelete.id && (
-                  <div className="bg-orange-900/20 border border-orange-500/30 rounded p-3">
-                    <p className="text-orange-300 text-sm">
-                      <strong>Note:</strong> This is your currently active group. Deleting it will clear your current selection.
+                  <div className="bg-red-900/20 border border-red-500/30 rounded p-3 mb-4">
+                    <p className="text-red-300 text-sm">
+                      <strong>Warning:</strong> This action cannot be undone. All group data, members, and attendance records will be permanently removed.
                     </p>
                   </div>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={cancelDeleteGroup}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDeleteGroup}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors"
-                >
-                  Delete Group
-                </button>
+                  {currentGroup?.id === groupToDelete.id && (
+                    <div className="bg-orange-900/20 border border-orange-500/30 rounded p-3">
+                      <p className="text-orange-300 text-sm">
+                        <strong>Note:</strong> This is your currently active group. Deleting it will clear your current selection.
+                      </p>
+                    </div>
+                  )}
+                </div>
+  
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelDeleteGroup}
+                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDeleteGroup}
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors"
+                  >
+                    Delete Group
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+</div>
       </div>
     </div>
   );
