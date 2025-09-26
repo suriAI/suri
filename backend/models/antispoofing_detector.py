@@ -27,7 +27,8 @@ class OptimizedAntiSpoofingDetector:
         max_batch_size: int = 1,
         cache_duration: float = 0.0,  # No caching
         session_options: Optional[Dict] = None,
-        smoothing_factor: float = 0.3  # Temporal smoothing
+        smoothing_factor: float = 0.0,  # Disabled by default to prevent cross-contamination
+        enable_temporal_smoothing: bool = False  # Explicit control
     ):
         self.model_path = model_path
         self.input_size = input_size
@@ -36,11 +37,12 @@ class OptimizedAntiSpoofingDetector:
         self.max_batch_size = max_batch_size
         self.session_options = session_options
         self.smoothing_factor = smoothing_factor
+        self.enable_temporal_smoothing = enable_temporal_smoothing
         
         # Model components
         self.session = None
         
-        # Temporal consistency tracking
+        # Temporal consistency tracking (only if enabled)
         self.previous_results = {}  # face_id -> previous result
         self.result_history = {}    # face_id -> list of recent results
         self.max_history = 5        # Keep last 5 results for smoothing
@@ -204,21 +206,29 @@ class OptimizedAntiSpoofingDetector:
             logger.debug("No valid face crops extracted")
             return results
         
-        # Process all faces in true batch mode for consistency
+        # Process each face individually to prevent cross-contamination
         start_time = time.time()
-        batch_results = self._process_faces_batch(face_crops)
-        processing_time = time.time() - start_time
         
-        # Combine results with face data and apply temporal smoothing
-        for (face_id, face), antispoofing_result in zip(valid_faces, batch_results):
-            # Apply temporal smoothing for consistency
-            smoothed_result = self._apply_temporal_smoothing(face_id, antispoofing_result)
+        # Combine results with face data and apply temporal smoothing if enabled
+        for (face_id, face), face_crop in zip(valid_faces, face_crops):
+            # Process this face individually
+            antispoofing_result = self._process_single_face(face_crop)
+            # Generate a stable face identifier based on bbox position
+            bbox = face.get('bbox', face.get('box', {}))
+            stable_face_id = self._generate_stable_face_id(bbox)
             
-            logger.debug(f"Face {face_id}: Raw result = {antispoofing_result}")
-            logger.debug(f"Face {face_id}: Smoothed result = {smoothed_result}")
+            # Apply temporal smoothing only if enabled
+            if self.enable_temporal_smoothing:
+                smoothed_result = self._apply_temporal_smoothing(stable_face_id, antispoofing_result)
+                logger.debug(f"Face {face_id} (stable_id: {stable_face_id}): Raw result = {antispoofing_result}")
+                logger.debug(f"Face {face_id} (stable_id: {stable_face_id}): Smoothed result = {smoothed_result}")
+            else:
+                smoothed_result = antispoofing_result
+                logger.debug(f"Face {face_id}: Result = {antispoofing_result} (no smoothing)")
             
             # Add processing time to result
-            smoothed_result['processing_time'] = processing_time / len(face_crops)
+            processing_time = time.time() - start_time
+            smoothed_result['processing_time'] = processing_time
             smoothed_result['cached'] = False
             
             result = {
@@ -303,10 +313,19 @@ class OptimizedAntiSpoofingDetector:
             } for _ in face_crops]
 
     def _process_single_face(self, face_crop: np.ndarray) -> Dict:
-        """Process a single face crop (fallback method)"""
+        """Process a single face crop individually"""
         try:
-            # Use batch processing for consistency even with single face
-            return self._process_faces_batch([face_crop])[0]
+            # Preprocess the face
+            input_tensor = self._preprocess_single_face(face_crop)
+            
+            # Run individual inference
+            input_name = self.session.get_inputs()[0].name
+            outputs = self.session.run(None, {input_name: input_tensor})
+            prediction = outputs[0][0]  # Get first (and only) prediction
+            
+            # Process the prediction
+            result = self._process_single_prediction(prediction)
+            return result
             
         except Exception as e:
             logger.error(f"Error processing face: {e}")
@@ -366,11 +385,30 @@ class OptimizedAntiSpoofingDetector:
         logger.info(f"Threshold updated to: {threshold}")
     
 
-    def _apply_temporal_smoothing(self, face_id: int, current_result: Dict) -> Dict:
+    def _generate_stable_face_id(self, bbox) -> str:
+        """Generate a stable face ID based on bbox position to prevent cross-contamination"""
+        try:
+            if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                x, y, w, h = bbox[:4]
+                # Create a hash based on approximate position (rounded to reduce noise)
+                # This helps group faces that are in similar positions across frames
+                grid_x = int(x // 50)  # 50-pixel grid
+                grid_y = int(y // 50)
+                grid_w = int(w // 20)  # 20-pixel size grid
+                grid_h = int(h // 20)
+                return f"face_{grid_x}_{grid_y}_{grid_w}_{grid_h}"
+            else:
+                # Fallback for invalid bbox
+                return f"face_unknown_{hash(str(bbox)) % 10000}"
+        except Exception as e:
+            logger.warning(f"Error generating stable face ID: {e}")
+            return f"face_error_{hash(str(bbox)) % 10000}"
+
+    def _apply_temporal_smoothing(self, face_id: str, current_result: Dict) -> Dict:
         """Apply temporal smoothing to reduce flickering"""
         try:
-            # Create a unique key for this face (could be improved with face tracking)
-            face_key = f"face_{face_id}"
+            # Use the stable face ID directly as the key
+            face_key = face_id
             
             # Get current scores
             current_real_score = current_result.get('real_score', 0.5)
