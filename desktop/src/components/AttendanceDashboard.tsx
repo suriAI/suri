@@ -167,7 +167,7 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
   }, [selectedGroup, reportStartDate, reportEndDate, generateReport]);
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+    <div className="pt-8 h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <h1 className="text-xl font-light">Attendance Dashboard</h1>

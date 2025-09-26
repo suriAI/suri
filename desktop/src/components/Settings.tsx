@@ -352,7 +352,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
 
   // Main content JSX
   const mainContent = (
-    <div className={isModal ? "w-full p-6" : "min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6"}>
+    <div className={isModal ? "w-full p-6" : "min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-slate-900 p-6"}>
       <div className={isModal ? "w-full" : "max-w-6xl mx-auto"}>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -463,7 +463,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
   if (isModal) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-        <div className="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto relative">
+        <div className="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-5xl w-full max-h-[60vh] overflow-y-auto relative">
           {mainContent}
         </div>
       </div>
