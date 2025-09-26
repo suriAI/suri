@@ -2354,7 +2354,7 @@ export default function LiveVideo() {
                    {/* No data states */}
                    {attendanceGroups.length === 0 && (
                      <div className="text-white/50 text-sm text-center py-4">
-                       No groups created yet. Click "Groups" to create one.
+                       No groups created yet. <br /> Click "Groups" to create one.
                      </div>
                    )}
                    

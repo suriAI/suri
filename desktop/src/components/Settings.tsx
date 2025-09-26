@@ -462,8 +462,8 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
   // Return modal wrapper if isModal is true, otherwise return content directly
   if (isModal) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-        <div className="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-5xl w-full max-h-[60vh] overflow-y-auto relative">
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+        <div className="custom-scroll rounded-tl-md rounded-bl-2xl  bg-black border border-white/[0.1] max-w-5xl w-full max-h-[60vh] overflow-y-auto relative">
           {mainContent}
         </div>
       </div>
