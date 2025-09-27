@@ -1985,7 +1985,7 @@ export default function LiveVideo() {
                 </div>
             </div>
           </div>
-<div className="sidebar h-full overflow-auto">
+<div className="sidebar h-screen overflow-auto">
   
             {recognitionEnabled && (
               <div className="px-4 py-4 border-b border-white/[0.08]">
@@ -2086,7 +2086,7 @@ export default function LiveVideo() {
              </div>
   
              {/* Attendance Management or Recent Logs */}
-             <div className="flex-1 p-4 min-h-0 h-full">
+             <div className="flex-1 p-4 min-h-0">
                {attendanceEnabled ? (
                  <>
                    <div className="space-y-4 h-full overflow-y-auto">
