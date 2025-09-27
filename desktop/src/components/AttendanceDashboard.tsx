@@ -31,6 +31,15 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Member management states
+  const [showAddMemberModal, setShowAddMemberModal] = useState<boolean>(false);
+  const [showEditMemberModal, setShowEditMemberModal] = useState<boolean>(false);
+  const [editingMember, setEditingMember] = useState<AttendanceMember | null>(null);
+  const [newMemberName, setNewMemberName] = useState<string>('');
+  const [newMemberRole, setNewMemberRole] = useState<string>('');
+  const [newMemberEmployeeId, setNewMemberEmployeeId] = useState<string>('');
+  const [newMemberStudentId, setNewMemberStudentId] = useState<string>('');
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -166,6 +175,93 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
     return `${h}h ${m}m`;
+  };
+
+  // Member management functions
+  const resetMemberForm = () => {
+    setNewMemberName('');
+    setNewMemberRole('');
+    setNewMemberEmployeeId('');
+    setNewMemberStudentId('');
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedGroup || !newMemberName.trim()) return;
+
+    try {
+      setLoading(true);
+      const newMember: Omit<AttendanceMember, 'id'> = {
+        name: newMemberName.trim(),
+        role: newMemberRole.trim() || 'Student',
+        employee_id: newMemberEmployeeId.trim() || undefined,
+        student_id: newMemberStudentId.trim() || undefined,
+        group_id: selectedGroup.id,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      await attendanceManager.addMember(selectedGroup.id, newMember);
+      resetMemberForm();
+      setShowAddMemberModal(false);
+      await loadData(); // Refresh data
+    } catch (error) {
+      console.error('Error adding member:', error);
+      setError(error instanceof Error ? error.message : 'Failed to add member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditMember = async () => {
+    if (!editingMember || !newMemberName.trim()) return;
+
+    try {
+      setLoading(true);
+      const updatedMember: AttendanceMember = {
+        ...editingMember,
+        name: newMemberName.trim(),
+        role: newMemberRole.trim() || 'Student',
+        employee_id: newMemberEmployeeId.trim() || undefined,
+        student_id: newMemberStudentId.trim() || undefined,
+        updated_at: new Date().toISOString()
+      };
+
+      await attendanceManager.updateMember(updatedMember);
+      resetMemberForm();
+      setEditingMember(null);
+      setShowEditMemberModal(false);
+      await loadData(); // Refresh data
+    } catch (error) {
+      console.error('Error updating member:', error);
+      setError(error instanceof Error ? error.message : 'Failed to update member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedGroup) return;
+
+    try {
+      setLoading(true);
+      await attendanceManager.removeMember(selectedGroup.id, memberId);
+      await loadData(); // Refresh data
+    } catch (error) {
+      console.error('Error removing member:', error);
+      setError(error instanceof Error ? error.message : 'Failed to remove member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditMember = (member: AttendanceMember) => {
+    setEditingMember(member);
+    setNewMemberName(member.name);
+    setNewMemberRole(member.role);
+    setNewMemberEmployeeId(member.employee_id || '');
+    setNewMemberStudentId(member.student_id || '');
+    setShowEditMemberModal(true);
   };
 
   useEffect(() => {
@@ -368,7 +464,15 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
             {activeTab === 'members' && (
               <div className="h-full overflow-y-auto p-4">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Member Status - {new Date(selectedDate).toLocaleDateString()}</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">Member Status - {new Date(selectedDate).toLocaleDateString()}</h3>
+                    <button
+                      onClick={() => setShowAddMemberModal(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      Add Member
+                    </button>
+                  </div>
                   {members.length > 0 ? (
                     <div className="grid gap-4">
                       {members.map(member => {
@@ -377,12 +481,34 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
                           <div key={member.person_id} className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
-                                <div className="font-medium text-lg">{member.name}</div>
-                                <div className="text-sm text-white/60 mb-2">
-                                  {member.role && `${member.role} • `}
-                                  {member.employee_id && `Emp: ${member.employee_id} • `}
-                                  {member.student_id && `Student: ${member.student_id} • `}
-                                  ID: {member.person_id}
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <div className="font-medium text-lg">{member.name}</div>
+                                    <div className="text-sm text-white/60">
+                                      {member.role && `${member.role} • `}
+                                      {member.employee_id && `Emp: ${member.employee_id} • `}
+                                      {member.student_id && `Student: ${member.student_id} • `}
+                                      ID: {member.person_id}
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => openEditMember(member)}
+                                      className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded text-sm transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to remove ${member.name} from this group?`)) {
+                                          handleRemoveMember(member.person_id);
+                                        }
+                                      }}
+                                      className="px-3 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded text-sm transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
                                 </div>
                                 
                                 {session ? (
@@ -648,6 +774,145 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
             <div className="text-6xl mb-4">📊</div>
             <div className="text-xl mb-2">Select a Group</div>
             <div className="text-sm">Choose a group from the dropdown above to view attendance data</div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-white/[0.08] rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium mb-4">Add New Member</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Role</label>
+                <input
+                  type="text"
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g., Student, Teacher, Staff"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Employee ID</label>
+                <input
+                  type="text"
+                  value={newMemberEmployeeId}
+                  onChange={(e) => setNewMemberEmployeeId(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Optional employee ID"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Student ID</label>
+                <input
+                  type="text"
+                  value={newMemberStudentId}
+                  onChange={(e) => setNewMemberStudentId(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Optional student ID"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  resetMemberForm();
+                  setShowAddMemberModal(false);
+                }}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddMember}
+                disabled={!newMemberName.trim() || loading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Adding...' : 'Add Member'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditMemberModal && editingMember && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-white/[0.08] rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium mb-4">Edit Member</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Role</label>
+                <input
+                  type="text"
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g., Student, Teacher, Staff"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Employee ID</label>
+                <input
+                  type="text"
+                  value={newMemberEmployeeId}
+                  onChange={(e) => setNewMemberEmployeeId(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Optional employee ID"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Student ID</label>
+                <input
+                  type="text"
+                  value={newMemberStudentId}
+                  onChange={(e) => setNewMemberStudentId(e.target.value)}
+                  className="w-full bg-white/[0.05] text-white border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Optional student ID"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  resetMemberForm();
+                  setEditingMember(null);
+                  setShowEditMemberModal(false);
+                }}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditMember}
+                disabled={!newMemberName.trim() || loading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Updating...' : 'Update Member'}
+              </button>
+            </div>
           </div>
         </div>
       )}
