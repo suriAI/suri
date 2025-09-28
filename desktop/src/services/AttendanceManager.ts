@@ -102,7 +102,8 @@ export class AttendanceManager {
       break_duration_minutes: 60,
       require_manual_checkout: false,
       enable_break_tracking: true,
-      enable_location_tracking: false
+      enable_location_tracking: false,
+      attendance_cooldown_seconds: 10
     };
   }
 

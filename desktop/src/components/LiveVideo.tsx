@@ -145,6 +145,7 @@ export default function LiveVideo() {
     personId?: string;
     occlusionCount: number;
     angleConsistency: number;
+    cooldownRemaining?: number;
   }>>(new Map());
   const [selectedTrackingTarget, setSelectedTrackingTarget] = useState<string | null>(null);
 
@@ -169,6 +170,103 @@ export default function LiveVideo() {
   const [groupToDelete, setGroupToDelete] = useState<AttendanceGroup | null>(null);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupType, setNewGroupType] = useState<GroupType>('general');
+  
+  // Attendance cooldown tracking
+  const [attendanceCooldowns, setAttendanceCooldowns] = useState<Map<string, number>>(new Map());
+  const [attendanceCooldownSeconds] = useState(10); // Default 10 seconds cooldown
+  
+  // Persistent cooldown tracking (for recognized faces)
+  const [persistentCooldowns, setPersistentCooldowns] = useState<Map<string, {
+    personId: string;
+    startTime: number;
+    memberName?: string;
+  }>>(new Map());
+  
+  // Current time state for countdown updates
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Real-time countdown updater
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      
+      // Update tracked faces with current cooldown remaining
+      setTrackedFaces(prev => {
+        const newTracked = new Map(prev);
+        let hasChanges = false;
+        
+        for (const [trackId, track] of newTracked) {
+          if (track.personId) {
+            const lastAttendanceTime = attendanceCooldowns.get(track.personId);
+            if (lastAttendanceTime) {
+              const timeSinceLastAttendance = now - lastAttendanceTime;
+              const cooldownMs = attendanceCooldownSeconds * 1000;
+              
+              if (timeSinceLastAttendance < cooldownMs) {
+                const remainingCooldown = Math.ceil((cooldownMs - timeSinceLastAttendance) / 1000);
+                if (track.cooldownRemaining !== remainingCooldown) {
+                  newTracked.set(trackId, {
+                    ...track,
+                    cooldownRemaining: remainingCooldown
+                  });
+                  hasChanges = true;
+                }
+              } else if (track.cooldownRemaining !== undefined) {
+                // Cooldown expired, remove it
+                const { cooldownRemaining, ...trackWithoutCooldown } = track;
+                newTracked.set(trackId, trackWithoutCooldown);
+                hasChanges = true;
+              }
+            }
+          }
+        }
+        
+        return hasChanges ? newTracked : prev;
+      });
+      
+      // Update persistent cooldowns
+      setPersistentCooldowns(prev => {
+        const newPersistent = new Map(prev);
+        let hasChanges = false;
+        
+        for (const [personId, cooldownInfo] of newPersistent) {
+          const timeSinceStart = now - cooldownInfo.startTime;
+          const cooldownMs = attendanceCooldownSeconds * 1000;
+          
+          if (timeSinceStart >= cooldownMs) {
+            // Cooldown expired, remove it
+            newPersistent.delete(personId);
+            hasChanges = true;
+          }
+        }
+        
+        return hasChanges ? newPersistent : prev;
+      });
+      
+      // Clean up expired cooldowns
+      setAttendanceCooldowns(prev => {
+        const newCooldowns = new Map(prev);
+        let hasExpired = false;
+        
+        for (const [personId, timestamp] of newCooldowns) {
+          const timeSinceLastAttendance = now - timestamp;
+          const cooldownMs = attendanceCooldownSeconds * 1000;
+          
+          if (timeSinceLastAttendance >= cooldownMs) {
+            newCooldowns.delete(personId);
+            hasExpired = true;
+          }
+        }
+        
+        return hasExpired ? newCooldowns : prev;
+      });
+      
+      // Update current time for countdown calculations
+      setCurrentTime(now);
+    }, 1000); // Update every second
+    
+    return () => clearInterval(interval);
+  }, [attendanceCooldowns, attendanceCooldownSeconds, persistentCooldowns]);
 
 
   const [showAttendanceDashboard, setShowAttendanceDashboard] = useState(false);
@@ -359,6 +457,36 @@ export default function LiveVideo() {
                 trackingMode: trackingMode
               });
               
+              // Check cooldown to prevent duplicate attendance logging
+              const currentTime = Date.now();
+              const existingCooldown = persistentCooldowns.get(response.person_id);
+              const lastAttendanceTime = existingCooldown?.startTime || 0;
+              const timeSinceLastAttendance = currentTime - lastAttendanceTime;
+              const cooldownMs = attendanceCooldownSeconds * 1000;
+              
+              console.log(`🔍 Cooldown check for ${response.person_id}: lastTime=${lastAttendanceTime}, currentTime=${currentTime}, timeSince=${timeSinceLastAttendance}, cooldownMs=${cooldownMs}`);
+              
+              if (timeSinceLastAttendance < cooldownMs) {
+                const remainingCooldown = Math.ceil((cooldownMs - timeSinceLastAttendance) / 1000);
+                console.log(`⏳ Attendance cooldown active for ${response.person_id}: ${remainingCooldown}s remaining`);
+                
+                // Update the tracked face with cooldown info for overlay display
+                setTrackedFaces(prev => {
+                  const newTracked = new Map(prev);
+                  for (const [trackId, track] of newTracked) {
+                    if (track.personId === response.person_id) {
+                      newTracked.set(trackId, {
+                        ...track,
+                        cooldownRemaining: remainingCooldown
+                      });
+                    }
+                  }
+                  return newTracked;
+                });
+                
+                return { index, result: { ...response, memberName, cooldownRemaining: remainingCooldown } };
+              }
+              
               try {
                 // Note: Group validation is now done at recognition level
                 // Backend handles all confidence thresholding - frontend processes all valid responses
@@ -380,7 +508,30 @@ export default function LiveVideo() {
                     
                     console.log(`📋 ✅ Attendance automatically recorded: ${response.person_id} - ${attendanceEvent.type} at ${attendanceEvent.timestamp}`);
                     
-
+                    // Set cooldown to prevent duplicate logging (only if not already active)
+                    const logTime = Date.now();
+                    console.log(`🔄 Setting new cooldown for ${response.person_id} at ${logTime}`);
+                    setAttendanceCooldowns(prev => {
+                      const newCooldowns = new Map(prev);
+                      newCooldowns.set(response.person_id, logTime);
+                      return newCooldowns;
+                    });
+                    
+                    // Add persistent cooldown for visual display (only if not already active)
+                    setPersistentCooldowns(prev => {
+                      const newPersistent = new Map(prev);
+                      const existingCooldown = newPersistent.get(response.person_id);
+                      if (existingCooldown) {
+                        console.log(`⚠️ WARNING: Attempted to overwrite existing cooldown for ${response.person_id}! Keeping existing startTime: ${existingCooldown.startTime}`);
+                        return prev; // Don't update if cooldown already exists
+                      }
+                      newPersistent.set(response.person_id, {
+                        personId: response.person_id,
+                        startTime: logTime,
+                        memberName: memberName
+                      });
+                      return newPersistent;
+                    });
                     
                     // Refresh attendance data
                     await loadAttendanceData();
@@ -1175,26 +1326,40 @@ export default function LiveVideo() {
       ctx.font = 'bold 16px "Courier New", monospace';
       ctx.fillText(label, x1, y1 - 10);
 
-      // Draw landmarks if available
-      if (landmarks) {
-        const landmarkPoints = [
-          landmarks.right_eye,
-          landmarks.left_eye,
-          landmarks.nose_tip,
-          landmarks.right_mouth_corner,
-          landmarks.left_mouth_corner
-        ].filter(point => point && isFinite(point.x) && isFinite(point.y));
-
-        landmarkPoints.forEach(point => {
-          const lx = point.x * scaleX + offsetX;
-          const ly = point.y * scaleY + offsetY;
+      // Show LOGGED text if person is in cooldown
+      if (isRecognized && recognitionResult?.person_id) {
+        const cooldownInfo = persistentCooldowns.get(recognitionResult.person_id);
+        if (cooldownInfo) {
+          const currentTime = Date.now();
+          const timeSinceStart = currentTime - cooldownInfo.startTime;
+          const cooldownMs = attendanceCooldownSeconds * 1000;
           
-          if (isFinite(lx) && isFinite(ly) && lx >= 0 && ly >= 0 && lx <= displayWidth && ly <= displayHeight) {
-            ctx.beginPath();
-            ctx.arc(lx, ly, 3, 0, 2 * Math.PI);
-            ctx.fill();
+          if (timeSinceStart < cooldownMs) {
+            // Simple LOGGED text in center of bounding box
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black background
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const centerX = (x1 + x2) / 2;
+            const centerY = (y1 + y2) / 2;
+            
+            // Measure text to create background
+            const textMetrics = ctx.measureText('LOGGED');
+            const textWidth = textMetrics.width + 20;
+            const textHeight = 30;
+            
+            // Draw background rectangle
+            ctx.fillRect(centerX - textWidth/2, centerY - textHeight/2, textWidth, textHeight);
+            
+            // Draw LOGGED text
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('LOGGED', centerX, centerY);
+            
+            ctx.restore();
           }
-        });
+        }
       }
 
       // Status indicator
@@ -1207,7 +1372,9 @@ export default function LiveVideo() {
       // Reset context
       ctx.shadowBlur = 0;
     });
-  }, [currentDetections, isStreaming, getVideoRect, calculateScaleFactors, currentRecognitionResults, recognitionEnabled]);
+
+    // Persistent cooldowns are now handled in the main face detection loop above
+  }, [currentDetections, isStreaming, getVideoRect, calculateScaleFactors, currentRecognitionResults, recognitionEnabled, persistentCooldowns, attendanceCooldownSeconds]);
 
   // OPTIMIZED animation loop with better performance
   const animate = useCallback(() => {
@@ -1224,7 +1391,7 @@ export default function LiveVideo() {
     const currentHash = currentDetections ? 
       `${currentDetections.faces.length}-${currentDetections.faces.map(f => `${f.bbox.x},${f.bbox.y}`).join(',')}-${currentRecognitionResults.size}-${Array.from(currentRecognitionResults.values()).map(r => r.person_id || 'none').join(',')}` : '';
     
-    if (currentHash !== lastDetectionHashRef.current && currentDetections) {
+    if (currentHash !== lastDetectionHashRef.current) {
       drawOverlays();
       lastDetectionHashRef.current = currentHash;
     }
@@ -1232,7 +1399,7 @@ export default function LiveVideo() {
     if (isStreaming) {
       animationFrameRef.current = requestAnimationFrame(animate);
     }
-  }, [isStreaming, drawOverlays, currentDetections]);
+  }, [isStreaming, drawOverlays, currentDetections, persistentCooldowns, attendanceCooldownSeconds]);
 
 
 
@@ -2002,6 +2169,37 @@ export default function LiveVideo() {
                 </div>
               </div>
             )}
+            
+            {/* Active Cooldowns - Always visible */}
+            {persistentCooldowns.size > 0 && (
+              <div className="p-4 border-b border-white/[0.08]">
+                <div className="text-xs font-medium text-white/60 mb-2">Active Cooldowns:</div>
+                <div className="space-y-1">
+                  {Array.from(persistentCooldowns.values()).map((cooldownInfo) => {
+                    // Use Date.now() for accurate timing, currentTime for re-render trigger
+                    const now = Date.now();
+                    const timeSinceStart = now - cooldownInfo.startTime;
+                    const cooldownMs = attendanceCooldownSeconds * 1000;
+                    
+                    // Only show if within cooldown period and time is positive
+                    if (timeSinceStart >= 0 && timeSinceStart < cooldownMs) {
+                      const remainingCooldown = Math.max(1, Math.ceil((cooldownMs - timeSinceStart) / 1000));
+                      // Add currentTime to ensure re-renders (but don't use it in calculation)
+                      const _ = currentTime; // This ensures re-renders happen
+                      
+                      return (
+                        <div key={cooldownInfo.personId} className="flex items-center justify-between bg-red-900/20 border border-red-500/30 rounded px-2 py-1">
+                          <span className="text-xs text-red-300">{cooldownInfo.memberName || cooldownInfo.personId}</span>
+                          <span className="text-xs text-red-300 font-mono">📝 {remainingCooldown}s</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </div>
+            )}
+            
              <div className="p-4 border-b border-white/[0.08]">
                <div className="space-y-2 h-32 max-h-32 overflow-y-auto recent-logs-scroll">
                 {!currentDetections?.faces?.length ? (
@@ -2048,6 +2246,9 @@ export default function LiveVideo() {
                                 {(recognitionResult.similarity * 100).toFixed(1)}% match
                               </div>
                             )}
+                            
+
+                            
                             {face.antispoofing && (
                               <div className={`text-xs px-2 py-1 rounded mt-1 ${
                                 face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' :
