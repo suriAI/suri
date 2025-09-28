@@ -2007,7 +2007,7 @@ export default function LiveVideo() {
               </div>
             )}
              <div className="p-4 border-b border-white/[0.08]">
-               <div className="space-y-2 h-auto max-h-32 overflow-y-auto recent-logs-scroll">
+               <div className="space-y-2 max-h-32 overflow-y-auto recent-logs-scroll">
                 {!currentDetections?.faces?.length ? (
                   <div className="text-white/50 text-sm text-center py-4">
                     No faces detected

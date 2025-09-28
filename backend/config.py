@@ -113,7 +113,7 @@ MODEL_CONFIGS = {
         "name": "AntiSpoofing",
         "model_path": WEIGHTS_DIR / "AntiSpoofing_bin_1.5_128.onnx",
         "input_size": (128, 128),
-        "threshold": 0.5,  # Real/fake classification threshold
+        "threshold": 0.6,  # More conservative threshold for better accuracy with multiple faces
         "providers": OPTIMIZED_PROVIDERS,  # Use optimized providers
         "session_options": OPTIMIZED_SESSION_OPTIONS,
         "description": "Anti-spoofing model for real vs fake face detection - OPTIMIZED",
@@ -121,6 +121,9 @@ MODEL_CONFIGS = {
         "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
         "margin": 0.2,  # Face crop margin (20%)
         "max_batch_size": 8,  # Increased batch size for better throughput
+        "enable_temporal_smoothing": True,  # Enable temporal smoothing to reduce flickering
+        "smoothing_factor": 0.3,  # Moderate smoothing for stability
+        "hysteresis_margin": 0.15,  # Increased margin for better stability
     },
     "edgeface": {
         "name": "EdgeFace",

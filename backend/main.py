@@ -135,7 +135,10 @@ async def startup_event():
             providers=ANTISPOOFING_CONFIG["providers"],
             max_batch_size=ANTISPOOFING_CONFIG.get("max_batch_size", 1),
             cache_duration=1.0,
-            session_options=ANTISPOOFING_CONFIG.get("session_options")
+            session_options=ANTISPOOFING_CONFIG.get("session_options"),
+            enable_temporal_smoothing=ANTISPOOFING_CONFIG.get("enable_temporal_smoothing", False),
+            smoothing_factor=ANTISPOOFING_CONFIG.get("smoothing_factor", 0.0),
+            hysteresis_margin=ANTISPOOFING_CONFIG.get("hysteresis_margin", 0.1)
         )
         
         edgeface_detector = EdgeFaceDetector(

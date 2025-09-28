@@ -427,13 +427,25 @@ class OptimizedAntiSpoofingDetector:
         try:
             if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
                 x, y, w, h = bbox[:4]
-                # Create a hash based on approximate position (rounded to reduce noise)
-                # This helps group faces that are in similar positions across frames
-                grid_x = int(x // 50)  # 50-pixel grid
-                grid_y = int(y // 50)
-                grid_w = int(w // 20)  # 20-pixel size grid
-                grid_h = int(h // 20)
-                return f"face_{grid_x}_{grid_y}_{grid_w}_{grid_h}"
+                # Use finer grid for better tracking of multiple faces
+                # Calculate center point for more stable tracking
+                center_x = x + w / 2
+                center_y = y + h / 2
+                
+                # Use smaller grid size for better discrimination between close faces
+                grid_size = 25  # Reduced from 50 for finer tracking
+                size_grid = 15  # Reduced from 20 for better size discrimination
+                
+                # Create a hash based on center position and size
+                grid_x = int(center_x // grid_size)
+                grid_y = int(center_y // grid_size)
+                grid_w = int(w // size_grid)
+                grid_h = int(h // size_grid)
+                
+                # Include aspect ratio for better face discrimination
+                aspect_ratio = int((w / h) * 10) if h > 0 else 10
+                
+                return f"face_{grid_x}_{grid_y}_{grid_w}_{grid_h}_{aspect_ratio}"
             else:
                 # Fallback for invalid bbox
                 return f"face_unknown_{hash(str(bbox)) % 10000}"
