@@ -26,7 +26,7 @@ from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
 from utils.attendance_database import AttendanceDatabaseManager
 from routes import attendance
-from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_MODEL_PATH, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG
+from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_MODEL_PATH, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -85,11 +85,13 @@ class StreamingRequest(BaseModel):
 class FaceRecognitionRequest(BaseModel):
     image: str  # Base64 encoded image
     landmarks: List[List[float]]  # 5-point facial landmarks [[x1,y1], [x2,y2], ...]
+    bbox: Optional[List[float]] = None  # Optional bounding box [x, y, width, height]
 
 class FaceRegistrationRequest(BaseModel):
     person_id: str
     image: str  # Base64 encoded image
     landmarks: List[List[float]]  # 5-point facial landmarks
+    bbox: Optional[List[float]] = None  # Optional bounding box [x, y, width, height]
 
 class FaceRecognitionResponse(BaseModel):
     success: bool
@@ -151,7 +153,10 @@ async def startup_event():
             enable_temporal_smoothing=EDGEFACE_CONFIG.get("enable_temporal_smoothing", True),
             recognition_smoothing_factor=EDGEFACE_CONFIG.get("recognition_smoothing_factor", 0.3),
             recognition_hysteresis_margin=EDGEFACE_CONFIG.get("recognition_hysteresis_margin", 0.05),
-            min_consecutive_recognitions=EDGEFACE_CONFIG.get("min_consecutive_recognitions", 2)
+            min_consecutive_recognitions=EDGEFACE_CONFIG.get("min_consecutive_recognitions", 2),
+            facemesh_alignment=EDGEFACE_CONFIG.get("facemesh_alignment", False),
+            facemesh_model_path=str(MODEL_CONFIGS.get("facemesh", {}).get("model_path", "")) if EDGEFACE_CONFIG.get("facemesh_alignment") else None,
+            facemesh_config=MODEL_CONFIGS.get("facemesh", {}) if EDGEFACE_CONFIG.get("facemesh_alignment") else None
         )
         
         # Initialize attendance database
@@ -417,7 +422,7 @@ async def recognize_face(request: FaceRecognitionRequest):
         image = decode_base64_image(request.image)
         
         # Perform face recognition
-        result = await edgeface_detector.recognize_face_async(image, request.landmarks)
+        result = await edgeface_detector.recognize_face_async(image, request.landmarks, request.bbox)
         
         processing_time = time.time() - start_time
         
@@ -459,7 +464,8 @@ async def register_person(request: FaceRegistrationRequest):
         result = await edgeface_detector.register_person_async(
             request.person_id, 
             image, 
-            request.landmarks
+            request.landmarks,
+            request.bbox
         )
         
         processing_time = time.time() - start_time

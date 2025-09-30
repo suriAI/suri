@@ -125,6 +125,23 @@ MODEL_CONFIGS = {
         "smoothing_factor": 0.3,  # Moderate smoothing for stability
         "hysteresis_margin": 0.15,  # Increased margin for better stability
     },
+    "facemesh": {
+        "name": "MediaPipe FaceMesh",
+        "model_path": WEIGHTS_DIR / "face_mesh_Nx3x192x192_post.onnx",
+        "input_size": (192, 192),  # FaceMesh standard input size
+        "score_threshold": 0.5,    # Confidence threshold for landmark detection
+        "margin_ratio": 0.25,      # 25% margin for face cropping as recommended by MediaPipe
+        "providers": OPTIMIZED_PROVIDERS,  # Use optimized providers
+        "session_options": OPTIMIZED_SESSION_OPTIONS,
+        "description": "MediaPipe FaceMesh model for 468-point facial landmark detection - OPTIMIZED",
+        "version": "PINTO0309_tensorrt",
+        "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
+        "landmark_count": 468,     # Full 468-point facial mesh
+        "output_5_point": True,    # Also outputs 5-point landmarks for EdgeFace compatibility
+        "enable_dense_mesh": True, # Enable full 468-point mesh output
+        "batch_size": 1,           # Single face processing for accuracy
+        "alignment_method": "facemesh_dense",  # Dense mesh alignment method
+    },
     "edgeface": {
         "name": "EdgeFace",
         "model_path": WEIGHTS_DIR / "edgeface-recognition.onnx",
@@ -141,11 +158,13 @@ MODEL_CONFIGS = {
         "landmark_count": 5,  # Number of required landmarks
         "batch_size": 4,  # Enable small batch processing
         "enable_face_alignment": True,
-        "alignment_method": "similarity_transform",  # Fastest alignment method
+        "alignment_method": "facemesh_dense",  # Use FaceMesh for high-quality alignment
         "enable_temporal_smoothing": True,  # Enable temporal smoothing for recognition
         "recognition_smoothing_factor": 0.3,  # Reduced for faster response and better stability
         "recognition_hysteresis_margin": 0.05,  # Reduced for less strict switching
         "min_consecutive_recognitions": 1,  # Reduced to 1 for immediate recognition
+        "facemesh_alignment": True,  # Enable FaceMesh-based alignment
+        "facemesh_model": "facemesh",  # Reference to FaceMesh model config
     }
 }
 
