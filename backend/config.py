@@ -143,9 +143,9 @@ MODEL_CONFIGS = {
         "enable_face_alignment": True,
         "alignment_method": "similarity_transform",  # Fastest alignment method
         "enable_temporal_smoothing": True,  # Enable temporal smoothing for recognition
-        "recognition_smoothing_factor": 0.4,  # Smoothing factor for recognition results
-        "recognition_hysteresis_margin": 0.1,  # Margin for recognition stability
-        "min_consecutive_recognitions": 2,  # Require 2 consecutive recognitions for new person
+        "recognition_smoothing_factor": 0.3,  # Reduced for faster response and better stability
+        "recognition_hysteresis_margin": 0.05,  # Reduced for less strict switching
+        "min_consecutive_recognitions": 1,  # Reduced to 1 for immediate recognition
     }
 }
 

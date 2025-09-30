@@ -26,14 +26,14 @@ class EdgeFaceDetector:
         self,
         model_path: str,
         input_size: Tuple[int, int] = (112, 112),
-        similarity_threshold: float = 0.6,
+        similarity_threshold: float = 0.45,  # Lowered from 0.6 to match config
         providers: Optional[List[str]] = None,
         database_path: Optional[str] = None,
         session_options: Optional[Dict[str, Any]] = None,
-        enable_temporal_smoothing: bool = False,
-        recognition_smoothing_factor: float = 0.4,
-        recognition_hysteresis_margin: float = 0.1,
-        min_consecutive_recognitions: int = 2
+        enable_temporal_smoothing: bool = True,  # Enabled by default for stability
+        recognition_smoothing_factor: float = 0.3,  # Reduced for faster response
+        recognition_hysteresis_margin: float = 0.05,  # Reduced for less strict switching
+        min_consecutive_recognitions: int = 1  # Reduced to 1 for immediate recognition
     ):
         """
         Initialize EdgeFace detector
@@ -83,7 +83,7 @@ class EdgeFaceDetector:
         # Temporal smoothing tracking (only if enabled)
         if self.enable_temporal_smoothing:
             self.recognition_history = {}  # face_id -> list of recent recognition results
-            self.max_history = 5  # Keep last 5 results for smoothing
+            self.max_history = 3  # Reduced from 5 to 3 for faster response
             self.consecutive_recognitions = {}  # face_id -> count of consecutive recognitions
         
         # Initialize SQLite database manager
@@ -568,11 +568,11 @@ class EdgeFaceDetector:
                 pose_difficulty = self._calculate_pose_difficulty(landmarks)
                 
                 # Lower threshold for difficult poses (angled faces)
-                # More difficult poses get more lenient thresholds
-                threshold_reduction = pose_difficulty * 0.05  # Further reduced to 5% reduction for better stability
+                # More generous reduction for better side-view recognition
+                threshold_reduction = pose_difficulty * 0.12  # Increased from 0.05 to 0.12 for better tolerance
                 effective_threshold = max(
                     self.similarity_threshold - threshold_reduction,
-                    self.similarity_threshold * 0.90  # Never go below 90% of original for better accuracy
+                    self.similarity_threshold * 0.75  # Lowered from 0.90 to 0.75 for more lenient matching
                 )
                 
                 logger.debug(f"Pose difficulty: {pose_difficulty:.3f}, "
@@ -933,21 +933,8 @@ class EdgeFaceDetector:
                     most_frequent_person = max(person_counts.items(), key=lambda x: x[1])
                     most_frequent_id, count = most_frequent_person
                     
-                    # Apply hysteresis: require minimum consecutive recognitions for new person
-                    if person_id != most_frequent_id and count >= self.min_consecutive_recognitions:
-                        # Switch to most frequent person if it meets threshold
-                        smoothed_person_id = most_frequent_id
-                        
-                        # Calculate average similarity for the most frequent person
-                        similarities = [r['similarity'] for r in recent_results if r['person_id'] == most_frequent_id]
-                        smoothed_similarity = np.mean(similarities) if similarities else similarity
-                        
-                        logger.debug(f"Face {face_id}: Temporal smoothing switched to {most_frequent_id} "
-                                   f"(count: {count}, avg_sim: {smoothed_similarity:.3f})")
-                        
-                        return smoothed_person_id, smoothed_similarity
-                    
-                    elif person_id == most_frequent_id:
+                    # Simple majority voting with immediate response (min_consecutive = 1)
+                    if person_id == most_frequent_id and count >= self.min_consecutive_recognitions:
                         # Current recognition matches most frequent, apply similarity smoothing
                         similarities = [r['similarity'] for r in recent_results if r['person_id'] == person_id]
                         if len(similarities) > 1:
@@ -955,14 +942,34 @@ class EdgeFaceDetector:
                             weights = np.linspace(0.5, 1.0, len(similarities))
                             smoothed_similarity = np.average(similarities, weights=weights)
                             
-                            # Blend current with smoothed
+                            # Blend current with smoothed (less aggressive smoothing)
                             final_similarity = (
-                                similarity * self.recognition_smoothing_factor +
-                                smoothed_similarity * (1 - self.recognition_smoothing_factor)
+                                similarity * (1 - self.recognition_smoothing_factor) +
+                                smoothed_similarity * self.recognition_smoothing_factor
                             )
                             
                             logger.debug(f"Face {face_id}: Similarity smoothed {similarity:.3f} -> {final_similarity:.3f}")
                             return person_id, final_similarity
+                    
+                    # Handle switching between persons with hysteresis
+                    elif person_id is not None and most_frequent_id != person_id:
+                        # Only apply hysteresis if we have enough history
+                        if len(recent_results) >= 2:
+                            prev_result = recent_results[-2]
+                            # If switching from a recognized person, require higher confidence
+                            if prev_result['person_id'] is not None:
+                                required_similarity = self.similarity_threshold + self.recognition_hysteresis_margin
+                                if similarity >= required_similarity:
+                                    return person_id, similarity  # Allow switch with high confidence
+                                else:
+                                    # Stay with most frequent if current confidence is low
+                                    return most_frequent_id, np.mean([r['similarity'] for r in recent_results if r['person_id'] == most_frequent_id])
+                    
+                    # Default: use most frequent person if it has enough occurrences
+                    elif most_frequent_id is not None and count >= self.min_consecutive_recognitions:
+                        similarities = [r['similarity'] for r in recent_results if r['person_id'] == most_frequent_id]
+                        avg_similarity = np.mean(similarities) if similarities else similarity
+                        return most_frequent_id, avg_similarity
             
             # Return original result if no smoothing applied
             return person_id, similarity
