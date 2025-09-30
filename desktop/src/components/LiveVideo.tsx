@@ -128,12 +128,21 @@ export default function LiveVideo() {
   const [currentGroup, setCurrentGroupInternal] = useState<AttendanceGroup | null>(null);
   const currentGroupRef = useRef<AttendanceGroup | null>(null);
   
-  // Debug wrapper for setCurrentGroup
+  // Debug wrapper for setCurrentGroup with localStorage persistence
   const setCurrentGroup = useCallback((group: AttendanceGroup | null) => {
     console.log('🔄 setCurrentGroup called with:', group?.name || 'null');
     console.log('🔍 Stack trace for setCurrentGroup:', new Error().stack);
     setCurrentGroupInternal(group);
     currentGroupRef.current = group; // Keep ref in sync
+    
+    // Save group selection to localStorage for persistence
+    if (group) {
+      localStorage.setItem('suri_selected_group_id', group.id);
+      console.log('💾 Saved group selection to localStorage:', group.name);
+    } else {
+      localStorage.removeItem('suri_selected_group_id');
+      console.log('💾 Cleared group selection from localStorage');
+    }
   }, []);
   
   // Recognition is enabled when backend is ready (removed group dependency for instant recognition)
@@ -2096,8 +2105,23 @@ export default function LiveVideo() {
         if (groups.length === 0) {
           setCurrentGroup(null);
         } else if (!currentGroup) {
-          // Select the first available group
-          setCurrentGroup(groups[0]);
+          // Try to restore the last selected group from localStorage
+          const savedGroupId = localStorage.getItem('suri_selected_group_id');
+          let groupToSelect = null;
+          
+          if (savedGroupId) {
+            // Find the saved group in the available groups
+            groupToSelect = groups.find(group => group.id === savedGroupId);
+          }
+          
+          // If no saved group or saved group not found, select the first available group
+          if (!groupToSelect) {
+            groupToSelect = groups[0];
+          }
+          
+          console.log('🔄 Initializing with group:', groupToSelect.name);
+          // Use handleSelectGroup to ensure data is loaded properly
+          await handleSelectGroup(groupToSelect);
         }
       } catch (error) {
         console.error('Failed to initialize attendance system:', error);
@@ -2108,7 +2132,7 @@ export default function LiveVideo() {
     initializeAttendance().catch(error => {
       console.error('Error in initializeAttendance:', error);
     });
-  }, []); // Empty dependency array means this runs only on mount
+  }, [handleSelectGroup]); // Include handleSelectGroup dependency
 
   // Handle delayed recognition when recognitionEnabled becomes true
   useEffect(() => {
