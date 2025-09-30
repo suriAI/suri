@@ -147,7 +147,11 @@ async def startup_event():
             similarity_threshold=EDGEFACE_CONFIG["similarity_threshold"],
             providers=EDGEFACE_CONFIG["providers"],
             database_path=str(EDGEFACE_CONFIG["database_path"]),
-            session_options=EDGEFACE_CONFIG.get("session_options")
+            session_options=EDGEFACE_CONFIG.get("session_options"),
+            enable_temporal_smoothing=EDGEFACE_CONFIG.get("enable_temporal_smoothing", True),
+            recognition_smoothing_factor=EDGEFACE_CONFIG.get("recognition_smoothing_factor", 0.3),
+            recognition_hysteresis_margin=EDGEFACE_CONFIG.get("recognition_hysteresis_margin", 0.05),
+            min_consecutive_recognitions=EDGEFACE_CONFIG.get("min_consecutive_recognitions", 2)
         )
         
         # Initialize attendance database

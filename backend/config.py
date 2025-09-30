@@ -129,7 +129,7 @@ MODEL_CONFIGS = {
         "name": "EdgeFace",
         "model_path": WEIGHTS_DIR / "edgeface-recognition.onnx",
         "input_size": (112, 112),  # EdgeFace standard input size
-        "similarity_threshold": 0.6,  # Recognition similarity threshold
+        "similarity_threshold": 0.45,  # Reduced threshold for better movement tolerance
         "providers": OPTIMIZED_PROVIDERS,  # Use optimized providers
         "session_options": OPTIMIZED_SESSION_OPTIONS,
         "description": "EdgeFace recognition model for face identification - OPTIMIZED",
@@ -142,6 +142,10 @@ MODEL_CONFIGS = {
         "batch_size": 4,  # Enable small batch processing
         "enable_face_alignment": True,
         "alignment_method": "similarity_transform",  # Fastest alignment method
+        "enable_temporal_smoothing": True,  # Enable temporal smoothing for recognition
+        "recognition_smoothing_factor": 0.4,  # Smoothing factor for recognition results
+        "recognition_hysteresis_margin": 0.1,  # Margin for recognition stability
+        "min_consecutive_recognitions": 2,  # Require 2 consecutive recognitions for new person
     }
 }
 
