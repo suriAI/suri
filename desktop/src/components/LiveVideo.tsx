@@ -368,13 +368,13 @@ export default function LiveVideo() {
       const recognitionPromises = detectionResult.faces.map(async (face, index) => {
         try {
           // Convert landmarks to the format expected by backend: [[x1,y1], [x2,y2], ...]
-          // Backend expects face perspective order, so we convert back from viewer perspective
+          // YuNet already provides landmarks in the correct face perspective order
           const landmarks = [
-            [face.landmarks.left_eye.x, face.landmarks.left_eye.y],    // backend[0] = right_eye (face perspective)
-            [face.landmarks.right_eye.x, face.landmarks.right_eye.y],  // backend[1] = left_eye (face perspective)
+            [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
+            [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
             [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
-            [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y],  // backend[3] = right_mouth (face perspective)
-            [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y] // backend[4] = left_mouth (face perspective)
+            [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
+            [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
           ];
           
           if (!backendServiceRef.current) {
@@ -784,26 +784,26 @@ export default function LiveVideo() {
                 },
                 confidence: face.confidence || 0,
                 landmarks: {
-                  // Note: Backend landmarks are from face perspective, so we swap for viewer perspective
+                  // Backend landmarks are in face perspective order: [right_eye, left_eye, nose_tip, right_mouth, left_mouth]
                   right_eye: { 
-                    x: (landmarks[1] && landmarks[1][0]) || 0, 
-                    y: (landmarks[1] && landmarks[1][1]) || 0 
-                  },
-                  left_eye: { 
                     x: (landmarks[0] && landmarks[0][0]) || 0, 
                     y: (landmarks[0] && landmarks[0][1]) || 0 
+                  },
+                  left_eye: { 
+                    x: (landmarks[1] && landmarks[1][0]) || 0, 
+                    y: (landmarks[1] && landmarks[1][1]) || 0 
                   },
                   nose_tip: { 
                     x: (landmarks[2] && landmarks[2][0]) || 0, 
                     y: (landmarks[2] && landmarks[2][1]) || 0 
                   },
                   right_mouth_corner: { 
-                    x: (landmarks[4] && landmarks[4][0]) || 0, 
-                    y: (landmarks[4] && landmarks[4][1]) || 0 
-                  },
-                  left_mouth_corner: { 
                     x: (landmarks[3] && landmarks[3][0]) || 0, 
                     y: (landmarks[3] && landmarks[3][1]) || 0 
+                  },
+                  left_mouth_corner: { 
+                    x: (landmarks[4] && landmarks[4][0]) || 0, 
+                    y: (landmarks[4] && landmarks[4][1]) || 0 
                   }
                 },
                 antispoofing: face.antispoofing ? {
@@ -1587,13 +1587,13 @@ export default function LiveVideo() {
       const face = currentDetections.faces[faceIndex];
       
       // Convert landmarks to the format expected by backend: [[x1,y1], [x2,y2], ...]
-      // Convert landmarks to backend format (face perspective order)
+      // YuNet already provides landmarks in the correct face perspective order
       const landmarks = [
-        [face.landmarks.left_eye.x, face.landmarks.left_eye.y],    // backend[0] = right_eye (face perspective)
-        [face.landmarks.right_eye.x, face.landmarks.right_eye.y],  // backend[1] = left_eye (face perspective)
+        [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
+        [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
         [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
-        [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y],  // backend[3] = right_mouth (face perspective)
-        [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y] // backend[4] = left_mouth (face perspective)
+        [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
+        [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
       ];
       
       const response = await backendServiceRef.current.registerFace(
@@ -1746,13 +1746,13 @@ export default function LiveVideo() {
       ctx.drawImage(video, 0, 0);
 
       const frameData = canvas.toDataURL('image/jpeg', 0.95);
-      // Convert landmarks to backend format (face perspective order)
+      // YuNet already provides landmarks in the correct face perspective order
       const landmarks = [
-        [face.landmarks.left_eye.x, face.landmarks.left_eye.y],    // backend[0] = right_eye (face perspective)
-        [face.landmarks.right_eye.x, face.landmarks.right_eye.y],  // backend[1] = left_eye (face perspective)
+        [face.landmarks.right_eye.x, face.landmarks.right_eye.y],
+        [face.landmarks.left_eye.x, face.landmarks.left_eye.y],
         [face.landmarks.nose_tip.x, face.landmarks.nose_tip.y],
-        [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y],  // backend[3] = right_mouth (face perspective)
-        [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y] // backend[4] = left_mouth (face perspective)
+        [face.landmarks.right_mouth_corner.x, face.landmarks.right_mouth_corner.y],
+        [face.landmarks.left_mouth_corner.x, face.landmarks.left_mouth_corner.y]
       ];
 
       console.log(`🎯 Registering elite face for ${selectedPersonForRegistration} in group ${currentGroup.name}`);
