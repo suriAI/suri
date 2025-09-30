@@ -143,6 +143,17 @@ async def startup_event():
             hysteresis_margin=ANTISPOOFING_CONFIG.get("hysteresis_margin", 0.1)
         )
         
+        # Initialize shared FaceMesh detector first
+        facemesh_detector = FaceMeshDetector(
+            model_path=str(MODEL_CONFIGS["facemesh"]["model_path"]),
+            input_size=MODEL_CONFIGS["facemesh"]["input_size"],
+            score_threshold=MODEL_CONFIGS["facemesh"]["score_threshold"],
+            margin_ratio=MODEL_CONFIGS["facemesh"]["margin_ratio"],
+            providers=MODEL_CONFIGS["facemesh"]["providers"],
+            session_options=MODEL_CONFIGS["facemesh"]["session_options"]
+        )
+        
+        # Initialize EdgeFace detector with shared FaceMesh instance
         edgeface_detector = EdgeFaceDetector(
             model_path=str(EDGEFACE_MODEL_PATH),
             input_size=EDGEFACE_CONFIG["input_size"],
@@ -155,18 +166,10 @@ async def startup_event():
             recognition_hysteresis_margin=EDGEFACE_CONFIG.get("recognition_hysteresis_margin", 0.05),
             min_consecutive_recognitions=EDGEFACE_CONFIG.get("min_consecutive_recognitions", 2),
             facemesh_alignment=EDGEFACE_CONFIG.get("facemesh_alignment", False),
+            facemesh_detector=facemesh_detector if EDGEFACE_CONFIG.get("facemesh_alignment", False) else None,
+            # DEPRECATED parameters - kept for backward compatibility
             facemesh_model_path=str(MODEL_CONFIGS.get("facemesh", {}).get("model_path", "")) if EDGEFACE_CONFIG.get("facemesh_alignment") else None,
             facemesh_config=MODEL_CONFIGS.get("facemesh", {}) if EDGEFACE_CONFIG.get("facemesh_alignment") else None
-        )
-        
-        # Initialize standalone FaceMesh detector for /detect endpoint
-        facemesh_detector = FaceMeshDetector(
-            model_path=str(MODEL_CONFIGS["facemesh"]["model_path"]),
-            input_size=MODEL_CONFIGS["facemesh"]["input_size"],
-            score_threshold=MODEL_CONFIGS["facemesh"]["score_threshold"],
-            margin_ratio=MODEL_CONFIGS["facemesh"]["margin_ratio"],
-            providers=MODEL_CONFIGS["facemesh"]["providers"],
-            session_options=MODEL_CONFIGS["facemesh"]["session_options"]
         )
         
         # Initialize attendance database

@@ -36,8 +36,9 @@ class EdgeFaceDetector:
         recognition_hysteresis_margin: float = 0.05,  # Reduced for less strict switching
         min_consecutive_recognitions: int = 1,  # Reduced to 1 for immediate recognition
         facemesh_alignment: bool = False,  # Enable FaceMesh-based alignment
-        facemesh_model_path: Optional[str] = None,  # Path to FaceMesh ONNX model
-        facemesh_config: Optional[Dict[str, Any]] = None  # FaceMesh configuration
+        facemesh_detector: Optional['FaceMeshDetector'] = None,  # External FaceMesh detector instance
+        facemesh_model_path: Optional[str] = None,  # DEPRECATED: Path to FaceMesh ONNX model
+        facemesh_config: Optional[Dict[str, Any]] = None  # DEPRECATED: FaceMesh configuration
     ):
         """
         Initialize EdgeFace detector
@@ -54,8 +55,9 @@ class EdgeFaceDetector:
             recognition_hysteresis_margin: Margin for recognition stability
             min_consecutive_recognitions: Minimum consecutive recognitions for new person
             facemesh_alignment: Enable FaceMesh-based alignment instead of simple similarity transform
-            facemesh_model_path: Path to FaceMesh ONNX model file
-            facemesh_config: Configuration dictionary for FaceMesh detector
+            facemesh_detector: External FaceMesh detector instance (recommended for performance)
+            facemesh_model_path: DEPRECATED - Path to FaceMesh ONNX model file
+            facemesh_config: DEPRECATED - Configuration dictionary for FaceMesh detector
         """
         self.model_path = model_path
         self.input_size = input_size
@@ -107,27 +109,38 @@ class EdgeFaceDetector:
         # Initialize the model
         self._initialize_model()
         
-        # Initialize FaceMesh detector if enabled
-        if self.facemesh_alignment and self.facemesh_model_path:
-            try:
-                # Extract only valid FaceMeshDetector parameters from config
-                valid_params = {}
-                if 'input_size' in self.facemesh_config:
-                    valid_params['input_size'] = self.facemesh_config['input_size']
-                if 'score_threshold' in self.facemesh_config:
-                    valid_params['score_threshold'] = self.facemesh_config['score_threshold']
-                if 'margin_ratio' in self.facemesh_config:
-                    valid_params['margin_ratio'] = self.facemesh_config['margin_ratio']
-                
-                self.facemesh_detector = FaceMeshDetector(
-                    model_path=self.facemesh_model_path,
-                    providers=self.providers,
-                    session_options=self.session_options,
-                    **valid_params
-                )
-                logger.info(f"Initialized FaceMesh detector: {self.facemesh_model_path}")
-            except Exception as e:
-                logger.error(f"Failed to initialize FaceMesh detector: {e}")
+        # Initialize FaceMesh detector if alignment is enabled
+        if self.facemesh_alignment:
+            if facemesh_detector is not None:
+                # Use external FaceMesh detector (recommended for performance)
+                self.facemesh_detector = facemesh_detector
+                logger.info("Using external FaceMesh detector for EdgeFace alignment")
+            elif self.facemesh_model_path:
+                # Fallback: create internal FaceMesh detector (DEPRECATED)
+                logger.warning("Creating internal FaceMesh detector - consider using external instance for better performance")
+                try:
+                    # Extract only valid FaceMeshDetector parameters from config
+                    valid_params = {}
+                    if 'input_size' in self.facemesh_config:
+                        valid_params['input_size'] = self.facemesh_config['input_size']
+                    if 'score_threshold' in self.facemesh_config:
+                        valid_params['score_threshold'] = self.facemesh_config['score_threshold']
+                    if 'margin_ratio' in self.facemesh_config:
+                        valid_params['margin_ratio'] = self.facemesh_config['margin_ratio']
+                    
+                    self.facemesh_detector = FaceMeshDetector(
+                        model_path=self.facemesh_model_path,
+                        providers=self.providers,
+                        session_options=self.session_options,
+                        **valid_params
+                    )
+                    logger.info(f"Internal FaceMesh detector initialized for EdgeFace alignment")
+                except Exception as e:
+                    logger.error(f"Failed to initialize FaceMesh detector: {e}")
+                    self.facemesh_alignment = False
+                    self.facemesh_detector = None
+            else:
+                logger.warning("FaceMesh alignment enabled but no detector instance or model path provided")
                 self.facemesh_alignment = False
                 self.facemesh_detector = None
         
