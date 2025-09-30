@@ -1327,6 +1327,47 @@ export default function LiveVideo() {
     ctx.lineJoin = 'round';
   };
 
+  // Helper function to draw facial landmarks
+  const drawLandmarks = (
+    ctx: CanvasRenderingContext2D, 
+    landmarks: {
+      right_eye: { x: number; y: number };
+      left_eye: { x: number; y: number };
+      nose_tip: { x: number; y: number };
+      right_mouth_corner: { x: number; y: number };
+      left_mouth_corner: { x: number; y: number };
+    },
+    scaleX: number,
+    scaleY: number,
+    offsetX: number,
+    offsetY: number
+  ) => {
+    // Use a single modern color that fits the theme
+    const landmarkColor = '#00D4FF'; // Modern cyan that matches the UI theme
+
+    // Draw each landmark point
+    Object.entries(landmarks).forEach(([_, point]) => {
+      // Scale and position the landmark
+      const x = point.x * scaleX + offsetX;
+      const y = point.y * scaleY + offsetY;
+
+      // Save context for landmark drawing
+      ctx.save();
+      
+      // Set up modern styling for landmark
+      ctx.fillStyle = landmarkColor;
+      ctx.shadowColor = landmarkColor;
+      ctx.shadowBlur = 4;
+
+      // Draw landmark as a small circle
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.restore();
+    });
+  };
+
   const drawOverlays = useCallback(() => {
     const video = videoRef.current;
     const overlayCanvas = overlayCanvasRef.current;
@@ -1454,6 +1495,11 @@ export default function LiveVideo() {
         ctx.font = 'bold 10px "Courier New", monospace';
         ctx.fillStyle = "#00ff00";
         ctx.fillText("RECOGNIZED", x1 + 10, y2 + 15);
+      }
+
+      // Draw facial landmarks
+      if (face.landmarks) {
+        drawLandmarks(ctx, face.landmarks, scaleX, scaleY, offsetX, offsetY);
       }
 
       // Reset context
