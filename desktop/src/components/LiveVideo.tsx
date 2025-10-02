@@ -605,11 +605,12 @@ export default function LiveVideo() {
                     
                     if (attendanceEvent) {
                       console.log(`📋 ✅ Attendance automatically recorded: ${response.person_id} - ${attendanceEvent.type} at ${attendanceEvent.timestamp}`);
-                    }
-                    
-                    // Refresh attendance data only if we have a current group
-                    if (currentGroupValue) {
-                      await loadAttendanceData();
+                      
+                      // Force immediate refresh of attendance data
+                      // Use a small delay to ensure backend has committed the transaction
+                      setTimeout(async () => {
+                        await loadAttendanceData();
+                      }, 100);
                     }
                     
                     // Show success notification
@@ -906,10 +907,13 @@ export default function LiveVideo() {
         
         if (attendanceData) {
           console.log('📋 Attendance event received:', attendanceData);
-          // Reload attendance data to reflect the new event
-          loadAttendanceData().catch(error => {
-            console.error('Failed to reload attendance data:', error);
-          });
+          // Force immediate reload of attendance data to update sidebar
+          // Use small delay to ensure backend transaction is committed
+          setTimeout(() => {
+            loadAttendanceData().catch(error => {
+              console.error('Failed to reload attendance data:', error);
+            });
+          }, 150);
         }
       });
 
@@ -1656,63 +1660,64 @@ export default function LiveVideo() {
   // Attendance Management Functions
   const loadAttendanceData = useCallback(async () => {
     try {
-      console.log('🔍 loadAttendanceData called. currentGroup:', currentGroup?.name || 'null');
+      // Use ref to get the latest currentGroup value to avoid stale closure
+      const currentGroupValue = currentGroupRef.current;
+      console.log('🔍 loadAttendanceData called. currentGroup:', currentGroupValue?.name || 'null');
       
-      // Early return if no current group - nothing to load
-      if (!currentGroup) {
-        console.log('🔍 No current group, only loading groups list');
-        const groups = await attendanceManager.getGroups();
-        setAttendanceGroups(groups);
-        return;
-      }
-      
+      // Always load groups list first
       const groups = await attendanceManager.getGroups();
       console.log('🔍 Available groups:', groups.map(g => g.name));
       setAttendanceGroups(groups);
       
+      // Early return if no current group - nothing more to load
+      if (!currentGroupValue) {
+        console.log('🔍 No current group, only loaded groups list');
+        return;
+      }
+      
       // Validate that currentGroup still exists in the available groups
-      if (currentGroup) {
-        console.log('🔍 Validating currentGroup:', currentGroup.name, 'ID:', currentGroup.id);
-        const groupStillExists = groups.some(group => group.id === currentGroup.id);
-        console.log('🔍 Group still exists:', groupStillExists);
-        if (!groupStillExists) {
-          // Only clear currentGroup if it was explicitly deleted, not during normal operations
-          console.warn(`⚠️ Current group "${currentGroup.name}" no longer exists. This might be due to deletion.`);
-          // Add a small delay to avoid race conditions during group switching
-          setTimeout(() => {
-            // Double-check that the group still doesn't exist before clearing
-            attendanceManager.getGroups().then(latestGroups => {
-              const stillMissing = !latestGroups.some(group => group.id === currentGroup.id);
-              if (stillMissing) {
-                console.warn(`⚠️ Confirmed: group "${currentGroup.name}" no longer exists. Clearing selection.`);
-                setCurrentGroup(null);
-                setGroupMembers([]);
-                setRecentAttendance([]);
-                setSelectedPersonForRegistration('');
-              }
-            });
-          }, 100);
-          return;
-        }
+      console.log('🔍 Validating currentGroup:', currentGroupValue.name, 'ID:', currentGroupValue.id);
+      const groupStillExists = groups.some(group => group.id === currentGroupValue.id);
+      console.log('🔍 Group still exists:', groupStillExists);
+      if (!groupStillExists) {
+        // Only clear currentGroup if it was explicitly deleted, not during normal operations
+        console.warn(`⚠️ Current group "${currentGroupValue.name}" no longer exists. This might be due to deletion.`);
+        // Add a small delay to avoid race conditions during group switching
+        setTimeout(() => {
+          // Double-check that the group still doesn't exist before clearing
+          attendanceManager.getGroups().then(latestGroups => {
+            const stillMissing = !latestGroups.some(group => group.id === currentGroupValue.id);
+            if (stillMissing) {
+              console.warn(`⚠️ Confirmed: group "${currentGroupValue.name}" no longer exists. Clearing selection.`);
+              setCurrentGroup(null);
+              setGroupMembers([]);
+              setRecentAttendance([]);
+              setSelectedPersonForRegistration('');
+            }
+          });
+        }, 100);
+        return;
+      }
 
-        const [members, , records] = await Promise.all([
-          attendanceManager.getGroupMembers(currentGroup.id),
-          attendanceManager.getGroupStats(currentGroup.id),
-          attendanceManager.getRecords({
-            group_id: currentGroup.id,
-            limit: 50
-          })
-        ]);
-        
-        setGroupMembers(members);
-        setRecentAttendance(records);
-        
-        // Validate and clear selectedPersonForRegistration if they're no longer in the group
-        if (selectedPersonForRegistration && !members.some(member => member.person_id === selectedPersonForRegistration)) {
-          console.warn(`⚠️ Selected person "${selectedPersonForRegistration}" is no longer in group "${currentGroup.name}". Clearing selection.`);
-          setSelectedPersonForRegistration('');
-          setError(`Selected member "${selectedPersonForRegistration}" is no longer in the group. Please select a valid member.`);
-        }
+      console.log('🔄 Loading attendance data for group:', currentGroupValue.name);
+      const [members, , records] = await Promise.all([
+        attendanceManager.getGroupMembers(currentGroupValue.id),
+        attendanceManager.getGroupStats(currentGroupValue.id),
+        attendanceManager.getRecords({
+          group_id: currentGroupValue.id,
+          limit: 50
+        })
+      ]);
+      
+      console.log(`📊 Loaded ${records.length} attendance records for ${currentGroupValue.name}`);
+      setGroupMembers(members);
+      setRecentAttendance(records);
+      
+      // Validate and clear selectedPersonForRegistration if they're no longer in the group
+      if (selectedPersonForRegistration && !members.some(member => member.person_id === selectedPersonForRegistration)) {
+        console.warn(`⚠️ Selected person "${selectedPersonForRegistration}" is no longer in group "${currentGroupValue.name}". Clearing selection.`);
+        setSelectedPersonForRegistration('');
+        setError(`Selected member "${selectedPersonForRegistration}" is no longer in the group. Please select a valid member.`);
       }
     } catch (error) {
       console.error('❌ Failed to load attendance data:', error);
