@@ -176,7 +176,6 @@ async def startup_event():
             min_hits=1,  # Require only 1 detection for immediate tracking (faster, more responsive)
             iou_threshold=0.3  # IOU threshold for matching faces to tracks
         )
-        logger.info("Face tracker initialized successfully")
         
         # Initialize attendance database
         attendance_database = AttendanceDatabaseManager("data/attendance.db")
@@ -851,22 +850,10 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                     # Apply face tracking to assign consistent track IDs
                     if faces and face_tracker:
                         try:
-                            print(f"[MAIN] BEFORE tracker: faces={len(faces)}, first_face_keys={list(faces[0].keys()) if faces else []}")
                             # Update tracker with detected faces
                             loop = asyncio.get_event_loop()
                             faces = await loop.run_in_executor(None, face_tracker.update, faces)
-                            print(f"[MAIN] AFTER tracker: faces={len(faces)}, first_face_keys={list(faces[0].keys()) if faces else []}")
-                            logger.debug(f"Assigned track IDs to {len(faces)} faces")
-                            
-                            # Debug: Check if track_id is present
-                            for i, face in enumerate(faces):
-                                track_id = face.get('track_id')
-                                print(f"[MAIN] Face {i}: track_id={track_id}")
-                                logger.debug(f"Face {i}: track_id={track_id}, keys={list(face.keys())}")
                         except Exception as e:
-                            print(f"[MAIN] TRACKER EXCEPTION: {e}")
-                            import traceback
-                            traceback.print_exc()
                             logger.warning(f"Face tracking failed: {e}")
                             # Continue without tracking on error
                     
@@ -943,20 +930,15 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                         }
                     }
                     
-                    # Debug: Print what we're about to send AND convert numpy types
+                    # Convert numpy types to native Python types for JSON serialization
                     if faces:
-                        print(f"[MAIN] SENDING {len(faces)} faces via WebSocket")
                         for i, face in enumerate(faces):
-                            print(f"[MAIN] Face {i} keys in response: {list(face.keys())}")
-                            print(f"[MAIN] Face {i} track_id: {face.get('track_id')}, type={type(face.get('track_id'))}")
-                            
                             # Convert track_id to native Python int if it exists
                             if 'track_id' in face:
                                 import numpy as np
                                 track_id_value = face['track_id']
                                 if isinstance(track_id_value, (np.integer, np.int32, np.int64)):
                                     face['track_id'] = int(track_id_value)
-                                    print(f"[MAIN] Converted track_id from numpy to int: {face['track_id']}")
                     
                     await websocket.send_text(json.dumps(response))
                     

@@ -81,7 +81,6 @@ class EdgeFaceDetector:
                 sqlite_path = self.database_path
             
             self.db_manager = FaceDatabaseManager(sqlite_path)
-            logger.info(f"Initialized SQLite database: {sqlite_path}")
         else:
             self.db_manager = None
             logger.warning("No database path provided, running without persistence")
@@ -94,7 +93,6 @@ class EdgeFaceDetector:
             if facemesh_detector is not None:
                 # Use external FaceMesh detector (recommended for performance)
                 self.facemesh_detector = facemesh_detector
-                logger.info("Using external FaceMesh detector for EdgeFace alignment")
             elif self.facemesh_model_path:
                 # Fallback: create internal FaceMesh detector (DEPRECATED)
                 logger.warning("Creating internal FaceMesh detector - consider using external instance for better performance")
@@ -114,7 +112,6 @@ class EdgeFaceDetector:
                         session_options=self.session_options,
                         **valid_params
                     )
-                    logger.info(f"Internal FaceMesh detector initialized for EdgeFace alignment")
                 except Exception as e:
                     logger.error(f"Failed to initialize FaceMesh detector: {e}")
                     self.facemesh_alignment = False
@@ -139,7 +136,6 @@ class EdgeFaceDetector:
                 for key, value in self.session_options.items():
                     if hasattr(session_options, key):
                         setattr(session_options, key, value)
-                        logger.debug(f"Applied session option: {key} = {value}")
             
             # Create ONNX session with optimized options
             self.session = ort.InferenceSession(
@@ -174,7 +170,6 @@ class EdgeFaceDetector:
             # OPTIMIZATION: Use pre-computed landmarks if available
             if facemesh_landmarks_5 is not None and len(facemesh_landmarks_5) > 0:
                 facemesh_landmarks = np.array(facemesh_landmarks_5, dtype=np.float32)
-                logger.debug("Using pre-computed FaceMesh landmarks for alignment (optimization)")
             else:
                 # Fallback: Compute landmarks if not provided
                 # Convert bbox from [x, y, width, height] to [x1, y1, x2, y2] format for FaceMesh
@@ -185,7 +180,6 @@ class EdgeFaceDetector:
                 facemesh_result = self.facemesh_detector.detect_landmarks(image, facemesh_bbox)
                 if facemesh_result['success'] and facemesh_result['landmarks_5']:
                     facemesh_landmarks = np.array(facemesh_result['landmarks_5'], dtype=np.float32)
-                    logger.debug("Using FaceMesh landmarks for alignment")
                 else:
                     raise ValueError("FaceMesh detection failed - unable to detect landmarks")
             
@@ -384,13 +378,11 @@ class EdgeFaceDetector:
                     embedding = embedding / norm
                 normalized_embeddings.append(embedding.astype(np.float32))
             
-            logger.debug(f"Batch processed {len(normalized_embeddings)} face embeddings")
             return normalized_embeddings
             
         except Exception as e:
             logger.error(f"Batch embedding extraction failed: {e}")
             # Fallback to sequential processing
-            logger.info("Falling back to sequential embedding extraction")
             embeddings = []
             for face_data in face_data_list:
                 try:
@@ -544,13 +536,11 @@ class EdgeFaceDetector:
                         "face_index": i
                     })
             
-            logger.debug(f"Batch recognized {len(results)} faces")
             return results
             
         except Exception as e:
             logger.error(f"Batch face recognition error: {e}")
             # Fallback to sequential processing
-            logger.info("Falling back to sequential recognition")
             results = []
             for i, face_data in enumerate(face_data_list):
                 bbox = face_data.get('bbox')
@@ -601,7 +591,6 @@ class EdgeFaceDetector:
                 total_persons = 0
                 logger.warning("No database manager available for registration")
             
-            logger.info(f"Registered person: {person_id}")
             
             return {
                 "success": True,
@@ -641,7 +630,6 @@ class EdgeFaceDetector:
                     stats = self.db_manager.get_stats()
                     total_persons = stats.get("total_persons", 0)
                     
-                    logger.info(f"Removed person: {person_id}")
                     
                     return {
                         "success": True,
@@ -735,7 +723,6 @@ class EdgeFaceDetector:
     def set_similarity_threshold(self, threshold: float):
         """Set similarity threshold for recognition"""
         self.similarity_threshold = threshold
-        logger.info(f"Updated similarity threshold to: {threshold}")
     
     def clear_database(self) -> Dict:
         """Clear all persons from database"""
@@ -744,7 +731,6 @@ class EdgeFaceDetector:
                 clear_success = self.db_manager.clear_database()
                 
                 if clear_success:
-                    logger.info("Cleared face database")
                     
                     return {
                         "success": True,

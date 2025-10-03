@@ -101,11 +101,6 @@ class FaceMeshDetector:
             self.input_names = [input.name for input in self.session.get_inputs()]
             self.output_names = [output.name for output in self.session.get_outputs()]
             
-            logger.info(f"FaceMesh model initialized successfully")
-            logger.info(f"Input names: {self.input_names}")
-            logger.info(f"Output names: {self.output_names}")
-            logger.info(f"Providers: {self.session.get_providers()}")
-            
         except Exception as e:
             logger.error(f"Failed to initialize FaceMesh model: {e}")
             raise

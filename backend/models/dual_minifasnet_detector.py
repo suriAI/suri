@@ -64,27 +64,21 @@ class DualMiniFASNetDetector:
                 for key, value in self.session_options.items():
                     if hasattr(session_opts, key):
                         setattr(session_opts, key, value)
-                        logger.debug(f"Applied session option: {key} = {value}")
             
             # Initialize MiniFASNetV2 (texture-based)
-            logger.info(f"Loading MiniFASNetV2 from: {self.model_v2_path}")
             self.session_v2 = ort.InferenceSession(
                 self.model_v2_path,
                 sess_options=session_opts,
                 providers=self.providers
             )
-            logger.info(f"[OK] MiniFASNetV2 loaded successfully (weight: {self.v2_weight:.2f})")
             
             # Initialize MiniFASNetV1SE (shape-based with SE)
-            logger.info(f"Loading MiniFASNetV1SE from: {self.model_v1se_path}")
             self.session_v1se = ort.InferenceSession(
                 self.model_v1se_path,
                 sess_options=session_opts,
                 providers=self.providers
             )
-            logger.info(f"[OK] MiniFASNetV1SE loaded successfully (weight: {self.v1se_weight:.2f})")
             
-            logger.info(f"[OK] Dual MiniFASNet detector initialized successfully")
             
         except Exception as e:
             logger.error(f"Failed to initialize dual MiniFASNet models: {e}")
@@ -174,7 +168,6 @@ class DualMiniFASNetDetector:
             # Ensure minimum face size
             min_size = 32
             if width < min_size or height < min_size:
-                logger.debug(f"Face too small: {width}x{height}, minimum: {min_size}x{min_size}")
                 return None
             
             # --- BEGIN: Exact port of C++ CalculateBox function ---
@@ -240,13 +233,11 @@ class DualMiniFASNetDetector:
                 face_crop = image[left_top_y:right_bottom_y+1, left_top_x:right_bottom_x+1]
             
             if face_crop.size == 0:
-                logger.debug("Face crop is empty")
                 return None
             
             # Ensure minimum crop size
             crop_h, crop_w = face_crop.shape[:2]
             if crop_h < min_size or crop_w < min_size:
-                logger.debug(f"Extracted crop too small: {crop_w}x{crop_h}")
                 return None
             
             return face_crop
@@ -340,12 +331,6 @@ class DualMiniFASNetDetector:
                     face_copy['bbox'] = bbox_copy
                 
                 updated_detections.append(face_copy)
-            
-            logger.info(
-                f"Downsampled for scale separation: {w}x{h} -> {new_w}x{new_h} "
-                f"(factor={scale_factor:.2f}, face was {current_ratio:.1%} of image, "
-                f"target <{target_ratio:.1%})"
-            )
             
             return downsampled_image, updated_detections
         
@@ -464,12 +449,6 @@ class DualMiniFASNetDetector:
             )
             
             # CRITICAL FIX: Strict anti-spoofing checks for replay attacks
-            # Log all scores for debugging
-            logger.info(
-                f"[ANTISPOOFING SCORES] V2: real={v2_result['real_score']:.3f}, fake={v2_result['fake_score']:.3f}, bg={v2_result.get('background_score', 0):.3f} | "
-                f"V1SE: real={v1se_result['real_score']:.3f}, fake={v1se_result['fake_score']:.3f}, bg={v1se_result.get('background_score', 0):.3f} | "
-                f"Ensemble: real={ensemble_real_score:.3f}, fake={ensemble_fake_score:.3f}, bg={ensemble_background_score:.3f}"
-            )
             
             # 1. Check if background score is too high (poor face crop/quality)
             BACKGROUND_THRESHOLD = 0.65  # Reject if background > 65% (stricter)
@@ -503,11 +482,7 @@ class DualMiniFASNetDetector:
                 
                 # Log decision reasoning
                 if is_real:
-                    logger.info(
-                        f"[ANTISPOOFING PASS] Real detected: ensemble_real={ensemble_real_score:.3f} > {self.threshold:.3f}, ensemble_fake={ensemble_fake_score:.3f} < {MAX_FAKE_TOLERANCE}, "
-                        f"V2 real={v2_result['real_score']:.3f} > {MIN_REAL_AGREEMENT} & fake={v2_result['fake_score']:.3f} < {MAX_FAKE_TOLERANCE}, "
-                        f"V1SE real={v1se_result['real_score']:.3f} > {MIN_REAL_AGREEMENT} & fake={v1se_result['fake_score']:.3f} < {MAX_FAKE_TOLERANCE}"
-                    )
+                    pass
                 else:
                     logger.warning(
                         f"[ANTISPOOFING REJECT] Spoof detected: ensemble_real={ensemble_real_score:.3f} (need > {self.threshold:.3f}), ensemble_fake={ensemble_fake_score:.3f} (need < {MAX_FAKE_TOLERANCE}), "
@@ -609,7 +584,6 @@ class DualMiniFASNetDetector:
                 ensemble_result = self._ensemble_prediction(v2_result, v1se_result)
                 ensemble_results.append(ensemble_result)
             
-            logger.debug(f"Batch processed {len(ensemble_results)} faces")
             return ensemble_results
             
         except Exception as e:
@@ -626,7 +600,6 @@ class DualMiniFASNetDetector:
         Process multiple faces with dual-model ensemble prediction
         """
         results = []
-        logger.debug(f"Processing {len(face_detections)} faces with dual MiniFASNet")
         
         if not face_detections:
             return results
@@ -643,7 +616,6 @@ class DualMiniFASNetDetector:
         for i, face in enumerate(face_detections):
             bbox = face.get('bbox', face.get('box', {}))
             if not bbox:
-                logger.debug(f"Face {i}: No bbox found")
                 continue
             
             # Check face size before extraction
@@ -658,7 +630,6 @@ class DualMiniFASNetDetector:
             
             min_size = 32
             if face_width < min_size or face_height < min_size:
-                logger.debug(f"Face {i} too small: {face_width:.1f}x{face_height:.1f}, minimum: {min_size}x{min_size}")
                 # Return result with "too small" status instead of skipping
                 result = {
                     "face_id": i,
@@ -718,12 +689,10 @@ class DualMiniFASNetDetector:
                 face_crop_v2 = fallback_crop if face_crop_v2 is None else face_crop_v2
                 face_crop_v1se = fallback_crop if face_crop_v1se is None else face_crop_v1se
             
-            logger.debug(f"Face {i}: V2 crop shape={face_crop_v2.shape}, V1SE crop shape={face_crop_v1se.shape}")
             face_crop_pairs.append((face_crop_v2, face_crop_v1se))
             valid_faces.append((i, face))
         
         if not face_crop_pairs:
-            logger.debug("No valid face crops extracted")
             return results
         
         # BATCH PROCESSING: Process all faces at once instead of sequentially
@@ -737,7 +706,6 @@ class DualMiniFASNetDetector:
         antispoofing_results = self._process_faces_batch(crops_v2, crops_v1se)
         
         processing_time = time.time() - start_time
-        logger.debug(f"Batch processed {len(antispoofing_results)} faces in {processing_time:.3f}s")
         
         # Package results
         for (face_id, face), antispoofing_result in zip(valid_faces, antispoofing_results):
@@ -759,7 +727,6 @@ class DualMiniFASNetDetector:
             
             results.append(result)
         
-        logger.debug(f"Returning {len(results)} results from dual MiniFASNet")
         return results
     
     async def detect_faces_async(self, image: np.ndarray, face_detections: List[Dict]) -> List[Dict]:
@@ -769,7 +736,6 @@ class DualMiniFASNetDetector:
     def set_threshold(self, threshold: float):
         """Update the threshold for ensemble classification"""
         self.threshold = threshold
-        logger.info(f"Updated ensemble threshold to {threshold}")
     
     def get_model_info(self) -> Dict:
         """Get model information"""

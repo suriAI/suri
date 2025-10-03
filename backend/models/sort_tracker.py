@@ -22,7 +22,6 @@ try:
 except ImportError:
     from scipy.optimize import linear_sum_assignment
     USE_LAP = False
-    logger.info("lap module not found, using scipy.optimize.linear_sum_assignment instead")
 
 
 def linear_assignment(cost_matrix: np.ndarray) -> np.ndarray:
@@ -323,11 +322,6 @@ class Sort:
         self.iou_threshold = iou_threshold
         self.trackers: List[KalmanBoxTracker] = []
         self.frame_count = 0
-        
-        logger.info(
-            f"Initialized SORT tracker: max_age={max_age}, "
-            f"min_hits={min_hits}, iou_threshold={iou_threshold}"
-        )
     
     def update(self, dets: np.ndarray = np.empty((0, 5))) -> np.ndarray:
         """
@@ -402,7 +396,6 @@ class Sort:
         self.trackers = []
         self.frame_count = 0
         KalmanBoxTracker.count = 0
-        logger.info("SORT tracker reset")
     
     def get_track_count(self) -> int:
         """Get number of active tracks"""
@@ -434,7 +427,6 @@ class FaceTracker:
             min_hits=min_hits,
             iou_threshold=iou_threshold
         )
-        logger.info("Face tracker initialized")
     
     def update(self, face_detections: List[Dict]) -> List[Dict]:
         """
@@ -484,11 +476,6 @@ class FaceTracker:
         dets_array = np.array(dets, dtype=np.float32)
         tracks = self.tracker.update(dets_array)
         
-        # Debug logging
-        print(f"[FaceTracker] Input: {len(face_detections)} faces, Output: {len(tracks)} tracks")
-        if len(tracks) > 0:
-            print(f"[FaceTracker] Track IDs: {[int(t[4]) for t in tracks]}")
-        
         # Map track IDs back to face detections
         # IMPORTANT: Return ALL face detections, not just tracked ones
         # This prevents faces from disappearing during initial tracking phase
@@ -529,7 +516,6 @@ class FaceTracker:
                 face_result = face.copy()
                 face_result['track_id'] = -(det_idx + 1)  # -1, -2, -3, etc.
                 result.append(face_result)
-                print(f"[FaceTracker] Unmatched face {det_idx} assigned temporary track_id: {face_result['track_id']}")
         
         return result
     

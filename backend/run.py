@@ -22,11 +22,9 @@ def validate_setup():
     try:
         # Validate directories
         validate_directories()
-        print("Directories validated")
         
         # Validate model paths
         validate_model_paths()
-        print("Model paths validated")
         
         return True
         
@@ -36,7 +34,6 @@ def validate_setup():
 
 def main():
     """Main entry point"""
-    print("Starting Face Detection API Backend...")
     
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Face Detection API Backend")
@@ -62,10 +59,6 @@ def main():
     if args.host:
         server_config["host"] = args.host
     
-    print(f"Server will start on http://{server_config['host']}:{server_config['port']}")
-    print(f"API documentation: http://{server_config['host']}:{server_config['port']}/docs")
-    print(f"WebSocket endpoint: ws://{server_config['host']}:{server_config['port']}/ws")
-    
     try:
         # Import the app directly for PyInstaller compatibility
         from main import app
@@ -81,7 +74,7 @@ def main():
             access_log=True,
         )
     except KeyboardInterrupt:
-        logger.info("Server stopped by user")
+        pass
     except Exception as e:
         logger.error(f"Server error: {e}")
         print(f"\nServer error: {e}")

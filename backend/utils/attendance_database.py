@@ -721,7 +721,6 @@ class AttendanceDatabaseManager:
     
     def close(self):
         """Close the database connection"""
-        logger.info("Attendance database manager closed")
     
     def __del__(self):
         """Destructor to ensure proper cleanup"""

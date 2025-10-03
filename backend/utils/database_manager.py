@@ -69,7 +69,6 @@ class FaceDatabaseManager:
                 """)
                 
                 conn.commit()
-                logger.info("Database schema initialized successfully")
                 
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
@@ -130,7 +129,6 @@ class FaceDatabaseManager:
                     """, (person_id, embedding_blob, embedding_dim))
                     
                     conn.commit()
-                    logger.info(f"Successfully stored embedding for person: {person_id}")
                     return True
                     
         except Exception as e:
@@ -186,7 +184,6 @@ class FaceDatabaseManager:
                     conn.commit()
                     
                     if cursor.rowcount > 0:
-                        logger.info(f"Successfully removed person: {person_id}")
                         return True
                     else:
                         logger.warning(f"Person not found: {person_id}")
@@ -259,7 +256,6 @@ class FaceDatabaseManager:
                     cursor.execute("DELETE FROM faces")
                     conn.commit()
                     
-                    logger.info("Successfully cleared all persons from database")
                     return True
                     
         except Exception as e:
@@ -354,7 +350,6 @@ class FaceDatabaseManager:
             if failed_count > 0:
                 message += f", {failed_count} failed"
             
-            logger.info(message)
             return True, message
             
         except Exception as e:
@@ -458,7 +453,6 @@ class FaceDatabaseManager:
                 updated_count = cursor.rowcount
                 conn.commit()
                 
-                logger.info(f"Updated {updated_count} records from '{old_person_id}' to '{new_person_id}'")
                 return updated_count
                 
         except Exception as e:
@@ -472,7 +466,6 @@ class FaceDatabaseManager:
         Note: This class uses context managers for connections,
         so there's no persistent connection to close.
         """
-        logger.info("Database manager closed (no persistent connection)")
     
     def __del__(self):
         """Destructor to ensure proper cleanup"""
