@@ -417,6 +417,53 @@ class DualMiniFASNetDetector:
                 "error": str(e)
             }
     
+    def _predict_single_model_batch(self, session: ort.InferenceSession, input_tensors: np.ndarray) -> List[Dict]:
+        """
+        BATCH PROCESSING: Run inference on multiple faces in a single model call
+        
+        Args:
+            session: ONNX Runtime session
+            input_tensors: Batch of preprocessed face tensors (N, C, H, W)
+            
+        Returns:
+            List of prediction results for each face
+        """
+        try:
+            input_name = session.get_inputs()[0].name
+            outputs = session.run(None, {input_name: input_tensors})
+            predictions = outputs[0]  # Shape: (N, num_classes)
+            
+            results = []
+            for prediction in predictions:
+                # Apply softmax to get probabilities
+                exp_pred = np.exp(prediction - np.max(prediction))
+                softmax_probs = exp_pred / np.sum(exp_pred)
+                
+                fake_score = float(softmax_probs[0])
+                real_score = float(softmax_probs[1])
+                background_score = float(softmax_probs[2])
+                
+                results.append({
+                    "real_score": real_score,
+                    "fake_score": fake_score,
+                    "background_score": background_score,
+                    "confidence": max(real_score, fake_score)
+                })
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error in batch model prediction: {e}")
+            # Return default results for all faces
+            num_faces = len(input_tensors) if isinstance(input_tensors, np.ndarray) else 1
+            return [{
+                "real_score": 0.5,
+                "fake_score": 0.5,
+                "background_score": 0.0,
+                "confidence": 0.5,
+                "error": str(e)
+            }] * num_faces
+    
     def _ensemble_prediction(self, v2_result: Dict, v1se_result: Dict) -> Dict:
         """
         Combine predictions from both models using weighted average
@@ -499,6 +546,57 @@ class DualMiniFASNetDetector:
                 "error": str(e)
             }
     
+    def _process_faces_batch(self, face_crops_v2: List[np.ndarray], face_crops_v1se: List[np.ndarray]) -> List[Dict]:
+        """
+        BATCH PROCESSING: Process multiple faces with both models and ensemble
+        
+        Args:
+            face_crops_v2: List of face crops for V2 model (2.7x scale)
+            face_crops_v1se: List of face crops for V1SE model (4.0x scale)
+            
+        Returns:
+            List of ensemble results for each face
+        """
+        try:
+            if not face_crops_v2 or not face_crops_v1se:
+                return []
+            
+            # Batch preprocess all face crops for V2
+            batch_v2 = []
+            for crop in face_crops_v2:
+                tensor = self._preprocess_single_face(crop)
+                batch_v2.append(tensor[0])  # Remove batch dimension
+            batch_v2 = np.stack(batch_v2, axis=0)  # Stack into (N, C, H, W)
+            
+            # Batch preprocess all face crops for V1SE
+            batch_v1se = []
+            for crop in face_crops_v1se:
+                tensor = self._preprocess_single_face(crop)
+                batch_v1se.append(tensor[0])  # Remove batch dimension
+            batch_v1se = np.stack(batch_v1se, axis=0)  # Stack into (N, C, H, W)
+            
+            # Run batch predictions
+            v2_results = self._predict_single_model_batch(self.session_v2, batch_v2)
+            v1se_results = self._predict_single_model_batch(self.session_v1se, batch_v1se)
+            
+            # Combine predictions using ensemble for each face
+            ensemble_results = []
+            for v2_result, v1se_result in zip(v2_results, v1se_results):
+                ensemble_result = self._ensemble_prediction(v2_result, v1se_result)
+                ensemble_results.append(ensemble_result)
+            
+            logger.debug(f"Batch processed {len(ensemble_results)} faces")
+            return ensemble_results
+            
+        except Exception as e:
+            logger.error(f"Batch processing failed: {e}, falling back to sequential")
+            # Fallback to sequential processing
+            results = []
+            for crop_v2, crop_v1se in zip(face_crops_v2, face_crops_v1se):
+                result = self._process_single_face(crop_v2, crop_v1se)
+                results.append(result)
+            return results
+    
     def detect_faces_batch(self, image: np.ndarray, face_detections: List[Dict]) -> List[Dict]:
         """
         Process multiple faces with dual-model ensemble prediction
@@ -576,17 +674,23 @@ class DualMiniFASNetDetector:
             logger.debug("No valid face crops extracted")
             return results
         
-        # Process each face individually
+        # BATCH PROCESSING: Process all faces at once instead of sequentially
         start_time = time.time()
         
-        for (face_id, face), (face_crop_v2, face_crop_v1se) in zip(valid_faces, face_crop_pairs):
-            # Process with dual-model ensemble (different crops for each model)
-            antispoofing_result = self._process_single_face(face_crop_v2, face_crop_v1se)
-            logger.debug(f"Face {face_id}: Ensemble result = {antispoofing_result}")
-            
+        # Separate V2 and V1SE crops
+        crops_v2 = [pair[0] for pair in face_crop_pairs]
+        crops_v1se = [pair[1] for pair in face_crop_pairs]
+        
+        # Batch process all faces
+        antispoofing_results = self._process_faces_batch(crops_v2, crops_v1se)
+        
+        processing_time = time.time() - start_time
+        logger.debug(f"Batch processed {len(antispoofing_results)} faces in {processing_time:.3f}s")
+        
+        # Package results
+        for (face_id, face), antispoofing_result in zip(valid_faces, antispoofing_results):
             # Add processing time
-            processing_time = time.time() - start_time
-            antispoofing_result['processing_time'] = processing_time
+            antispoofing_result['processing_time'] = processing_time / len(antispoofing_results)  # Average per face
             antispoofing_result['cached'] = False
             antispoofing_result['model_type'] = 'dual_minifasnet'
             

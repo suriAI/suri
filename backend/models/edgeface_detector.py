@@ -157,35 +157,41 @@ class EdgeFaceDetector:
             raise
     
     
-    def _align_face(self, image: np.ndarray, bbox: List[float]) -> np.ndarray:
+    def _align_face(self, image: np.ndarray, bbox: List[float], facemesh_landmarks_5: Optional[List] = None) -> np.ndarray:
         """
         Align face using FaceMesh detector for high-quality alignment
         
         Args:
             image: Input image
             bbox: Face bounding box [x, y, width, height] for FaceMesh (required)
+            facemesh_landmarks_5: Pre-computed 5-point landmarks from FaceMesh (optional, avoids recomputation)
             
         Returns:
             Aligned face crop (112x112)
         """
         # Use FaceMesh alignment (required)
         if self.facemesh_alignment and self.facemesh_detector is not None:
-            # Convert bbox from [x, y, width, height] to [x1, y1, x2, y2] format for FaceMesh
-            x, y, width, height = bbox
-            facemesh_bbox = [x, y, x + width, y + height]
-            
-            # Get FaceMesh landmarks
-            facemesh_result = self.facemesh_detector.detect_landmarks(image, facemesh_bbox)
-            if facemesh_result['success'] and facemesh_result['landmarks_5']:
-                # Use FaceMesh-derived 5-point landmarks for alignment
-                facemesh_landmarks = np.array(facemesh_result['landmarks_5'], dtype=np.float32)
-                
-                # Create aligned face using FaceMesh landmarks and similarity transform
-                aligned_face = self._create_aligned_face(image, facemesh_landmarks)
-                logger.debug("Using FaceMesh landmarks for alignment")
-                return aligned_face
+            # OPTIMIZATION: Use pre-computed landmarks if available
+            if facemesh_landmarks_5 is not None and len(facemesh_landmarks_5) > 0:
+                facemesh_landmarks = np.array(facemesh_landmarks_5, dtype=np.float32)
+                logger.debug("Using pre-computed FaceMesh landmarks for alignment (optimization)")
             else:
-                raise ValueError("FaceMesh detection failed - unable to detect landmarks")
+                # Fallback: Compute landmarks if not provided
+                # Convert bbox from [x, y, width, height] to [x1, y1, x2, y2] format for FaceMesh
+                x, y, width, height = bbox
+                facemesh_bbox = [x, y, x + width, y + height]
+                
+                # Get FaceMesh landmarks
+                facemesh_result = self.facemesh_detector.detect_landmarks(image, facemesh_bbox)
+                if facemesh_result['success'] and facemesh_result['landmarks_5']:
+                    facemesh_landmarks = np.array(facemesh_result['landmarks_5'], dtype=np.float32)
+                    logger.debug("Using FaceMesh landmarks for alignment")
+                else:
+                    raise ValueError("FaceMesh detection failed - unable to detect landmarks")
+            
+            # Create aligned face using FaceMesh landmarks and similarity transform
+            aligned_face = self._create_aligned_face(image, facemesh_landmarks)
+            return aligned_face
         else:
             raise ValueError("FaceMesh alignment is disabled or not available")
     
@@ -279,20 +285,21 @@ class EdgeFaceDetector:
             logger.error(f"Image preprocessing failed: {e}")
             raise
     
-    def _extract_embedding(self, image: np.ndarray, bbox: List[float]) -> np.ndarray:
+    def _extract_embedding(self, image: np.ndarray, bbox: List[float], facemesh_landmarks_5: Optional[List] = None) -> np.ndarray:
         """
         Extract face embedding from image using FaceMesh alignment
         
         Args:
             image: Input image
             bbox: Bounding box [x, y, width, height] from face detection (required)
+            facemesh_landmarks_5: Pre-computed 5-point landmarks from FaceMesh (optional, avoids recomputation)
             
         Returns:
             Normalized face embedding (512-dim)
         """
         try:
-            # Align face using FaceMesh
-            aligned_face = self._align_face(image, bbox)
+            # Align face using FaceMesh (with optional pre-computed landmarks)
+            aligned_face = self._align_face(image, bbox, facemesh_landmarks_5)
             
             # Preprocess for model
             input_tensor = self._preprocess_image(aligned_face)
@@ -314,6 +321,86 @@ class EdgeFaceDetector:
         except Exception as e:
             logger.error(f"Embedding extraction failed: {e}")
             raise
+    
+    def _extract_embeddings_batch(self, image: np.ndarray, face_data_list: List[Dict]) -> List[np.ndarray]:
+        """
+        BATCH PROCESSING: Extract embeddings for multiple faces in a single inference call
+        
+        Args:
+            image: Input image
+            face_data_list: List of dicts with 'bbox' and optional 'landmarks_5' keys
+            
+        Returns:
+            List of normalized face embeddings (512-dim each)
+        """
+        try:
+            if not face_data_list:
+                return []
+            
+            # Align all faces and collect tensors
+            aligned_faces = []
+            valid_indices = []
+            
+            for i, face_data in enumerate(face_data_list):
+                try:
+                    bbox = face_data.get('bbox')
+                    landmarks_5 = face_data.get('landmarks_5')
+                    
+                    # Align face
+                    aligned_face = self._align_face(image, bbox, landmarks_5)
+                    aligned_faces.append(aligned_face)
+                    valid_indices.append(i)
+                except Exception as e:
+                    logger.warning(f"Failed to align face {i}: {e}")
+                    continue
+            
+            if not aligned_faces:
+                return []
+            
+            # Batch preprocess all faces
+            batch_tensors = []
+            for aligned_face in aligned_faces:
+                # Preprocess individual face (without batch dimension)
+                rgb_image = cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB)
+                normalized = (rgb_image.astype(np.float32) - self.INPUT_MEAN) / self.INPUT_STD
+                tensor = np.transpose(normalized, (2, 0, 1))  # HWC to CHW
+                batch_tensors.append(tensor)
+            
+            # Stack into batch (N, C, H, W)
+            batch_input = np.stack(batch_tensors, axis=0)
+            
+            # Run batched inference
+            feeds = {self.session.get_inputs()[0].name: batch_input}
+            outputs = self.session.run(None, feeds)
+            
+            # Extract and normalize embeddings
+            embeddings = outputs[0]  # Shape: (N, 512)
+            normalized_embeddings = []
+            
+            for embedding in embeddings:
+                # L2 normalization
+                norm = np.linalg.norm(embedding)
+                if norm > 0:
+                    embedding = embedding / norm
+                normalized_embeddings.append(embedding.astype(np.float32))
+            
+            logger.debug(f"Batch processed {len(normalized_embeddings)} face embeddings")
+            return normalized_embeddings
+            
+        except Exception as e:
+            logger.error(f"Batch embedding extraction failed: {e}")
+            # Fallback to sequential processing
+            logger.info("Falling back to sequential embedding extraction")
+            embeddings = []
+            for face_data in face_data_list:
+                try:
+                    bbox = face_data.get('bbox')
+                    landmarks_5 = face_data.get('landmarks_5')
+                    emb = self._extract_embedding(image, bbox, landmarks_5)
+                    embeddings.append(emb)
+                except:
+                    continue
+            return embeddings
     
 
 
@@ -364,20 +451,21 @@ class EdgeFaceDetector:
         else:
             return None, best_similarity
     
-    def recognize_face(self, image: np.ndarray, bbox: List[float]) -> Dict:
+    def recognize_face(self, image: np.ndarray, bbox: List[float], facemesh_landmarks_5: Optional[List] = None) -> Dict:
         """
         Recognize face in image using FaceMesh alignment (synchronous)
         
         Args:
             image: Input image as numpy array (BGR format)
             bbox: Bounding box [x, y, width, height] from face detection (required)
+            facemesh_landmarks_5: Pre-computed 5-point landmarks from FaceMesh (optional, avoids recomputation)
             
         Returns:
             Recognition result with person_id and similarity
         """
         try:
-            # Extract embedding using FaceMesh alignment
-            embedding = self._extract_embedding(image, bbox)
+            # Extract embedding using FaceMesh alignment (with optional pre-computed landmarks)
+            embedding = self._extract_embedding(image, bbox, facemesh_landmarks_5)
             
             # Find best match
             person_id, similarity = self._find_best_match(embedding)
@@ -399,22 +487,94 @@ class EdgeFaceDetector:
                 "error": str(e)
             }
     
-    async def recognize_face_async(self, image: np.ndarray, bbox: List[float]) -> Dict:
+    async def recognize_face_async(self, image: np.ndarray, bbox: List[float], facemesh_landmarks_5: Optional[List] = None) -> Dict:
         """
         Recognize face in image using FaceMesh alignment (asynchronous)
         
         Args:
             image: Input image as numpy array (BGR format)
             bbox: Bounding box [x, y, width, height] from face detection (required)
+            facemesh_landmarks_5: Pre-computed 5-point landmarks from FaceMesh (optional, avoids recomputation)
             
         Returns:
             Recognition result with person_id and similarity
         """
         # Run recognition in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.recognize_face, image, bbox)
+        return await loop.run_in_executor(None, self.recognize_face, image, bbox, facemesh_landmarks_5)
     
-    def register_person(self, person_id: str, image: np.ndarray, bbox: List[float]) -> Dict:
+    def recognize_faces_batch(self, image: np.ndarray, face_data_list: List[Dict]) -> List[Dict]:
+        """
+        BATCH PROCESSING: Recognize multiple faces in a single inference call
+        
+        Args:
+            image: Input image
+            face_data_list: List of dicts with 'bbox' and optional 'landmarks_5' keys
+            
+        Returns:
+            List of recognition results with person_id and similarity for each face
+        """
+        try:
+            if not face_data_list:
+                return []
+            
+            # Extract all embeddings in batch
+            embeddings = self._extract_embeddings_batch(image, face_data_list)
+            
+            # Find best matches for all embeddings
+            results = []
+            for i, embedding in enumerate(embeddings):
+                try:
+                    person_id, similarity = self._find_best_match(embedding)
+                    results.append({
+                        "person_id": person_id,
+                        "similarity": similarity,
+                        "embedding": embedding.tolist(),
+                        "success": True,
+                        "face_index": i
+                    })
+                except Exception as e:
+                    logger.error(f"Face {i} matching failed: {e}")
+                    results.append({
+                        "person_id": None,
+                        "similarity": 0.0,
+                        "embedding": None,
+                        "success": False,
+                        "error": str(e),
+                        "face_index": i
+                    })
+            
+            logger.debug(f"Batch recognized {len(results)} faces")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Batch face recognition error: {e}")
+            # Fallback to sequential processing
+            logger.info("Falling back to sequential recognition")
+            results = []
+            for i, face_data in enumerate(face_data_list):
+                bbox = face_data.get('bbox')
+                landmarks_5 = face_data.get('landmarks_5')
+                result = self.recognize_face(image, bbox, landmarks_5)
+                result['face_index'] = i
+                results.append(result)
+            return results
+    
+    async def recognize_faces_batch_async(self, image: np.ndarray, face_data_list: List[Dict]) -> List[Dict]:
+        """
+        BATCH PROCESSING: Recognize multiple faces asynchronously
+        
+        Args:
+            image: Input image
+            face_data_list: List of dicts with 'bbox' and optional 'landmarks_5' keys
+            
+        Returns:
+            List of recognition results
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.recognize_faces_batch, image, face_data_list)
+    
+    def register_person(self, person_id: str, image: np.ndarray, bbox: List[float], facemesh_landmarks_5: Optional[List] = None) -> Dict:
         """
         Register a new person in the database using FaceMesh alignment
         
@@ -422,13 +582,14 @@ class EdgeFaceDetector:
             person_id: Unique identifier for the person
             image: Input image
             bbox: Bounding box [x, y, width, height] from face detection (required)
+            facemesh_landmarks_5: Pre-computed 5-point landmarks from FaceMesh (optional, avoids recomputation)
             
         Returns:
             Registration result
         """
         try:
-            # Extract embedding using FaceMesh alignment
-            embedding = self._extract_embedding(image, bbox)
+            # Extract embedding using FaceMesh alignment (with optional pre-computed landmarks)
+            embedding = self._extract_embedding(image, bbox, facemesh_landmarks_5)
             
             # Store in SQLite database
             if self.db_manager:
@@ -457,10 +618,10 @@ class EdgeFaceDetector:
                 "person_id": person_id
             }
     
-    async def register_person_async(self, person_id: str, image: np.ndarray, bbox: List[float]) -> Dict:
+    async def register_person_async(self, person_id: str, image: np.ndarray, bbox: List[float], facemesh_landmarks_5: Optional[List] = None) -> Dict:
         """Register person asynchronously using FaceMesh alignment"""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.register_person, person_id, image, bbox)
+        return await loop.run_in_executor(None, self.register_person, person_id, image, bbox, facemesh_landmarks_5)
     
     def remove_person(self, person_id: str) -> Dict:
         """

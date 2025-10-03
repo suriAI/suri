@@ -804,7 +804,8 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                     # Apply anti-spoofing if enabled and faces detected
                     faces = await process_antispoofing(faces, image, enable_antispoofing)
                     
-                    # Add FaceMesh 468-landmark detection for each face
+                    # OPTIMIZATION: Compute FaceMesh ONCE per face and share result
+                    # This eliminates duplicate FaceMesh calls (visualization + EdgeFace alignment)
                     if faces and facemesh_detector:
                         loop = asyncio.get_event_loop()
                         for face in faces:
@@ -822,13 +823,22 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                                 )
                                 
                                 if landmarks_result and landmarks_result.get('landmarks_468'):
+                                    # Store 468-point landmarks for visualization
                                     face['landmarks_468'] = landmarks_result['landmarks_468']
+                                    # Store 5-point landmarks for EdgeFace alignment (reuse later)
+                                    face['landmarks_5'] = landmarks_result.get('landmarks_5', [])
+                                    # Store full result for EdgeFace to avoid recomputation
+                                    face['facemesh_result'] = landmarks_result
                                 else:
                                     face['landmarks_468'] = []
+                                    face['landmarks_5'] = []
+                                    face['facemesh_result'] = None
                                     
                             except Exception as e:
                                 logger.warning(f"FaceMesh detection failed for face: {e}")
                                 face['landmarks_468'] = []
+                                face['landmarks_5'] = []
+                                face['facemesh_result'] = None
                     
                     # Calculate processing time
                     processing_time = time.time() - start_time
