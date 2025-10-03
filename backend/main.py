@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from models.yunet_detector import YuNetDetector
-from models.antispoofing_detector import OptimizedAntiSpoofingDetector
+from models.dual_minifasnet_detector import DualMiniFASNetDetector
 from models.edgeface_detector import EdgeFaceDetector
 from models.facemesh_detector import FaceMeshDetector
 from models.sort_tracker import FaceTracker
@@ -28,7 +28,7 @@ from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
 from utils.attendance_database import AttendanceDatabaseManager
 from routes import attendance
-from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_MODEL_PATH, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS
+from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_CONFIG, ANTISPOOFING_V2_CONFIG, ANTISPOOFING_V1SE_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -132,14 +132,17 @@ async def startup_event():
             backend_id=YUNET_CONFIG.get("backend_id", 0),
             target_id=YUNET_CONFIG.get("target_id", 0)
         )
-        optimized_antispoofing_detector = OptimizedAntiSpoofingDetector(
-            model_path=str(ANTISPOOFING_MODEL_PATH),
-            input_size=ANTISPOOFING_CONFIG["input_size"],
+        # Initialize Dual MiniFASNet detector (ensemble of V2 and V1SE)
+        optimized_antispoofing_detector = DualMiniFASNetDetector(
+            model_v2_path=str(ANTISPOOFING_V2_CONFIG["model_path"]),
+            model_v1se_path=str(ANTISPOOFING_V1SE_CONFIG["model_path"]),
+            input_size=ANTISPOOFING_V2_CONFIG["input_size"],
             threshold=ANTISPOOFING_CONFIG["threshold"],
-            providers=ANTISPOOFING_CONFIG["providers"],
-            max_batch_size=ANTISPOOFING_CONFIG.get("max_batch_size", 1),
-            cache_duration=1.0,
-            session_options=ANTISPOOFING_CONFIG.get("session_options")
+            providers=ANTISPOOFING_V2_CONFIG["providers"],
+            max_batch_size=ANTISPOOFING_V2_CONFIG.get("max_batch_size", 8),
+            session_options=ANTISPOOFING_V2_CONFIG.get("session_options"),
+            v2_weight=ANTISPOOFING_V2_CONFIG.get("weight", 0.6),
+            v1se_weight=ANTISPOOFING_V1SE_CONFIG.get("weight", 0.4)
         )
         
         # Initialize shared FaceMesh detector first

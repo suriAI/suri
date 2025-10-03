@@ -120,7 +120,8 @@ async function preloadModels(): Promise<void> {
   const modelNames = [
     'det_500m_kps_640.onnx',
     'edgeface-recognition.onnx', 
-    'AntiSpoofing_bin_1.5_128.onnx'
+    'MiniFASNetV2_80x80.onnx',
+    'MiniFASNetV1SE_80x80.onnx'
   ];
   
   try {

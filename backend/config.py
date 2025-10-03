@@ -109,21 +109,48 @@ MODEL_CONFIGS = {
         "min_face_size": (10, 10),
         "enable_dynamic_sizing": True
     },
-    "antispoofing": {
-        "name": "AntiSpoofing",
-        "model_path": WEIGHTS_DIR / "AntiSpoofing_bin_1.5_128.onnx",
-        "input_size": (128, 128),
-        "threshold": 0.7,  # More conservative threshold for better accuracy with multiple faces
-        "providers": OPTIMIZED_PROVIDERS,  # Use optimized providers
+    "antispoofing_v2": {
+        "name": "MiniFASNetV2",
+        "model_path": WEIGHTS_DIR / "MiniFASNetV2_80x80.onnx",
+        "input_size": (80, 80),
+        "threshold": 0.5,  # Threshold for binary classification (real vs fake)
+        "providers": OPTIMIZED_PROVIDERS,
         "session_options": OPTIMIZED_SESSION_OPTIONS,
-        "description": "Anti-spoofing model for real vs fake face detection - OPTIMIZED",
-        "version": "1.5_128",
+        "description": "MiniFASNet V2 anti-spoofing model - texture-based detection (2.7_80x80)",
+        "version": "2.7_80x80",
         "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
         "margin": 0.2,  # Face crop margin (20%)
-        "max_batch_size": 8,  # Increased batch size for better throughput
-        "enable_temporal_smoothing": True,  # Enable temporal smoothing to reduce flickering
-        "smoothing_factor": 0.3,  # Moderate smoothing for stability
-        "hysteresis_margin": 0.15,  # Increased margin for better stability
+        "max_batch_size": 8,
+        "enable_temporal_smoothing": True,
+        "smoothing_factor": 0.3,
+        "hysteresis_margin": 0.15,
+        "weight": 0.6,  # Higher weight for V2 (better texture detection)
+    },
+    "antispoofing_v1se": {
+        "name": "MiniFASNetV1SE",
+        "model_path": WEIGHTS_DIR / "MiniFASNetV1SE_80x80.onnx",
+        "input_size": (80, 80),
+        "threshold": 0.5,  # Threshold for binary classification (real vs fake)
+        "providers": OPTIMIZED_PROVIDERS,
+        "session_options": OPTIMIZED_SESSION_OPTIONS,
+        "description": "MiniFASNet V1SE anti-spoofing model with Squeeze-Excitation - shape-based detection (4.0.0_80x80)",
+        "version": "4.0.0_80x80",
+        "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
+        "margin": 0.2,  # Face crop margin (20%)
+        "max_batch_size": 8,
+        "enable_temporal_smoothing": True,
+        "smoothing_factor": 0.3,
+        "hysteresis_margin": 0.15,
+        "weight": 0.4,  # Lower weight for V1SE (complementary shape detection)
+    },
+    "antispoofing": {
+        "name": "DualMiniFASNet",
+        "ensemble_mode": True,  # Enable ensemble prediction
+        "models": ["antispoofing_v2", "antispoofing_v1se"],  # Both models used
+        "threshold": 0.7,  # Combined threshold for ensemble decision
+        "voting_method": "weighted_average",  # Weighted average of both models
+        "description": "Dual MiniFASNet ensemble (V2 + V1SE) for robust anti-spoofing",
+        "version": "ensemble_2.7_4.0",
     },
     "facemesh": {
         "name": "MediaPipe FaceMesh",
@@ -332,6 +359,10 @@ def validate_model_paths():
     missing_models = []
     
     for model_name, model_config in MODEL_CONFIGS.items():
+        # Skip ensemble configs that don't have direct model_path
+        if "model_path" not in model_config:
+            continue
+            
         model_path = model_config["model_path"]
         if not model_path.exists():
             missing_models.append(f"{model_name}: {model_path}")
@@ -360,7 +391,8 @@ HOST = config["server"]["host"]
 PORT = config["server"]["port"]
 YUNET_MODEL_PATH = config["models"]["yunet"]["model_path"]
 YUNET_CONFIG = config["models"]["yunet"]
-ANTISPOOFING_MODEL_PATH = config["models"]["antispoofing"]["model_path"]
 ANTISPOOFING_CONFIG = config["models"]["antispoofing"]
+ANTISPOOFING_V2_CONFIG = config["models"]["antispoofing_v2"]
+ANTISPOOFING_V1SE_CONFIG = config["models"]["antispoofing_v1se"]
 EDGEFACE_MODEL_PATH = config["models"]["edgeface"]["model_path"]
 EDGEFACE_CONFIG = config["models"]["edgeface"]

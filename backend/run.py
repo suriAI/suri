@@ -31,7 +31,7 @@ def validate_setup():
         return True
         
     except Exception as e:
-        print(f"✗ Setup validation failed: {e}")
+        print(f"[FAIL] Setup validation failed: {e}")
         return False
 
 def main():
