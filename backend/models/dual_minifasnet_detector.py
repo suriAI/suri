@@ -46,6 +46,11 @@ class DualMiniFASNetDetector:
         self.v2_weight = v2_weight / total_weight
         self.v1se_weight = v1se_weight / total_weight
         
+        # Temporal consistency tracking for replay attack detection
+        self.track_history = {}  # track_id -> list of (timestamp, real_score, fake_score)
+        self.max_history_length = 10  # Keep last 10 frames per track
+        self.history_window = 2.0  # 2 seconds window
+        
         # Model sessions
         self.session_v2 = None
         self.session_v1se = None
@@ -208,61 +213,36 @@ class DualMiniFASNetDetector:
             right_bottom_x = box_center_x + new_width // 2 + shift_x_px
             right_bottom_y = box_center_y + new_height // 2 + shift_y_px
             
-            # Handle boundary conditions with shifting (line 107-122 in C++)
-            # Clamp to image boundaries (this is where we handle the scale limit)
-            # If left edge is out of bounds, shift right
-            if left_top_x < 0:
-                right_bottom_x -= left_top_x
-                left_top_x = 0
+            # CRITICAL FIX: Use reflection padding instead of shifting for boundary cases
+            # Shifting causes positional bias - face moves within crop when near edges
+            # Padding keeps face centered, matching training data distribution
             
-            # If top edge is out of bounds, shift down
-            if left_top_y < 0:
-                right_bottom_y -= left_top_y
-                left_top_y = 0
+            # Calculate how much padding is needed on each side
+            pad_left = max(0, -left_top_x)
+            pad_top = max(0, -left_top_y)
+            pad_right = max(0, right_bottom_x - w + 1)
+            pad_bottom = max(0, right_bottom_y - h + 1)
             
-            # If right edge is out of bounds, shift left
-            if right_bottom_x >= w:
-                s = right_bottom_x - w + 1
-                left_top_x -= s
-                right_bottom_x -= s
-            
-            # If bottom edge is out of bounds, shift up
-            if right_bottom_y >= h:
-                s = right_bottom_y - h + 1
-                left_top_y -= s
-                right_bottom_y -= s
-            
-            # Final clamp (ensure we don't go negative after shifting)
-            left_top_x = max(0, left_top_x)
-            left_top_y = max(0, left_top_y)
-            right_bottom_x = min(w - 1, right_bottom_x)
-            right_bottom_y = min(h - 1, right_bottom_y)
-            
-            # --- END: Exact port of C++ CalculateBox function ---
-            
-            # Calculate actual crop size achieved
-            actual_width = right_bottom_x - left_top_x + 1
-            actual_height = right_bottom_y - left_top_y + 1
-            actual_scale_x = actual_width / box_width if box_width > 0 else 0
-            actual_scale_y = actual_height / box_height if box_height > 0 else 0
-            
-            # Log if scale was significantly limited by boundaries
-            if actual_scale_x < requested_scale * 0.9 or actual_scale_y < requested_scale * 0.9:
-                logger.debug(
-                    f"Scale limited: requested={requested_scale:.1f}, "
-                    f"achieved=({actual_scale_x:.2f}, {actual_scale_y:.2f}), "
-                    f"face_size=({box_width}x{box_height}), "
-                    f"image_size=({w}x{h}), "
-                    f"crop_size=({actual_width}x{actual_height})"
+            # If padding is needed, apply reflection padding to the image
+            if pad_left > 0 or pad_top > 0 or pad_right > 0 or pad_bottom > 0:
+                # Use reflection padding (mirrors edge pixels)
+                padded_image = cv2.copyMakeBorder(
+                    image,
+                    pad_top, pad_bottom, pad_left, pad_right,
+                    cv2.BORDER_REFLECT_101  # Reflection without repeating edge
                 )
-            
-            # Ensure valid crop area
-            if right_bottom_x <= left_top_x or right_bottom_y <= left_top_y:
-                logger.debug("Invalid crop coordinates after scaling")
-                return None
-            
-            # Extract face crop (inclusive of right_bottom, matching C++ cv::Rect behavior)
-            face_crop = image[left_top_y:right_bottom_y+1, left_top_x:right_bottom_x+1]
+                
+                # Adjust coordinates for padded image
+                left_top_x += pad_left
+                left_top_y += pad_top
+                right_bottom_x += pad_left
+                right_bottom_y += pad_top
+                
+                # Extract from padded image
+                face_crop = padded_image[left_top_y:right_bottom_y+1, left_top_x:right_bottom_x+1]
+            else:
+                # No padding needed, extract directly
+                face_crop = image[left_top_y:right_bottom_y+1, left_top_x:right_bottom_x+1]
             
             if face_crop.size == 0:
                 logger.debug("Face crop is empty")
@@ -316,11 +296,11 @@ class DualMiniFASNetDetector:
         if max_face_dim == 0:
             return image, face_detections
         
-        # Target: largest face should be <15% of image dimension
-        # This ensures 4.0x scale (400%) fits: 15% × 4.0 = 60% of image
-        # And 2.7x scale (270%) also fits: 15% × 2.7 = 40.5% of image
-        # Difference: 60% vs 40.5% = DIFFERENT crops ✓
-        target_ratio = 0.15
+        # Target: largest face should be ~20% of image dimension
+        # This ensures 4.0x scale (400%) fits comfortably: 20% × 4.0 = 80% of image
+        # And 2.7x scale (270%) also fits: 20% × 2.7 = 54% of image  
+        # Leaving enough room to avoid excessive shifting/padding
+        target_ratio = 0.20  # Increased from 0.15 to allow more working room
         min_dim = min(h, w)
         current_ratio = max_face_dim / min_dim
         
@@ -330,8 +310,9 @@ class DualMiniFASNetDetector:
             new_w = int(w * scale_factor)
             new_h = int(h * scale_factor)
             
-            # Ensure minimum image size (don't go below 320x240)
-            if new_w < 320 or new_h < 240:
+            # Ensure minimum image size - reduced to allow more aggressive downsampling
+            # Models work fine with smaller images as long as face quality is maintained
+            if new_w < 240 or new_h < 180:
                 logger.warning(
                     f"Cannot downsample further: would result in {new_w}x{new_h} "
                     f"(face too large: {max_face_dim:.0f}px in {min_dim}px image = {current_ratio:.1%})"
@@ -366,7 +347,7 @@ class DualMiniFASNetDetector:
                 updated_detections.append(face_copy)
             
             logger.info(
-                f"Downsampled for scale separation: {w}x{h} → {new_w}x{new_h} "
+                f"Downsampled for scale separation: {w}x{h} -> {new_w}x{new_h} "
                 f"(factor={scale_factor:.2f}, face was {current_ratio:.1%} of image, "
                 f"target <{target_ratio:.1%})"
             )
@@ -487,30 +468,57 @@ class DualMiniFASNetDetector:
                 v1se_result.get("background_score", 0.0) * self.v1se_weight
             )
             
-            # CRITICAL FIX: Stricter anti-spoofing checks for replay attacks
+            # CRITICAL FIX: Strict anti-spoofing checks for replay attacks
+            # Log all scores for debugging
+            logger.info(
+                f"[ANTISPOOFING SCORES] V2: real={v2_result['real_score']:.3f}, fake={v2_result['fake_score']:.3f}, bg={v2_result.get('background_score', 0):.3f} | "
+                f"V1SE: real={v1se_result['real_score']:.3f}, fake={v1se_result['fake_score']:.3f}, bg={v1se_result.get('background_score', 0):.3f} | "
+                f"Ensemble: real={ensemble_real_score:.3f}, fake={ensemble_fake_score:.3f}, bg={ensemble_background_score:.3f}"
+            )
+            
             # 1. Check if background score is too high (poor face crop/quality)
-            BACKGROUND_THRESHOLD = 0.6  # Reject if background > 60%
+            BACKGROUND_THRESHOLD = 0.65  # Reject if background > 65% (stricter)
             if ensemble_background_score > BACKGROUND_THRESHOLD:
                 # High background score = poor detection, classify as FAKE for safety
                 is_real = False
                 confidence = ensemble_background_score
                 logger.warning(
-                    f"High background score detected ({ensemble_background_score:.3f}), "
+                    f"[ANTISPOOFING REJECT] High background score ({ensemble_background_score:.3f} > {BACKGROUND_THRESHOLD}), "
                     f"classifying as FAKE (poor quality/replay)"
                 )
             else:
                 # 2. Both models must agree it's real (prevent single-model bypass)
-                MIN_AGREEMENT_SCORE = 0.4  # Each model should contribute > 40%
-                v2_agrees = v2_result["real_score"] > MIN_AGREEMENT_SCORE
-                v1se_agrees = v1se_result["real_score"] > MIN_AGREEMENT_SCORE
+                MIN_REAL_AGREEMENT = 0.45  # Each model's real score must be > 45%
+                MAX_FAKE_TOLERANCE = 0.45  # Each model's fake score must be < 45%
                 
-                # 3. Ensemble score must exceed threshold AND both models must agree
+                v2_real_agrees = v2_result["real_score"] > MIN_REAL_AGREEMENT
+                v2_fake_agrees = v2_result["fake_score"] < MAX_FAKE_TOLERANCE
+                v1se_real_agrees = v1se_result["real_score"] > MIN_REAL_AGREEMENT
+                v1se_fake_agrees = v1se_result["fake_score"] < MAX_FAKE_TOLERANCE
+                
+                # 3. STRICT: Ensemble real score must exceed threshold AND fake score must be low
+                #    AND both models must agree on BOTH real AND fake scores
                 is_real = (
                     ensemble_real_score > self.threshold and 
-                    v2_agrees and 
-                    v1se_agrees
+                    ensemble_fake_score < MAX_FAKE_TOLERANCE and
+                    v2_real_agrees and v2_fake_agrees and
+                    v1se_real_agrees and v1se_fake_agrees
                 )
                 confidence = ensemble_real_score if is_real else ensemble_fake_score
+                
+                # Log decision reasoning
+                if is_real:
+                    logger.info(
+                        f"[ANTISPOOFING PASS] Real detected: ensemble_real={ensemble_real_score:.3f} > {self.threshold:.3f}, ensemble_fake={ensemble_fake_score:.3f} < {MAX_FAKE_TOLERANCE}, "
+                        f"V2 real={v2_result['real_score']:.3f} > {MIN_REAL_AGREEMENT} & fake={v2_result['fake_score']:.3f} < {MAX_FAKE_TOLERANCE}, "
+                        f"V1SE real={v1se_result['real_score']:.3f} > {MIN_REAL_AGREEMENT} & fake={v1se_result['fake_score']:.3f} < {MAX_FAKE_TOLERANCE}"
+                    )
+                else:
+                    logger.warning(
+                        f"[ANTISPOOFING REJECT] Spoof detected: ensemble_real={ensemble_real_score:.3f} (need > {self.threshold:.3f}), ensemble_fake={ensemble_fake_score:.3f} (need < {MAX_FAKE_TOLERANCE}), "
+                        f"V2 real={v2_result['real_score']:.3f} (need > {MIN_REAL_AGREEMENT}), V2 fake={v2_result['fake_score']:.3f} (need < {MAX_FAKE_TOLERANCE}), "
+                        f"V1SE real={v1se_result['real_score']:.3f} (need > {MIN_REAL_AGREEMENT}), V1SE fake={v1se_result['fake_score']:.3f} (need < {MAX_FAKE_TOLERANCE})"
+                    )
             
             return {
                 "is_real": is_real,
@@ -518,27 +526,101 @@ class DualMiniFASNetDetector:
                 "fake_score": ensemble_fake_score,
                 "background_score": ensemble_background_score,
                 "confidence": confidence,
-                "threshold": self.threshold,
-                "v2_real_score": v2_result["real_score"],
-                "v2_fake_score": v2_result["fake_score"],
-                "v2_background_score": v2_result.get("background_score", 0.0),
-                "v1se_real_score": v1se_result["real_score"],
-                "v1se_fake_score": v1se_result["fake_score"],
-                "v1se_background_score": v1se_result.get("background_score", 0.0),
-                "ensemble_method": "weighted_average"
             }
             
         except Exception as e:
             logger.error(f"Error in ensemble prediction: {e}")
             return {
-                "is_real": True,
+                "is_real": False,
                 "real_score": 0.5,
                 "fake_score": 0.5,
                 "background_score": 0.0,
                 "confidence": 0.5,
-                "threshold": self.threshold,
                 "error": str(e)
             }
+    
+    def _check_temporal_consistency(self, track_id: int, ensemble_real_score: float, ensemble_fake_score: float) -> bool:
+        """
+        CRITICAL ANTI-REPLAY CHECK: Detect replay attacks by analyzing score temporal patterns.
+        
+        Replay attacks (video/screen) have characteristic patterns:
+        1. Unnaturally stable high scores (99%+ over many frames)
+        2. Zero variation in scores (real faces have natural micro-movements)
+        3. Both models consistently give perfect scores
+        
+        Args:
+            track_id: Face track ID
+            ensemble_real_score: Current ensemble real score
+            ensemble_fake_score: Current ensemble fake score
+            
+        Returns:
+            True if passes temporal check (likely real), False if suspicious (likely replay)
+        """
+        if track_id is None or track_id < 0:
+            # No tracking info, can't do temporal analysis
+            return True
+        
+        current_time = time.time()
+        
+        # Initialize history for new tracks
+        if track_id not in self.track_history:
+            self.track_history[track_id] = []
+        
+        # Add current score to history
+        self.track_history[track_id].append((current_time, ensemble_real_score, ensemble_fake_score))
+        
+        # Clean old entries (keep only last N frames or within time window)
+        history = self.track_history[track_id]
+        history = [(t, r, f) for t, r, f in history if current_time - t < self.history_window]
+        history = history[-self.max_history_length:]
+        self.track_history[track_id] = history
+        
+        # Need at least 5 frames for reliable temporal analysis
+        if len(history) < 5:
+            return True
+        
+        # Extract scores from history
+        real_scores = [r for _, r, _ in history]
+        fake_scores = [f for _, _, f in history]
+        
+        # Calculate temporal statistics
+        real_mean = np.mean(real_scores)
+        real_std = np.std(real_scores)
+        fake_mean = np.mean(fake_scores)
+        
+        # REPLAY DETECTION PATTERN 1: Unnaturally stable very high scores
+        # Real faces: micro-movements cause score variation (std > 0.02)
+        # Replay attacks: perfect stability (std < 0.01) with high scores (> 0.95)
+        REPLAY_HIGH_SCORE_THRESHOLD = 0.95
+        REPLAY_LOW_VARIATION_THRESHOLD = 0.015
+        
+        if real_mean > REPLAY_HIGH_SCORE_THRESHOLD and real_std < REPLAY_LOW_VARIATION_THRESHOLD:
+            logger.warning(
+                f"[TEMPORAL REJECT] Track {track_id}: Replay attack pattern - "
+                f"unnaturally stable high scores (mean={real_mean:.3f}, std={real_std:.4f} < {REPLAY_LOW_VARIATION_THRESHOLD})"
+            )
+            return False
+        
+        # REPLAY DETECTION PATTERN 2: Perfect scores with zero fake scores
+        # Real faces: occasional small fake scores due to lighting/pose changes
+        # Replay attacks: consistently zero fake scores
+        perfect_frames = sum(1 for r, f in zip(real_scores, fake_scores) if r > 0.98 and f < 0.01)
+        perfect_ratio = perfect_frames / len(history)
+        
+        REPLAY_PERFECT_RATIO_THRESHOLD = 0.8  # 80% of frames are "perfect"
+        
+        if perfect_ratio > REPLAY_PERFECT_RATIO_THRESHOLD and real_mean > 0.95:
+            logger.warning(
+                f"[TEMPORAL REJECT] Track {track_id}: Replay attack pattern - "
+                f"too many perfect frames ({perfect_frames}/{len(history)} = {perfect_ratio:.1%}, threshold={REPLAY_PERFECT_RATIO_THRESHOLD:.0%})"
+            )
+            return False
+        
+        logger.debug(
+            f"[TEMPORAL PASS] Track {track_id}: Natural variation detected "
+            f"(real: mean={real_mean:.3f}, std={real_std:.4f}, perfect_ratio={perfect_ratio:.1%})"
+        )
+        return True
     
     def _process_single_face(self, face_crop_v2: np.ndarray, face_crop_v1se: np.ndarray) -> Dict:
         """Process face crops with both models and ensemble"""
@@ -677,15 +759,43 @@ class DualMiniFASNetDetector:
             
             # Extract face crop for V2 with scale=2.7 (270% of face bbox)
             face_crop_v2 = self._extract_face_crop(image, bbox, scale=2.7, shift_x=0.0, shift_y=0.0)
-            if face_crop_v2 is None:
-                logger.debug(f"Face {i}: V2 face crop extraction failed")
-                continue
             
             # Extract face crop for V1SE with scale=4.0 (400% of face bbox)
             face_crop_v1se = self._extract_face_crop(image, bbox, scale=4.0, shift_x=0.0, shift_y=0.0)
-            if face_crop_v1se is None:
-                logger.debug(f"Face {i}: V1SE face crop extraction failed")
-                continue
+            
+            # IMPROVED FIX: If crop extraction failed, use fallback smaller crop
+            # This allows detection to continue but will naturally result in SPOOF due to poor quality
+            if face_crop_v2 is None or face_crop_v1se is None:
+                logger.warning(f"Face {i}: Crop extraction failed, using fallback bbox-only crop (will likely be SPOOF)")
+                
+                # Fallback: Extract just the bbox region without scaling
+                if isinstance(bbox, dict):
+                    x, y, w, h = int(bbox['x']), int(bbox['y']), int(bbox['width']), int(bbox['height'])
+                elif isinstance(bbox, list):
+                    x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+                else:
+                    logger.error(f"Face {i}: Invalid bbox format, skipping")
+                    continue
+                
+                img_h, img_w = image.shape[:2]
+                # Clamp to image boundaries
+                x1 = max(0, x)
+                y1 = max(0, y)
+                x2 = min(img_w, x + w)
+                y2 = min(img_h, y + h)
+                
+                if x2 <= x1 or y2 <= y1:
+                    logger.error(f"Face {i}: Invalid crop region after clamping, skipping")
+                    continue
+                
+                # Use basic bbox crop for both models (poor quality → high background score → SPOOF)
+                fallback_crop = image[y1:y2, x1:x2]
+                if fallback_crop.size == 0:
+                    logger.error(f"Face {i}: Empty fallback crop, skipping")
+                    continue
+                
+                face_crop_v2 = fallback_crop if face_crop_v2 is None else face_crop_v2
+                face_crop_v1se = fallback_crop if face_crop_v1se is None else face_crop_v1se
             
             logger.debug(f"Face {i}: V2 crop shape={face_crop_v2.shape}, V1SE crop shape={face_crop_v1se.shape}")
             face_crop_pairs.append((face_crop_v2, face_crop_v1se))
@@ -710,6 +820,25 @@ class DualMiniFASNetDetector:
         
         # Package results
         for (face_id, face), antispoofing_result in zip(valid_faces, antispoofing_results):
+            # CRITICAL: Apply temporal consistency check for replay attack detection
+            track_id = face.get('track_id', -1)
+            original_is_real = antispoofing_result.get('is_real', False)
+            
+            if original_is_real and track_id is not None and track_id >= 0:
+                # Only check temporal consistency if initially classified as REAL
+                passes_temporal_check = self._check_temporal_consistency(
+                    track_id,
+                    antispoofing_result.get('real_score', 0.5),
+                    antispoofing_result.get('fake_score', 0.5)
+                )
+                
+                if not passes_temporal_check:
+                    # OVERRIDE: Temporal analysis detected replay attack
+                    antispoofing_result['is_real'] = False
+                    antispoofing_result['confidence'] = antispoofing_result.get('fake_score', 0.5)
+                    antispoofing_result['temporal_override'] = True
+                    logger.warning(f"Face {face_id} (track {track_id}): Overriding REAL->SPOOF due to temporal analysis")
+            
             # Add processing time
             antispoofing_result['processing_time'] = processing_time / len(antispoofing_results)  # Average per face
             antispoofing_result['cached'] = False

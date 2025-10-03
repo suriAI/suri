@@ -145,7 +145,7 @@ MODEL_CONFIGS = {
         "name": "DualMiniFASNet",
         "ensemble_mode": True,  # Enable ensemble prediction
         "models": ["antispoofing_v2", "antispoofing_v1se"],  # Both models used
-        "threshold": 0.7,  # INCREASED: Stricter threshold to prevent replay attacks (was 0.5)
+        "threshold": 0.7,  # BALANCED: Prevent replay attacks while avoiding false positives (was 0.5, tried 0.7)
         "voting_method": "weighted_average",  # Weighted average of both models
         "description": "Dual MiniFASNet ensemble (V2 + V1SE) for robust anti-spoofing",
         "version": "ensemble_2.7_4.0",

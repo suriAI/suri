@@ -202,39 +202,111 @@ async def process_antispoofing(faces: List[Dict], image: np.ndarray, enable: boo
     try:
         antispoofing_results = await optimized_antispoofing_detector.detect_faces_async(image, faces)
         
-        for i, (face, result) in enumerate(zip(faces, antispoofing_results)):
-            antispoofing_data = result.get('antispoofing', {})
-            is_real_value = antispoofing_data.get('is_real', None)
-            if is_real_value is not None:
-                is_real_value = bool(is_real_value)
+        # CRITICAL FIX: Ensure antispoofing results match input faces count
+        if len(antispoofing_results) != len(faces):
+            logger.error(
+                f"Anti-spoofing result count mismatch: {len(faces)} faces, "
+                f"{len(antispoofing_results)} results. Marking unprocessed as FAKE."
+            )
+            # Create a mapping of face_id to result
+            result_map = {r.get('face_id', i): r for i, r in enumerate(antispoofing_results)}
             
-            # Check if detector already set a specific status (e.g., 'too_small', 'error')
-            detector_status = antispoofing_data.get('status')
-            if detector_status in ['too_small', 'error']:
-                # Preserve special status and include label/message if present
-                face['antispoofing'] = {
-                    'is_real': is_real_value,
-                    'confidence': float(antispoofing_data.get('confidence', 0.0)),
-                    'real_score': float(antispoofing_data.get('real_score', 0.0)),
-                    'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
-                    'status': detector_status
-                }
-                # Add optional fields if present
-                if 'label' in antispoofing_data:
-                    face['antispoofing']['label'] = antispoofing_data['label']
-                if 'message' in antispoofing_data:
-                    face['antispoofing']['message'] = antispoofing_data['message']
-            else:
-                # Normal case: determine status from is_real value
-                face['antispoofing'] = {
-                    'is_real': is_real_value,
-                    'confidence': float(antispoofing_data.get('confidence', 0.0)),
-                    'real_score': float(antispoofing_data.get('real_score', 0.0)),
-                    'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
-                    'status': 'real' if is_real_value else 'fake'
-                }
+            # Ensure every face has antispoofing data
+            for i, face in enumerate(faces):
+                if i in result_map:
+                    result = result_map[i]
+                else:
+                    # Face was skipped - mark as FAKE for security
+                    logger.warning(f"Face {i} missing antispoofing result, marking as FAKE")
+                    result = {
+                        'face_id': i,
+                        'antispoofing': {
+                            'status': 'processing_failed',
+                            'label': 'Processing Failed',
+                            'is_real': False,
+                            'confidence': 0.0,
+                            'real_score': 0.0,
+                            'fake_score': 1.0,
+                            'message': 'Anti-spoofing processing failed for this face'
+                        }
+                    }
+                
+                antispoofing_data = result.get('antispoofing', {})
+                is_real_value = antispoofing_data.get('is_real', None)
+                if is_real_value is not None:
+                    is_real_value = bool(is_real_value)
+                
+                # Check if detector already set a specific status (e.g., 'too_small', 'error', 'out_of_frame')
+                detector_status = antispoofing_data.get('status')
+                if detector_status in ['too_small', 'error', 'out_of_frame', 'processing_failed']:
+                    # Preserve special status and include label/message if present
+                    face['antispoofing'] = {
+                        'is_real': is_real_value,
+                        'confidence': float(antispoofing_data.get('confidence', 0.0)),
+                        'real_score': float(antispoofing_data.get('real_score', 0.0)),
+                        'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
+                        'status': detector_status
+                    }
+                    # Add optional fields if present
+                    if 'label' in antispoofing_data:
+                        face['antispoofing']['label'] = antispoofing_data['label']
+                    if 'message' in antispoofing_data:
+                        face['antispoofing']['message'] = antispoofing_data['message']
+                else:
+                    # Normal case: determine status from is_real value
+                    face['antispoofing'] = {
+                        'is_real': is_real_value,
+                        'confidence': float(antispoofing_data.get('confidence', 0.0)),
+                        'real_score': float(antispoofing_data.get('real_score', 0.0)),
+                        'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
+                        'status': 'real' if is_real_value else 'fake'
+                    }
+        else:
+            # Normal path: results match faces count
+            for i, (face, result) in enumerate(zip(faces, antispoofing_results)):
+                antispoofing_data = result.get('antispoofing', {})
+                is_real_value = antispoofing_data.get('is_real', None)
+                if is_real_value is not None:
+                    is_real_value = bool(is_real_value)
+                
+                # Check if detector already set a specific status (e.g., 'too_small', 'error', 'out_of_frame')
+                detector_status = antispoofing_data.get('status')
+                if detector_status in ['too_small', 'error', 'out_of_frame', 'processing_failed']:
+                    # Preserve special status and include label/message if present
+                    face['antispoofing'] = {
+                        'is_real': is_real_value,
+                        'confidence': float(antispoofing_data.get('confidence', 0.0)),
+                        'real_score': float(antispoofing_data.get('real_score', 0.0)),
+                        'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
+                        'status': detector_status
+                    }
+                    # Add optional fields if present
+                    if 'label' in antispoofing_data:
+                        face['antispoofing']['label'] = antispoofing_data['label']
+                    if 'message' in antispoofing_data:
+                        face['antispoofing']['message'] = antispoofing_data['message']
+                else:
+                    # Normal case: determine status from is_real value
+                    face['antispoofing'] = {
+                        'is_real': is_real_value,
+                        'confidence': float(antispoofing_data.get('confidence', 0.0)),
+                        'real_score': float(antispoofing_data.get('real_score', 0.0)),
+                        'fake_score': float(antispoofing_data.get('fake_score', 0.0)),
+                        'status': 'real' if is_real_value else 'fake'
+                    }
     except Exception as e:
         logger.warning(f"Anti-spoofing failed: {e}")
+        # CRITICAL FIX: Mark ALL faces as FAKE on error for security
+        for face in faces:
+            face['antispoofing'] = {
+                'is_real': False,
+                'confidence': 0.0,
+                'real_score': 0.0,
+                'fake_score': 1.0,
+                'status': 'error',
+                'label': 'Error',
+                'message': f'Anti-spoofing error: {str(e)}'
+            }
     
     return faces
 
