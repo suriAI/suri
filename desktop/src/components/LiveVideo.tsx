@@ -2206,7 +2206,7 @@ export default function LiveVideo() {
 <div className="sidebar h-screen max-h-screen flex flex-col overflow-hidden">
   
             {recognitionEnabled && (
-              <div className="px-4 py-4 border-b border-white/[0.08] flex-shrink-0">
+              <div className="px-4 py-4 flex-shrink-0">
                 <div className="space-y-2">
                   <button
                     onClick={() => setShowRegistrationDialog(true)}
