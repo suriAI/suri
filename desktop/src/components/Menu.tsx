@@ -1,0 +1,1049 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { attendanceManager } from '../services/AttendanceManager';
+import { FaceRegistrationLab } from './FaceRegistrationLab';
+import type {
+  AttendanceGroup,
+  AttendanceMember,
+  AttendanceStats,
+  AttendanceReport,
+  AttendanceRecord,
+  AttendanceSession,
+  GroupType
+} from '../types/recognition.js';
+
+export type MenuSection = 'overview' | 'members' | 'reports' | 'registration' | 'settings';
+
+interface MenuProps {
+  onBack: () => void;
+  initialSection?: MenuSection;
+}
+
+interface SectionConfig {
+  id: MenuSection;
+  label: string;
+}
+
+const SECTION_CONFIG: SectionConfig[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'members', label: 'Members' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'registration', label: 'Face registration' },
+  { id: 'settings', label: 'Settings' }
+];
+
+const getGroupTypeIcon = (type: GroupType): string => {
+  switch (type) {
+    case 'employee':
+      return '👔';
+    case 'student':
+      return '🎓';
+    case 'visitor':
+      return '👤';
+    case 'general':
+    default:
+      return '👥';
+  }
+};
+
+const toDate = (value: Date | string): Date => (value instanceof Date ? value : new Date(value));
+
+const formatTime = (value: Date | string): string => {
+  const date = toDate(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatDuration = (hours: number | null | undefined): string => {
+  if (!hours) {
+    return '0h 00m';
+  }
+
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}h ${m.toString().padStart(2, '0')}m`;
+};
+
+export function Menu({ onBack, initialSection }: MenuProps) {
+  const [selectedGroup, setSelectedGroup] = useState<AttendanceGroup | null>(null);
+  const [groups, setGroups] = useState<AttendanceGroup[]>([]);
+  const [members, setMembers] = useState<AttendanceMember[]>([]);
+  const [stats, setStats] = useState<AttendanceStats | null>(null);
+  const [report, setReport] = useState<AttendanceReport | null>(null);
+  const [recentRecords, setRecentRecords] = useState<AttendanceRecord[]>([]);
+  const [todaySessions, setTodaySessions] = useState<AttendanceSession[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [reportStartDate, setReportStartDate] = useState<string>(
+    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [reportEndDate, setReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [activeSection, setActiveSection] = useState<MenuSection>(initialSection ?? 'overview');
+  const [error, setError] = useState<string | null>(null);
+  const [pendingTasks, setPendingTasks] = useState(0);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<AttendanceMember | null>(null);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('');
+  const [newMemberEmployeeId, setNewMemberEmployeeId] = useState('');
+  const [newMemberStudentId, setNewMemberStudentId] = useState('');
+
+  const loading = pendingTasks > 0;
+  const selectedGroupRef = useRef<AttendanceGroup | null>(null);
+  const fetchGroupDetailsRef = useRef<((groupId: string) => Promise<void>) | null>(null);
+
+  const trackAsync = useCallback(async <T,>(action: () => Promise<T>): Promise<T> => {
+    setPendingTasks(prev => prev + 1);
+    try {
+      return await action();
+    } finally {
+      setPendingTasks(prev => (prev > 0 ? prev - 1 : 0));
+    }
+  }, []);
+
+  const fetchGroupDetails = useCallback(async (groupId: string) => {
+    await trackAsync(async () => {
+      try {
+        setError(null);
+        const [groupMembers, groupStats, sessions, records] = await Promise.all([
+          attendanceManager.getGroupMembers(groupId),
+          attendanceManager.getGroupStats(groupId, new Date(selectedDate)),
+          attendanceManager.getSessions({
+            group_id: groupId,
+            start_date: selectedDate,
+            end_date: selectedDate
+          }),
+          attendanceManager.getRecords({
+            group_id: groupId,
+            limit: 100
+          })
+        ]);
+
+        setMembers(groupMembers);
+        setStats(groupStats);
+        setTodaySessions(sessions);
+        setRecentRecords(records);
+      } catch (err) {
+        console.error('Error loading group data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load group data');
+      }
+    });
+  }, [selectedDate, trackAsync]);
+
+  fetchGroupDetailsRef.current = fetchGroupDetails;
+
+  const fetchGroups = useCallback(async (): Promise<AttendanceGroup | null> => {
+    return trackAsync(async () => {
+      try {
+        setError(null);
+        const allGroups = await attendanceManager.getGroups();
+        setGroups(allGroups);
+
+        if (allGroups.length === 0) {
+          setSelectedGroup(null);
+          setMembers([]);
+          setStats(null);
+          setTodaySessions([]);
+          setRecentRecords([]);
+          setReport(null);
+          return null;
+        }
+
+        const existingSelection = selectedGroupRef.current;
+        const resolved = existingSelection
+          ? allGroups.find(group => group.id === existingSelection.id) ?? allGroups[0]
+          : allGroups[0];
+
+        setSelectedGroup(resolved);
+        return resolved;
+      } catch (err) {
+        console.error('Error loading groups:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load groups');
+        return null;
+      }
+    });
+  }, [trackAsync]);
+
+  const generateReport = useCallback(async () => {
+    if (!selectedGroup) {
+      setReport(null);
+      return;
+    }
+
+    const startDate = new Date(reportStartDate);
+    const endDate = new Date(reportEndDate);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      setError('Please select valid report dates.');
+      return;
+    }
+
+    if (startDate > endDate) {
+      setError('The start date must be before the end date.');
+      return;
+    }
+
+    await trackAsync(async () => {
+      try {
+        setError(null);
+        const generatedReport = await attendanceManager.generateReport(selectedGroup.id, startDate, endDate);
+        setReport(generatedReport);
+      } catch (err) {
+        console.error('Error generating report:', err);
+        setError(err instanceof Error ? err.message : 'Failed to generate report');
+      }
+    });
+  }, [reportEndDate, reportStartDate, selectedGroup, trackAsync]);
+
+  const exportData = useCallback(async () => {
+    await trackAsync(async () => {
+      try {
+        setError(null);
+        const data = await attendanceManager.exportData();
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `attendance-data-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Error exporting data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to export data');
+      }
+    });
+  }, [trackAsync]);
+
+  const exportReport = useCallback(() => {
+    if (!report || !selectedGroup) {
+      return;
+    }
+
+    try {
+      const csvContent = [
+        ['Name', 'Total Days', 'Present Days', 'Absent Days', 'Late Days', 'Total Hours', 'Average Hours', 'Attendance Rate'],
+        ...report.members.map(member => [
+          member.name,
+          member.total_days.toString(),
+          member.present_days.toString(),
+          member.absent_days.toString(),
+          member.late_days.toString(),
+          member.total_hours.toString(),
+          member.average_hours.toString(),
+          `${member.attendance_rate}%`
+        ])
+      ]
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `attendance-report-${selectedGroup.name}-${reportStartDate}-to-${reportEndDate}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting report:', err);
+      setError(err instanceof Error ? err.message : 'Failed to export report');
+    }
+  }, [report, selectedGroup, reportStartDate, reportEndDate]);
+
+  const resetMemberForm = () => {
+    setNewMemberName('');
+    setNewMemberRole('');
+    setNewMemberEmployeeId('');
+    setNewMemberStudentId('');
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedGroup || !newMemberName.trim()) {
+      return;
+    }
+
+    await trackAsync(async () => {
+      try {
+        await attendanceManager.addMember(selectedGroup.id, newMemberName.trim(), {
+          role: newMemberRole.trim() || undefined,
+          employee_id: newMemberEmployeeId.trim() || undefined,
+          student_id: newMemberStudentId.trim() || undefined
+        });
+        resetMemberForm();
+        setShowAddMemberModal(false);
+        await fetchGroupDetails(selectedGroup.id);
+      } catch (err) {
+        console.error('Error adding member:', err);
+        setError(err instanceof Error ? err.message : 'Failed to add member');
+      }
+    });
+  };
+
+  const handleEditMember = async () => {
+    if (!editingMember || !newMemberName.trim()) {
+      return;
+    }
+
+    await trackAsync(async () => {
+      try {
+        const updates: Partial<AttendanceMember> = {
+          name: newMemberName.trim(),
+          role: newMemberRole.trim() || undefined,
+          employee_id: newMemberEmployeeId.trim() || undefined,
+          student_id: newMemberStudentId.trim() || undefined
+        };
+
+        await attendanceManager.updateMember(editingMember.person_id, updates);
+        resetMemberForm();
+        setEditingMember(null);
+        setShowEditMemberModal(false);
+        const targetGroupId = editingMember.group_id ?? selectedGroup?.id;
+        if (targetGroupId) {
+          await fetchGroupDetails(targetGroupId);
+        }
+      } catch (err) {
+        console.error('Error updating member:', err);
+        setError(err instanceof Error ? err.message : 'Failed to update member');
+      }
+    });
+  };
+
+  const handleRemoveMember = async (personId: string) => {
+    if (!selectedGroup) {
+      return;
+    }
+
+    if (!confirm('Remove this member from the group?')) {
+      return;
+    }
+
+    await trackAsync(async () => {
+      try {
+        await attendanceManager.removeMember(personId);
+        await fetchGroupDetails(selectedGroup.id);
+      } catch (err) {
+        console.error('Error removing member:', err);
+        setError(err instanceof Error ? err.message : 'Failed to remove member');
+      }
+    });
+  };
+
+  const openEditMember = (member: AttendanceMember) => {
+    setEditingMember(member);
+    setNewMemberName(member.name);
+    setNewMemberRole(member.role || '');
+    setNewMemberEmployeeId(member.employee_id || '');
+    setNewMemberStudentId(member.student_id || '');
+    setShowEditMemberModal(true);
+  };
+
+  useEffect(() => {
+    selectedGroupRef.current = selectedGroup;
+  }, [selectedGroup]);
+
+  useEffect(() => {
+    const initialise = async () => {
+      const group = await fetchGroups();
+      if (group && fetchGroupDetailsRef.current) {
+        await fetchGroupDetailsRef.current(group.id);
+      }
+    };
+
+    void initialise();
+  }, [fetchGroups]);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      void fetchGroupDetails(selectedGroup.id);
+    }
+  }, [selectedGroup, fetchGroupDetails]);
+
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection]);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      void generateReport();
+    }
+  }, [selectedGroup, reportStartDate, reportEndDate, generateReport]);
+
+  const selectedGroupCreatedAt = selectedGroup ? toDate(selectedGroup.created_at) : null;
+
+  return (
+    <div className="h-screen bg-black text-white flex flex-col">
+      <header className="px-8 pt-10 pb-6 border-b border-white/10 bg-black/80 backdrop-blur">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-semibold">Menu</h1>
+            <p className="mt-2 text-white/60 max-w-2xl">Manage attendance groups, members, reports, and settings.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 justify-end">
+            {loading && (
+              <div className="flex items-center gap-2 text-blue-300 text-sm">
+                <span className="h-4 w-4 border-2 border-blue-400/40 border-t-blue-300 rounded-full animate-spin" />
+                Loading…
+              </div>
+            )}
+            <button
+              onClick={exportData}
+              disabled={loading}
+              className="px-4 py-2 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-200 hover:bg-blue-600/30 transition-colors text-sm disabled:opacity-50"
+            >
+              Export data
+            </button>
+            <button
+              onClick={onBack}
+              className="px-4 py-2 rounded-full bg-white text-black hover:bg-gray-100 transition-colors text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+        <nav className="mt-6 flex flex-wrap gap-2">
+          {SECTION_CONFIG.map(section => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={`px-4 py-2 rounded-full text-sm transition-colors border ${
+                activeSection === section.id
+                  ? 'border-blue-500/60 bg-blue-600/20 text-blue-200'
+                  : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      {error && (
+        <div className="px-8 py-3 bg-red-600/20 border-b border-red-500/40 text-red-200 flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-200 hover:text-red-100">
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div className="px-8 py-4 border-b border-white/10 bg-black/60 flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Group</label>
+          <select
+            value={selectedGroup?.id ?? ''}
+            onChange={event => {
+              const group = groups.find(item => item.id === event.target.value) ?? null;
+              setSelectedGroup(group);
+            }}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60"
+          >
+            <option value="">Select a group…</option>
+            {groups.map(group => (
+              <option key={group.id} value={group.id} className="bg-black text-white">
+                {getGroupTypeIcon(group.type)} {group.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Date</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={event => setSelectedDate(event.target.value)}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60"
+          />
+        </div>
+      </div>
+
+      <main className="flex-1 overflow-hidden bg-gradient-to-b from-black via-[#050505] to-black">
+        <div className="h-full overflow-y-auto px-8 py-10 space-y-10">
+          {activeSection === 'overview' && (
+            <section className="space-y-6">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Selected group</p>
+                    <h2 className="text-xl font-semibold mt-1">
+                      {selectedGroup
+                        ? `${getGroupTypeIcon(selectedGroup.type)} ${selectedGroup.name}`
+                        : 'None'}
+                    </h2>
+                    <p className="text-sm text-white/50 mt-2 max-w-xl">
+                      Pick a group to view the metrics below. Switch groups anytime using the selector above.
+                    </p>
+                  </div>
+                  {selectedGroup && (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      <div className="uppercase text-xs tracking-[0.2em] text-white/40">Created</div>
+                      <div className="mt-1 font-medium text-white">
+                        {selectedGroupCreatedAt ? selectedGroupCreatedAt.toLocaleDateString() : '—'}
+                      </div>
+                      <div className="text-xs text-white/50 mt-1">ID: {selectedGroup.id}</div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-1">
+                  {groups.map(group => (
+                    <button
+                      key={group.id}
+                      onClick={() => setSelectedGroup(group)}
+                      className={`min-w-[200px] rounded-2xl border px-5 py-4 text-left transition-colors ${
+                        selectedGroup?.id === group.id
+                          ? 'border-blue-500/60 bg-blue-600/20 text-blue-100'
+                          : 'border-white/10 bg-white/5 text-white/80 hover:border-blue-500/40'
+                      }`}
+                    >
+                      <div className="text-2xl mb-3">{getGroupTypeIcon(group.type)}</div>
+                      <div className="text-lg font-semibold">{group.name}</div>
+                      <div className="text-xs uppercase tracking-[0.2em] mt-2 text-white/40">{group.type}</div>
+                    </button>
+                  ))}
+
+                  {groups.length === 0 && (
+                    <div className="min-w-[220px] rounded-2xl border border-dashed border-white/15 px-5 py-4 text-white/50">
+                      <div className="text-base font-medium mb-1">No groups added</div>
+                      <p className="text-sm text-white/40">Create a group in the admin tools to begin.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {stats && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Present</p>
+                    <div className="text-3xl font-semibold text-green-200 mt-2">{stats.present_today}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Absent</p>
+                    <div className="text-3xl font-semibold text-red-200 mt-2">{stats.absent_today}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-yellow-500/20 via-yellow-500/10 to-transparent p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Late</p>
+                    <div className="text-3xl font-semibold text-yellow-200 mt-2">{stats.late_today}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">On break</p>
+                    <div className="text-3xl font-semibold text-blue-200 mt-2">{stats.on_break}</div>
+                  </div>
+                </div>
+              )}
+
+              {stats && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                    <h3 className="text-lg font-semibold">Hours summary</h3>
+                    <div className="mt-4 space-y-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Total hours today</span>
+                        <span className="font-mono text-white">{formatDuration(stats.total_hours_today)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Average hours</span>
+                        <span className="font-mono text-white">{formatDuration(stats.average_hours_today)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                    <h3 className="text-lg font-semibold">Recent activity</h3>
+                    <div className="mt-4 max-h-64 overflow-y-auto pr-2 space-y-3 text-sm">
+                      {recentRecords.length > 0 ? (
+                        recentRecords.slice(0, 24).map(record => {
+                          const member = members.find(item => item.person_id === record.person_id);
+                          return (
+                            <div
+                              key={record.id}
+                              className="flex items-center justify-between border-b border-white/5 pb-3 last:border-b-0 last:pb-0"
+                            >
+                              <div>
+                                <div className="font-medium text-white">{member?.name ?? record.person_id}</div>
+                                <div className="text-xs text-white/40">
+                                  {toDate(record.timestamp).toLocaleDateString()} · {formatTime(record.timestamp)}
+                                </div>
+                              </div>
+                              <div className="text-xs text-white/40">{(record.confidence * 100).toFixed(0)}%</div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-white/40 text-sm py-8 text-center">No activity for the selected date.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeSection === 'members' && (
+            <section className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Members</h2>
+                  <p className="text-white/60 text-sm">View attendance details for people in this group.</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setShowAddMemberModal(true)}
+                    disabled={!selectedGroup}
+                    className="px-4 py-2 rounded-full bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
+                  >
+                    Add member
+                  </button>
+                </div>
+              </div>
+
+              {members.length > 0 ? (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {members.map(member => {
+                    const session = todaySessions.find(item => item.person_id === member.person_id);
+
+                    const statusLabel = session?.status === 'present'
+                      ? 'Present'
+                      : session?.status === 'late'
+                        ? `Late (${session.late_minutes ?? 0}m)`
+                        : session?.status === 'on_break'
+                          ? 'On break'
+                          : session?.status === 'checked_out'
+                            ? 'Checked out'
+                            : session?.status === 'absent'
+                              ? 'Absent'
+                              : 'No record';
+
+                    const statusClass = session?.status === 'present'
+                      ? 'bg-green-500/20 text-green-200 border border-green-400/40'
+                      : session?.status === 'late'
+                        ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-400/40'
+                        : session?.status === 'on_break'
+                          ? 'bg-blue-500/20 text-blue-200 border border-blue-400/40'
+                          : session?.status === 'checked_out'
+                            ? 'bg-white/10 text-white/70 border border-white/20'
+                            : 'bg-red-500/20 text-red-200 border border-red-400/40';
+
+                    return (
+                      <div key={member.person_id} className="rounded-3xl border border-white/10 bg-white/5 p-6 flex flex-col gap-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <div className="text-lg font-semibold">{member.name}</div>
+                            <div className="text-sm text-white/50 mt-1">
+                              {member.role && <span>{member.role} · </span>}
+                              ID: {member.person_id}
+                            </div>
+                            <div className="text-xs text-white/30 mt-1 space-x-2">
+                              {member.employee_id && <span>Employee: {member.employee_id}</span>}
+                              {member.student_id && <span>Student: {member.student_id}</span>}
+                            </div>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${statusClass}`}>{statusLabel}</div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-white/60">
+                          <div className="flex justify-between">
+                            <span>Hours today</span>
+                            <span className="font-mono text-white">{formatDuration(session?.total_hours ?? 0)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Break time</span>
+                            <span className="font-mono text-white">
+                              {session?.break_duration ? `${Math.round(session.break_duration)}m` : '—'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          <button
+                            onClick={() => openEditMember(member)}
+                            className="px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleRemoveMember(member.person_id)}
+                            className="px-4 py-2 rounded-full bg-red-500/20 border border-red-400/40 text-red-100 hover:bg-red-500/30 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-white/50">
+                  {selectedGroup ? 'No members in this group yet.' : 'Select a group to view members.'}
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeSection === 'reports' && (
+            <section className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Reports</h2>
+                  <p className="text-white/60 text-sm">Create and export attendance summaries.</p>
+                </div>
+                <div className="flex flex-wrap gap-3 items-center">
+                  <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
+                    <span className="text-xs uppercase tracking-[0.2em] text-white/40">Start</span>
+                    <input
+                      type="date"
+                      value={reportStartDate}
+                      onChange={event => setReportStartDate(event.target.value)}
+                      className="bg-transparent focus:outline-none"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
+                    <span className="text-xs uppercase tracking-[0.2em] text-white/40">End</span>
+                    <input
+                      type="date"
+                      value={reportEndDate}
+                      onChange={event => setReportEndDate(event.target.value)}
+                      className="bg-transparent focus:outline-none"
+                    />
+                  </label>
+                  <button
+                    onClick={generateReport}
+                    disabled={!selectedGroup}
+                    className="px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm disabled:opacity-50"
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    onClick={exportReport}
+                    disabled={!report || !selectedGroup}
+                    className="px-4 py-2 rounded-full bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {report ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/40">Working days</p>
+                      <div className="text-3xl font-semibold mt-2">{report.summary.total_working_days}</div>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/40">Avg attendance</p>
+                      <div className="text-3xl font-semibold text-green-200 mt-2">{report.summary.average_attendance_rate}%</div>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/40">Total hours</p>
+                      <div className="text-3xl font-semibold mt-2">{formatDuration(report.summary.total_hours_logged)}</div>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 space-y-1">
+                      <div>Most punctual: <span className="text-white">{report.summary.most_punctual}</span></div>
+                      <div>Most absent: <span className="text-white">{report.summary.most_absent}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead className="bg-white/10 text-xs uppercase tracking-[0.2em] text-white/40">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Name</th>
+                            <th className="px-4 py-3 text-center">Present</th>
+                            <th className="px-4 py-3 text-center">Absent</th>
+                            <th className="px-4 py-3 text-center">Late</th>
+                            <th className="px-4 py-3 text-center">Total hours</th>
+                            <th className="px-4 py-3 text-center">Avg hours</th>
+                            <th className="px-4 py-3 text-center">Attendance %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {report.members.map((member, index) => (
+                            <tr key={member.person_id} className={index % 2 === 0 ? 'bg-white/5' : ''}>
+                              <td className="px-4 py-3 text-sm font-medium text-white">{member.name}</td>
+                              <td className="px-4 py-3 text-sm text-center text-green-200">{member.present_days}</td>
+                              <td className="px-4 py-3 text-sm text-center text-red-200">{member.absent_days}</td>
+                              <td className="px-4 py-3 text-sm text-center text-yellow-200">{member.late_days}</td>
+                              <td className="px-4 py-3 text-sm text-center font-mono text-white">{formatDuration(member.total_hours)}</td>
+                              <td className="px-4 py-3 text-sm text-center font-mono text-white">{formatDuration(member.average_hours)}</td>
+                              <td className="px-4 py-3 text-sm text-center">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  member.attendance_rate >= 90
+                                    ? 'bg-green-500/20 text-green-200 border border-green-400/40'
+                                    : member.attendance_rate >= 75
+                                      ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-400/40'
+                                      : 'bg-red-500/20 text-red-200 border border-red-400/40'
+                                }`}
+                                >
+                                  {member.attendance_rate}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-white/50">
+                  Generate a report to view group history.
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeSection === 'registration' && (
+            <section className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Face registration</h2>
+                  <p className="text-white/60 text-sm">Capture and update face data for group members.</p>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                {selectedGroup ? (
+                  <FaceRegistrationLab
+                    group={selectedGroup}
+                    members={members}
+                    onRefresh={() => {
+                      if (selectedGroup) {
+                        void fetchGroupDetails(selectedGroup.id);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="text-center text-white/50 py-12">Select a group to enable face registration.</div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {activeSection === 'settings' && (
+            <section className="space-y-6 pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Settings</h2>
+                  <p className="text-white/60 text-sm">Review group details and manage stored data.</p>
+                </div>
+                <button
+                  onClick={exportData}
+                  className="px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm"
+                >
+                  Export data
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Group details</h3>
+                  {selectedGroup ? (
+                    <div className="space-y-3 text-sm text-white/70">
+                      <div className="flex justify-between">
+                        <span>Name</span>
+                        <span className="text-white">{selectedGroup.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Type</span>
+                        <span className="text-white">{getGroupTypeIcon(selectedGroup.type)} {selectedGroup.type}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Created</span>
+                        <span className="text-white">
+                          {selectedGroupCreatedAt ? selectedGroupCreatedAt.toLocaleDateString() : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Members</span>
+                        <span className="text-white">{members.length}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-white/50 text-sm">Select a group to view its details.</div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Data tools</h3>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Remove records older than 30 days?')) {
+                        return;
+                      }
+
+                      await trackAsync(async () => {
+                        try {
+                          setError(null);
+                          await attendanceManager.cleanupOldData(30);
+                          if (selectedGroup) {
+                            await fetchGroupDetails(selectedGroup.id);
+                          }
+                        } catch (err) {
+                          console.error('Error cleaning data:', err);
+                          setError(err instanceof Error ? err.message : 'Failed to clean up old data');
+                        }
+                      });
+                    }}
+                    className="w-full px-4 py-3 rounded-2xl bg-yellow-500/20 border border-yellow-400/40 text-yellow-100 hover:bg-yellow-500/30 transition-colors text-sm"
+                  >
+                    Clean records older than 30 days
+                  </button>
+                  <button
+                    onClick={exportData}
+                    className="w-full px-4 py-3 rounded-2xl bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-sm"
+                  >
+                    Export snapshot
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50 px-4">
+          <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-lg shadow-[0_40px_80px_rgba(0,0,0,0.6)]">
+            <h3 className="text-xl font-semibold mb-4">Add member</h3>
+            <div className="grid gap-4">
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Full name *</span>
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={event => setNewMemberName(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="Enter full name"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Role</span>
+                <input
+                  type="text"
+                  value={newMemberRole}
+                  onChange={event => setNewMemberRole(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="e.g. Staff, Student"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Employee ID</span>
+                <input
+                  type="text"
+                  value={newMemberEmployeeId}
+                  onChange={event => setNewMemberEmployeeId(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="Optional"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Student ID</span>
+                <input
+                  type="text"
+                  value={newMemberStudentId}
+                  onChange={event => setNewMemberStudentId(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  resetMemberForm();
+                  setShowAddMemberModal(false);
+                }}
+                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddMember}
+                disabled={!newMemberName.trim() || loading}
+                className="px-4 py-2 rounded-full bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
+              >
+                {loading ? 'Adding…' : 'Add member'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditMemberModal && editingMember && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50 px-4">
+          <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-[0_40px_80px_rgba(0,0,0,0.6)]">
+            <h3 className="text-xl font-semibold mb-4">Edit member</h3>
+            <div className="grid gap-4">
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Full name *</span>
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={event => setNewMemberName(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="Enter full name"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Role</span>
+                <input
+                  type="text"
+                  value={newMemberRole}
+                  onChange={event => setNewMemberRole(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="e.g. Staff, Student"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Employee ID</span>
+                <input
+                  type="text"
+                  value={newMemberEmployeeId}
+                  onChange={event => setNewMemberEmployeeId(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="Optional"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-white/60 block mb-2">Student ID</span>
+                <input
+                  type="text"
+                  value={newMemberStudentId}
+                  onChange={event => setNewMemberStudentId(event.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  resetMemberForm();
+                  setEditingMember(null);
+                  setShowEditMemberModal(false);
+                }}
+                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditMember}
+                disabled={!newMemberName.trim() || loading}
+                className="px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-sm disabled:opacity-50"
+              >
+                {loading ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

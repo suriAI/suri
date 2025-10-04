@@ -2,9 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackendService } from '../services/BackendService';
 import { Settings } from './Settings';
 import { attendanceManager } from '../services/AttendanceManager';
-import { AttendanceDashboard } from './AttendanceDashboard';
+import { Menu, type MenuSection } from './Menu';
 import type { 
-  PersonInfo, 
   FaceRecognitionResponse,
   AttendanceGroup,
   AttendanceMember,
@@ -73,6 +72,8 @@ interface WebSocketErrorMessage {
   error?: string;
 }
 
+type DashboardTab = MenuSection;
+
 const NON_LOGGING_ANTISPOOF_STATUSES = new Set<
   'real' | 'fake' | 'error' | 'too_small' | 'background' | 'processing_failed' | 'invalid_bbox' | 'out_of_frame' | 'unknown'
 >(['fake', 'too_small', 'error', 'background', 'processing_failed', 'invalid_bbox', 'out_of_frame', 'unknown']);
@@ -103,7 +104,6 @@ export default function LiveVideo() {
   const [currentDetections, setCurrentDetections] = useState<DetectionResult | null>(null);
   const [detectionFps, setDetectionFps] = useState<number>(0);
   const [websocketStatus, setWebsocketStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const [backendServiceReady, setBackendServiceReady] = useState(false);
   const backendServiceReadyRef = useRef(false);
   const lastDetectionRef = useRef<DetectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,11 +112,8 @@ export default function LiveVideo() {
   
   // Anti-spoofing settings
 
-  // Face recognition settings
-  const [registeredPersons, setRegisteredPersons] = useState<PersonInfo[]>([]);
-
-  const [selectedPersonForRegistration, setSelectedPersonForRegistration] = useState<string>('');
-  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
+  // Command hub state
+  const [menuInitialSection, setMenuInitialSection] = useState<MenuSection>('overview');
   const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, FaceRecognitionResponse>>(new Map());
 
   // ACCURATE FPS tracking with rolling average
@@ -275,7 +272,12 @@ export default function LiveVideo() {
   }, [attendanceCooldowns, attendanceCooldownSeconds, persistentCooldowns]);
 
 
-  const [showAttendanceDashboard, setShowAttendanceDashboard] = useState(false);
+  const [showMenuPanel, setShowMenuPanel] = useState(false);
+
+  const openMenuPanel = useCallback((section: DashboardTab) => {
+    setMenuInitialSection(section);
+    setShowMenuPanel(true);
+  }, []);
 
   // OPTIMIZED: Capture frame with reduced canvas operations and better context settings
   const captureFrame = useCallback((): string | null => {
@@ -806,7 +808,6 @@ export default function LiveVideo() {
       backendServiceRef.current.onMessage('connection', (data: WebSocketConnectionMessage) => {
         // Set backend service as ready when connection is confirmed
         if (data.status === 'connected') {
-          setBackendServiceReady(true);
           backendServiceReadyRef.current = true;
         }
       });
@@ -863,7 +864,6 @@ export default function LiveVideo() {
     } catch (error) {
       console.error('❌ WebSocket initialization failed:', error);
       setError('Failed to connect to real-time detection service');
-      setBackendServiceReady(false);
       backendServiceReadyRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1538,30 +1538,6 @@ export default function LiveVideo() {
 
 
   // Face recognition utility functions
-  const loadRegisteredPersons = useCallback(async () => {
-    try {
-      if (!backendServiceRef.current) {
-        console.warn('⚠️ Backend service not initialized, skipping load registered persons');
-        return;
-      }
-      const persons = await backendServiceRef.current.getAllPersons();
-      setRegisteredPersons(persons);
-    } catch (error) {
-      console.error('❌ Failed to load registered persons:', error);
-      setError('Failed to load registered persons');
-    }
-  }, []);
-
-  const loadDatabaseStats = useCallback(async () => {
-    try {
-      if (!backendServiceRef.current) {
-        console.warn('⚠️ Backend service not initialized, skipping load database stats');
-        return;
-      }
-    } catch (error) {
-      console.error('❌ Failed to load database stats:', error);
-    }
-  }, []);
 
   // Attendance Management Functions
   const loadAttendanceData = useCallback(async () => {
@@ -1593,7 +1569,6 @@ export default function LiveVideo() {
               setCurrentGroup(null);
               setGroupMembers([]);
               setRecentAttendance([]);
-              setSelectedPersonForRegistration('');
             }
           });
         }, 100);
@@ -1612,12 +1587,6 @@ export default function LiveVideo() {
       setGroupMembers(members);
       setRecentAttendance(records);
       
-      // Validate and clear selectedPersonForRegistration if they're no longer in the group
-      if (selectedPersonForRegistration && !members.some(member => member.person_id === selectedPersonForRegistration)) {
-        console.warn(`⚠️ Selected person "${selectedPersonForRegistration}" is no longer in group "${currentGroupValue.name}". Clearing selection.`);
-        setSelectedPersonForRegistration('');
-        setError(`Selected member "${selectedPersonForRegistration}" is no longer in the group. Please select a valid member.`);
-      }
     } catch (error) {
       console.error('❌ Failed to load attendance data:', error);
     }
@@ -1625,98 +1594,7 @@ export default function LiveVideo() {
   }, [currentGroup]);
 
   // Elite Registration Handler Functions
-  const handleEliteRegisterFace = useCallback(async (faceIndex: number) => {
-    if (!currentDetections?.faces || !selectedPersonForRegistration || !currentGroup) return;
-    
-    const face = currentDetections.faces[faceIndex];
-    if (!face) return;
-
-    // Enhanced validation - backend handles anti-spoofing validation
-    if (face.confidence <= 0.8) {
-      setError('Face quality too low for registration (minimum 80% confidence required)');
-      return;
-    }
-
-    // Validate that the selected member exists in the current group
-    const memberExists = groupMembers.some(member => member.person_id === selectedPersonForRegistration);
-    if (!memberExists) {
-      setError(`Member "${selectedPersonForRegistration}" not found in group "${currentGroup.name}". Please select a valid member.`);
-      return;
-    }
-
-    try {
-      // Capture frame data
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      if (!canvas || !video) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-
-      const frameData = canvas.toDataURL('image/jpeg', 0.95);
-
-
-      // Convert bbox from object format to array format [x, y, width, height]
-      const bbox = [face.bbox.x, face.bbox.y, face.bbox.width, face.bbox.height];
-
-      const result = await attendanceManager.registerFaceForGroupPerson(
-        currentGroup.id,
-        selectedPersonForRegistration,
-        frameData,
-        bbox
-      );
-
-      if (result.success) {
-        setError(null);
-        
-        // Refresh data
-        await Promise.all([
-          loadRegisteredPersons(),
-          loadDatabaseStats(),
-          loadAttendanceData()
-        ]);
-        
-        // Reset selection
-        setSelectedPersonForRegistration('');
-        setShowRegistrationDialog(false);
-      } else {
-        console.error('❌ Elite face registration failed:', result.error);
-        setError(result.error || 'Failed to register face');
-      }
-    } catch (error) {
-      console.error('❌ Elite registration error:', error);
-      setError(error instanceof Error ? error.message : 'Registration failed');
-    }
-  }, [currentDetections, selectedPersonForRegistration, currentGroup, loadRegisteredPersons, loadDatabaseStats, loadAttendanceData, groupMembers]);
-
-  const handleRemoveGroupPersonFace = useCallback(async (personId: string) => {
-    if (!currentGroup) return;
-
-    try {
-      const result = await attendanceManager.removeFaceDataForGroupPerson(currentGroup.id, personId);
-      
-      if (result.success) {
-        setError(null);
-        
-        // Refresh data
-        await Promise.all([
-          loadRegisteredPersons(),
-          loadDatabaseStats(),
-          loadAttendanceData()
-        ]);
-      } else {
-        console.error('❌ Failed to remove face data:', result.error);
-        setError(result.error || 'Failed to remove face data');
-      }
-    } catch (error) {
-      console.error('❌ Remove face data error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to remove face data');
-    }
-  }, [currentGroup, loadRegisteredPersons, loadDatabaseStats, loadAttendanceData]);
+  
 
 
 
@@ -1812,9 +1690,6 @@ export default function LiveVideo() {
       
       setGroupMembers(members);
       setRecentAttendance(records);
-      
-      // Clear selected person for registration when switching groups
-      setSelectedPersonForRegistration('');
     } catch (error) {
       console.error('❌ Failed to load data for selected group:', error);
     }
@@ -1911,14 +1786,6 @@ export default function LiveVideo() {
     };
   }, [websocketStatus]);
 
-  // Load face recognition data when backend service becomes ready
-  useEffect(() => {
-    if (backendServiceReady && recognitionEnabled) {
-      loadRegisteredPersons();
-      loadDatabaseStats();
-    }
-  }, [backendServiceReady, recognitionEnabled, loadRegisteredPersons, loadDatabaseStats]);
-
   // Monitor WebSocket status and start detection when connected
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
@@ -1955,14 +1822,6 @@ export default function LiveVideo() {
   useEffect(() => {
   }, [detectionEnabled]);
 
-  // Load face recognition data when recognition is enabled and backend service is ready
-  useEffect(() => {
-    if (recognitionEnabled && backendServiceReady) {
-      loadRegisteredPersons();
-      loadDatabaseStats();
-    }
-  }, [recognitionEnabled, backendServiceReady, loadRegisteredPersons, loadDatabaseStats]);
-
   // Clear recognition state whenever group changes to prevent data mixing
   useEffect(() => {
     // Handle group changes (including switching to null when group is deleted)
@@ -1974,19 +1833,12 @@ export default function LiveVideo() {
     
     // Removed delayed recognition clearing for real-time performance
     
-    // Clear registered persons to force reload for new group context
-    setRegisteredPersons([]);
-    
     // Stop detection if running (use ref for synchronous check)
     if (isStreamingRef.current) {
       stopCamera();
     }
     
-    // Reload registered persons for the new group context
-    if (currentGroup && backendServiceRef.current) {
-      loadRegisteredPersons();
-    }
-  }, [currentGroup, stopCamera, loadRegisteredPersons]);
+  }, [currentGroup, stopCamera]);
 
   // Manual attendance logging function
   const handleManualLog = async (personId: string, name: string, confidence: number) => {
@@ -2184,16 +2036,18 @@ export default function LiveVideo() {
         <div className="w-96 mt-3 bg-white/[0.02] border-l border-white/[0.08] flex flex-col max-h-full">
           <div className="px-4 py-2 border-b border-white/[0.08]">
             <div className="space-y-3">
-                <div className="flex justify-between">
-                                       <button
-                       onClick={() => setShowAttendanceDashboard(true)}
-                       className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded text-xs transition-colors"
-                     >
-                       Dashboard
-                     </button>
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    onClick={() => openMenuPanel('overview')}
+                    className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10"
+                  >
+                    <span className="text-base leading-none">☰</span>
+                    <span>Menu</span>
+                  </button>
+
                   <div
                     onClick={() => setShowSettings(true)}
-                    className="flex items-center space-x-2  text-white/80 hover:text-white rounded-xl font-light transition-all duration-300"
+                    className="flex items-center space-x-2  text-white/80 hover:text-white rounded-xl font-light transition-all duration-300 cursor-pointer"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
@@ -2205,24 +2059,7 @@ export default function LiveVideo() {
           </div>
 <div className="sidebar h-screen max-h-screen flex flex-col overflow-hidden">
   
-            {recognitionEnabled && (
-              <div className="px-4 py-4 flex-shrink-0">
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setShowRegistrationDialog(true)}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 disabled:bg-white/[0.05] disabled:text-white/40 backdrop-blur-xl border border-green-500/30 text-green-200 hover:text-green-100 rounded-xl font-light transition-all duration-300"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    <span className="text-sm font-light tracking-wider uppercase">Register Face</span>
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            
-             {/* Face Detection Display - Half of remaining space */}
+            {/* Face Detection Display - Half of remaining space */}
              <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0">
                <div className="flex-1 overflow-y-auto space-y-2 custom-scroll">
             {/* Active Cooldowns - Only show in Auto mode */}
@@ -2436,200 +2273,6 @@ export default function LiveVideo() {
              </div>
            </div>
   
-         {/* Elite Face Registration Dialog */}
-          {showRegistrationDialog && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
-                  <span>🎯 Elite Face Registration</span>
-                  {currentGroup && (
-                    <span className="text-sm bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-                      {getGroupTypeIcon(currentGroup.type)} {currentGroup.name}
-                    </span>
-                  )}
-                </h3>
-  
-                {!currentGroup && (
-                  <div className="mb-4 p-3 bg-yellow-600/20 border border-yellow-500/30 rounded text-yellow-300">
-                    ⚠️ Please select an attendance group first to register faces.
-                  </div>
-                )}
-  
-                {currentGroup && (
-                  <>
-                    {/* Step 1: Select Member or Create New */}
-                    <div className="mb-6">
-                      <h4 className="text-lg font-medium mb-3">Step 1: Select Member</h4>
-  
-                      {/* Existing Members */}
-                      {groupMembers.length > 0 && (
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium mb-2">Existing Members:</label>
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {groupMembers.map((member) => (
-                              <div
-                                key={member.person_id}
-                                className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                                  selectedPersonForRegistration === member.person_id
-                                    ? 'bg-blue-600/30 border border-blue-500/50'
-                                    : 'bg-gray-700 hover:bg-gray-600'
-                                }`}
-                                onClick={() => setSelectedPersonForRegistration(member.person_id)}
-                              >
-                                <div>
-                                  <span className="text-sm font-medium">{member.name}</span>
-                                  {member.role && (
-                                    <span className="text-xs text-blue-300 ml-2">{member.role}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  {/* Face data status indicator */}
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    registeredPersons.some(p => p.person_id === member.person_id)
-                                      ? 'bg-green-500'
-                                      : 'bg-red-500'
-                                  }`} title={
-                                    registeredPersons.some(p => p.person_id === member.person_id)
-                                      ? 'Has face data'
-                                      : 'No face data'
-                                  }></div>
-                                  {selectedPersonForRegistration === member.person_id && (
-                                    <span className="text-xs text-blue-300">✓ Selected</span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-  
-
-                    </div>
-  
-                    {/* Step 2: Face Selection and Validation */}
-                    {selectedPersonForRegistration && currentDetections?.faces && currentDetections.faces.length > 0 && (
-                      <div className="mb-6">
-                        <h4 className="text-lg font-medium mb-3">Step 2: Select & Validate Face</h4>
-                        <div className="space-y-3">
-                          {currentDetections.faces.map((face, index) => {
-                            const isValidForRegistration = face.confidence > 0.8; // Backend handles anti-spoofing
-  
-                            return (
-                              <div
-                                key={index}
-                                className={`p-3 rounded border transition-all ${
-                                  isValidForRegistration
-                                    ? 'bg-green-600/10 border-green-500/30 hover:bg-green-600/20'
-                                    : 'bg-red-600/10 border-red-500/30'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <div className="flex items-center space-x-2">
-                                      <span className="font-medium">Face {index + 1}</span>
-                                      <span className="text-sm text-white/60">
-                                        Confidence: {(face.confidence * 100).toFixed(1)}%
-                                      </span>
-                                      {face.antispoofing && (
-                                        <span className={`text-xs px-2 py-1 rounded ${
-                                          face.antispoofing.status === 'real' ? 'bg-green-900 text-green-300' :
-                                          'bg-red-900 text-red-300'
-                                        }`}>
-                                          {face.antispoofing.status === 'real' ? '✓ Live' : '⚠ Spoof'}
-                                        </span>
-                                      )}
-                                    </div>
-  
-                                    {/* Quality Assessment */}
-                                    <div className="text-xs text-white/60 mt-1">
-                                      Quality: {face.confidence > 0.9 ? '🟢 Excellent' :
-                                               face.confidence > 0.8 ? '🟡 Good' :
-                                               face.confidence > 0.6 ? '🟠 Fair' : '🔴 Poor'}
-                                      {!isValidForRegistration && (
-                                        <span className="text-red-300 ml-2">
-                                          Low quality (minimum 80% required)
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-  
-                                  <button
-                                    onClick={() => handleEliteRegisterFace(index)}
-                                    disabled={!isValidForRegistration}
-                                    className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                                      isValidForRegistration
-                                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                    }`}
-                                  >
-                                    {isValidForRegistration ? '🎯 Register Elite' : '❌ Invalid'}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-  
-                    {/* Step 3: Current Group Registrations */}
-                    <div className="mb-6">
-                      <h4 className="text-lg font-medium mb-3">Step 3: Group Registrations</h4>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {groupMembers.length === 0 ? (
-                          <div className="text-white/50 text-sm text-center py-4">
-                            No members in this group yet.
-                          </div>
-                        ) : (
-                          groupMembers.map((member) => {
-                            const hasRegistration = registeredPersons.some(p => p.person_id === member.person_id);
-                            return (
-                              <div key={member.person_id} className="flex items-center justify-between p-2 bg-gray-700 rounded">
-                                <div>
-                                  <span className="text-sm font-medium">{member.name}</span>
-                                  <span className="text-xs text-white/60 ml-2">({member.person_id})</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    hasRegistration ? 'bg-green-500' : 'bg-red-500'
-                                  }`}></div>
-                                  <span className="text-xs">
-                                    {hasRegistration ? 'Registered' : 'No Face Data'}
-                                  </span>
-                                  {hasRegistration && (
-                                    <button
-                                      onClick={() => handleRemoveGroupPersonFace(member.person_id)}
-                                      className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
-                                    >
-                                      Remove
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-  
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setShowRegistrationDialog(false);
-                      setSelectedPersonForRegistration('');
-                    }}
-                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-                  >
-                    Close
-                  </button>
-
-                </div>
-              </div>
-            </div>
-          )}
-  
           {/* Group Management Modal */}
           {showGroupManagement && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2728,10 +2371,13 @@ export default function LiveVideo() {
   
 
 
-          {/* Attendance Dashboard */}
-          {showAttendanceDashboard && (
+          {/* Command Menu Panel */}
+          {showMenuPanel && (
             <div className="fixed inset-0 z-50">
-              <AttendanceDashboard onBack={() => setShowAttendanceDashboard(false)} />
+              <Menu
+                onBack={() => setShowMenuPanel(false)}
+                initialSection={menuInitialSection}
+              />
             </div>
           )}
   
