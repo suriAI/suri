@@ -2246,10 +2246,10 @@ export default function LiveVideo() {
                 </div>
             </div>
           </div>
-<div className="sidebar h-screen overflow-auto">
+<div className="sidebar h-screen max-h-screen flex flex-col overflow-hidden">
   
             {recognitionEnabled && (
-              <div className="px-4 py-4 border-b border-white/[0.08]">
+              <div className="px-4 py-4 border-b border-white/[0.08] flex-shrink-0">
                 <div className="space-y-2">
                   <button
                     onClick={() => setShowRegistrationDialog(true)}
@@ -2266,7 +2266,7 @@ export default function LiveVideo() {
             
             {/* Active Cooldowns - Always visible */}
             {persistentCooldowns.size > 0 && (
-              <div className="p-4 border-b border-white/[0.08]">
+              <div className="p-4 border-b border-white/[0.08] flex-shrink-0">
                 <div className="text-xs font-medium text-white/60 mb-2">Active Cooldowns:</div>
                 <div className="space-y-1">
                   {Array.from(persistentCooldowns.values()).map((cooldownInfo) => {
@@ -2294,10 +2294,11 @@ export default function LiveVideo() {
               </div>
             )}
             
-             <div className="p-4 border-b border-white/[0.08]">
-               <div className="space-y-2 h-32 max-h-32 overflow-y-auto recent-logs-scroll">
+             {/* Face Detection Display - Half of remaining space */}
+             <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0">
+               <div className="flex-1 overflow-y-auto space-y-2">
                 {!currentDetections?.faces?.length ? (
-                  <div className="text-white/50 text-sm text-center pt-14">
+                  <div className="text-white/50 text-sm text-center flex items-center justify-center h-full">
                     No faces detected
                   </div>
                 ) : (
@@ -2380,41 +2381,42 @@ export default function LiveVideo() {
                </div>
              </div>
   
-             {/* Attendance Management or Recent Logs */}
-             <div className="flex-1 p-4 min-h-0">
+             {/* Attendance Management or Recent Logs - Other half of remaining space */}
+             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                {attendanceEnabled ? (
-                 <>
-                   <div className="space-y-4 h-full overflow-y-auto">
-                     {/* Group Selection */}
-                     {attendanceGroups.length > 0 && (
-                       <div>
-                         <label className="block text-sm font-medium mb-2 text-white/80">Active Group:</label>
-                         <select
-                           value={currentGroup?.id || ''}
-                           onChange={(e) => {
-                             if (e.target.value === 'create-new') {
-                               setShowGroupManagement(true);
-                               return;
-                             }
-                             const group = attendanceGroups.find(g => g.id === e.target.value);
-                             if (group) handleSelectGroup(group);
-                           }}
-                           className="w-full bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
-                         >
-                           <option value="create-new" className="bg-black text-white">
-                             ➕ Create New Group
+                 <div className="flex-1 flex flex-col overflow-hidden">
+                   {/* Fixed Header Section - Active Group Selection */}
+                   {attendanceGroups.length > 0 && (
+                     <div className="p-4 pb-2 border-b border-white/[0.08] flex-shrink-0">
+                       <label className="block text-sm font-medium mb-2 text-white/80">Active Group:</label>
+                       <select
+                         value={currentGroup?.id || ''}
+                         onChange={(e) => {
+                           if (e.target.value === 'create-new') {
+                             setShowGroupManagement(true);
+                             return;
+                           }
+                           const group = attendanceGroups.find(g => g.id === e.target.value);
+                           if (group) handleSelectGroup(group);
+                         }}
+                         className="w-full bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-3 py-2 focus:border-blue-500 focus:outline-none"
+                       >
+                         <option value="create-new" className="bg-black text-white">
+                           ➕ Create New Group
+                         </option>
+                         <option disabled className="bg-black text-gray-500">
+                         </option>
+                         {attendanceGroups.map(group => (
+                           <option key={group.id} value={group.id} className="bg-black text-white">
+                             {getGroupTypeIcon(group.type)} {group.name}
                            </option>
-                           <option disabled className="bg-black text-gray-500">
-                           </option>
-                           {attendanceGroups.map(group => (
-                             <option key={group.id} value={group.id} className="bg-black text-white">
-                               {getGroupTypeIcon(group.type)} {group.name}
-                             </option>
-                           ))}
-                         </select>
-                       </div>
-                     ) }
-  
+                         ))}
+                       </select>
+                     </div>
+                   )}
+                   
+                   {/* Scrollable Content Section */}
+                   <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
                      {/* Manual Confirmation Queue */}
                      {trackingMode === 'manual' && pendingAttendance.length > 0 && (
                        <div>
@@ -2489,7 +2491,7 @@ export default function LiveVideo() {
                      {recentAttendance.length > 0 && (
                        <div>
                          <h4 className="text-sm font-medium mb-2 text-white/80">Log:</h4>
-                         <div className="space-y-1 overflow-y-auto">
+                         <div className="space-y-1">
                            {recentAttendance.slice(0, 10).map(record => {
                              const member = groupMembers.find(m => m.person_id === record.person_id);
                              return (
@@ -2512,33 +2514,31 @@ export default function LiveVideo() {
                        </div>
                      )}
   
-                     {/* No data states */}
-                     {attendanceGroups.length === 0 && (
-                       <div className="text-white/50 text-sm text-center py-4">
-                         No groups created yet. <br /> Click "Create Group" to create one.
+                   </div>
+                   
+                   {/* No data states - Outside scroll area */}
+                   {attendanceGroups.length === 0 && (
+                     <div className="p-4 text-white/50 text-sm text-center flex-shrink-0">
+                       No groups created yet. <br /> Click "Create Group" to create one.
 
-                                                <button
+                       <button
                          onClick={() => setShowGroupManagement(true)}
-                         className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded text-xs transition-colors"
+                         className="mt-2 px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded text-xs transition-colors"
                        >
                          Create Group
                        </button>
-                       </div>
-                       
-                     )}
-  
-
-                   </div>
-                 </>
+                     </div>
+                   )}
+                 </div>
                ) : (
-                 <>
-                   <h3 className="text-lg font-light mb-4">Recent Logs</h3>
-                   <div className="space-y-2 h-full overflow-y-auto recent-logs-scroll">
+                 <div className="flex-1 flex flex-col overflow-hidden">
+                   <h3 className="text-lg font-light px-4 pt-4 pb-2 flex-shrink-0">Recent Logs</h3>
+                   <div className="flex-1 px-4 pb-4 overflow-y-auto space-y-2 min-h-0">
                      <div className="text-white/50 text-sm text-center py-4">
                        No logs yet
                      </div>
                    </div>
-                 </>
+                 </div>
                )}
              </div>
            </div>
