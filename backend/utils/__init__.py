@@ -15,6 +15,7 @@ from .image_utils import (
     draw_detection_info
 )
 from .websocket_manager import manager, ConnectionManager, handle_websocket_message
+from .quality_validator import PhotoQualityValidator, validate_photo_quality
 
 __all__ = [
     "decode_base64_image",
@@ -27,5 +28,7 @@ __all__ = [
     "draw_detection_info",
     "manager",
     "ConnectionManager",
-    "handle_websocket_message"
+    "handle_websocket_message",
+    "PhotoQualityValidator",
+    "validate_photo_quality"
 ]

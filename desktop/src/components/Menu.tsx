@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { attendanceManager } from '../services/AttendanceManager';
 import { FaceRegistrationLab } from './FaceRegistrationLab';
+import { BulkFaceRegistration } from './BulkFaceRegistration';
+import { AssistedCameraRegistration } from './AssistedCameraRegistration';
 import type {
   AttendanceGroup,
   AttendanceMember,
@@ -91,6 +93,8 @@ export function Menu({ onBack, initialSection }: MenuProps) {
   const [bulkResults, setBulkResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('');
+  const [showBulkRegistration, setShowBulkRegistration] = useState(false);
+  const [showCameraQueue, setShowCameraQueue] = useState(false);
 
   const loading = pendingTasks > 0;
   const selectedGroupRef = useRef<AttendanceGroup | null>(null);
@@ -862,6 +866,22 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                   <h2 className="text-2xl font-semibold">Face registration</h2>
                   <p className="text-white/60 text-sm">Capture and update face data for group members.</p>
                 </div>
+                {selectedGroup && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowBulkRegistration(true)}
+                      className="px-4 py-2 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-100 hover:bg-purple-500/30 transition-colors text-sm"
+                    >
+                      � Bulk Upload
+                    </button>
+                    <button
+                      onClick={() => setShowCameraQueue(true)}
+                      className="px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm"
+                    >
+                      🎥 Camera Queue
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
@@ -1163,6 +1183,34 @@ export function Menu({ onBack, initialSection }: MenuProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Registration Modal */}
+      {showBulkRegistration && selectedGroup && (
+        <BulkFaceRegistration
+          group={selectedGroup}
+          members={members}
+          onRefresh={() => {
+            if (selectedGroup) {
+              void fetchGroupDetails(selectedGroup.id);
+            }
+          }}
+          onClose={() => setShowBulkRegistration(false)}
+        />
+      )}
+
+      {/* Assisted Camera Queue Modal */}
+      {showCameraQueue && selectedGroup && (
+        <AssistedCameraRegistration
+          group={selectedGroup}
+          members={members}
+          onRefresh={() => {
+            if (selectedGroup) {
+              void fetchGroupDetails(selectedGroup.id);
+            }
+          }}
+          onClose={() => setShowCameraQueue(false)}
+        />
       )}
     </div>
   );

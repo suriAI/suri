@@ -28,7 +28,7 @@ from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
 from utils.attendance_database import AttendanceDatabaseManager
 from routes import attendance
-from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_CONFIG, ANTISPOOFING_V2_CONFIG, ANTISPOOFING_V1SE_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS
+from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_CONFIG, ANTISPOOFING_V2_CONFIG, ANTISPOOFING_V1SE_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS, CORS_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -41,13 +41,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS - Use configuration from config.py
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_CONFIG["allow_origins"],
+    allow_credentials=CORS_CONFIG["allow_credentials"],
+    allow_methods=CORS_CONFIG["allow_methods"],
+    allow_headers=CORS_CONFIG["allow_headers"],
+    expose_headers=CORS_CONFIG.get("expose_headers", []),
 )
 
 # WebSocket manager is imported as 'manager' from utils.websocket_manager

@@ -773,7 +773,10 @@ async def get_group_persons(
         members = db.get_group_members(group_id)
         
         # For each member, get their face recognition data if available
-        from main import edgeface_detector
+        import sys
+        main_module = sys.modules.get('main')
+        edgeface_detector = main_module.edgeface_detector if main_module and hasattr(main_module, 'edgeface_detector') else None
+        
         if not edgeface_detector:
             return [{"person_id": member["person_id"], "name": member["name"], "has_face_data": False} for member in members]
         
@@ -811,8 +814,11 @@ async def register_face_for_group_person(
     """Register face data for a specific person in a group with anti-duplicate protection"""
     try:
         # Import required modules
-        from main import edgeface_detector
+        import sys
         from utils.image_utils import decode_base64_image
+        
+        main_module = sys.modules.get('main')
+        edgeface_detector = main_module.edgeface_detector if main_module and hasattr(main_module, 'edgeface_detector') else None
         
         if not edgeface_detector:
             raise HTTPException(status_code=500, detail="Face recognition system not available")
@@ -884,7 +890,9 @@ async def remove_face_data_for_group_person(
 ):
     """Remove face data for a specific person in a group"""
     try:
-        from main import edgeface_detector
+        import sys
+        main_module = sys.modules.get('main')
+        edgeface_detector = main_module.edgeface_detector if main_module and hasattr(main_module, 'edgeface_detector') else None
         
         if not edgeface_detector:
             raise HTTPException(status_code=500, detail="Face recognition system not available")
@@ -1007,3 +1015,323 @@ def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
         "average_hours_today": round(average_hours, 2),
         "total_hours_today": round(total_hours, 2)
     }
+
+
+# ============================================================================
+# BULK REGISTRATION ENDPOINTS
+# ============================================================================
+
+@router.post("/groups/{group_id}/bulk-detect-faces")
+async def bulk_detect_faces(
+    group_id: str,
+    request: dict
+):
+    """
+    Detect faces in multiple uploaded images for bulk registration
+    Returns detected faces with bounding boxes and quality scores
+    """
+    logger.info(f"[BULK-DETECT] Request received for group {group_id}")
+    logger.info(f"[BULK-DETECT] Request data keys: {list(request.keys())}")
+    
+    try:
+        # Import inside function to avoid circular import
+        import sys
+        logger.info("[BULK-DETECT] Importing yunet_detector from main module")
+        main_module = sys.modules.get('main')
+        
+        if not main_module:
+            logger.error("[BULK-DETECT] Main module not found in sys.modules")
+            raise HTTPException(status_code=500, detail="Face detection system not initialized - main module missing")
+        
+        if not hasattr(main_module, 'yunet_detector'):
+            logger.error("[BULK-DETECT] yunet_detector attribute not found in main module")
+            raise HTTPException(status_code=500, detail="Face detection system not initialized - yunet_detector missing")
+        
+        yunet_detector = main_module.yunet_detector
+        
+        from utils.image_utils import decode_base64_image
+        from utils.quality_validator import validate_photo_quality
+        
+        logger.info(f"[BULK-DETECT] YuNet detector available: {yunet_detector is not None}")
+        
+        if not yunet_detector:
+            logger.error("[BULK-DETECT] yunet_detector is None")
+            raise HTTPException(status_code=500, detail="Face detection system not available")
+        
+        # Get attendance database
+        attendance_db = get_attendance_db()
+        
+        # Verify group exists
+        group = attendance_db.get_group(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        
+        # Get images from request
+        images_data = request.get("images", [])
+        if not images_data:
+            raise HTTPException(status_code=400, detail="No images provided")
+        
+        if len(images_data) > 50:
+            raise HTTPException(status_code=400, detail="Maximum 50 images allowed per request")
+        
+        results = []
+        
+        for idx, image_data in enumerate(images_data):
+            try:
+                # Decode image
+                image_base64 = image_data.get("image")
+                image_id = image_data.get("id", f"image_{idx}")
+                
+                if not image_base64:
+                    results.append({
+                        "image_id": image_id,
+                        "success": False,
+                        "error": "No image data provided",
+                        "faces": []
+                    })
+                    continue
+                
+                image = decode_base64_image(image_base64)
+                
+                # Detect faces
+                detections = await yunet_detector.detect_async(image)
+                
+                if not detections or len(detections) == 0:
+                    results.append({
+                        "image_id": image_id,
+                        "success": True,
+                        "faces": [],
+                        "message": "No faces detected"
+                    })
+                    continue
+                
+                # Process each detected face with quality validation
+                processed_faces = []
+                for face in detections:
+                    bbox = face.get("bbox")
+                    landmarks = face.get("landmarks")  # YuNet returns "landmarks" not "landmarks_5"
+                    
+                    if not bbox:
+                        continue
+                    
+                    # Validate photo quality
+                    quality_result = validate_photo_quality(image, bbox, landmarks)
+                    
+                    processed_faces.append({
+                        "bbox": bbox,
+                        "landmarks_5": landmarks,  # Rename to landmarks_5 for frontend compatibility
+                        "confidence": face.get("confidence", 0.0),
+                        "quality_score": quality_result.get("quality_score", 0.0),
+                        "quality_checks": quality_result.get("checks", {}),
+                        "is_acceptable": quality_result.get("is_acceptable", False),
+                        "suggestions": quality_result.get("suggestions", [])
+                    })
+                
+                results.append({
+                    "image_id": image_id,
+                    "success": True,
+                    "faces": processed_faces,
+                    "total_faces": len(processed_faces)
+                })
+                
+            except Exception as e:
+                logger.error(f"Error processing image {idx}: {e}")
+                results.append({
+                    "image_id": image_data.get("id", f"image_{idx}"),
+                    "success": False,
+                    "error": str(e),
+                    "faces": []
+                })
+        
+        return {
+            "success": True,
+            "group_id": group_id,
+            "total_images": len(images_data),
+            "results": results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk face detection: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/groups/{group_id}/bulk-register-faces")
+async def bulk_register_faces(
+    group_id: str,
+    request: dict
+):
+    """
+    Bulk register faces for multiple members in a group
+    Processes multiple faces in a single batch for efficiency
+    """
+    try:
+        import sys
+        from utils.image_utils import decode_base64_image
+        from utils.quality_validator import validate_photo_quality
+        
+        main_module = sys.modules.get('main')
+        edgeface_detector = main_module.edgeface_detector if main_module and hasattr(main_module, 'edgeface_detector') else None
+        
+        if not edgeface_detector:
+            raise HTTPException(status_code=500, detail="Face recognition system not available")
+        
+        # Get attendance database
+        attendance_db = get_attendance_db()
+        
+        # Verify group exists
+        group = attendance_db.get_group(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        
+        # Get registrations from request
+        registrations = request.get("registrations", [])
+        if not registrations:
+            raise HTTPException(status_code=400, detail="No registrations provided")
+        
+        if len(registrations) > 50:
+            raise HTTPException(status_code=400, detail="Maximum 50 registrations allowed per request")
+        
+        # Track results
+        success_count = 0
+        failed_count = 0
+        results = []
+        
+        # Process each registration
+        for idx, reg_data in enumerate(registrations):
+            try:
+                person_id = reg_data.get("person_id")
+                image_base64 = reg_data.get("image")
+                bbox = reg_data.get("bbox")
+                landmarks_5 = reg_data.get("landmarks_5")
+                
+                # Validate required fields
+                if not person_id:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": None,
+                        "success": False,
+                        "error": "person_id is required"
+                    })
+                    continue
+                
+                if not image_base64:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": False,
+                        "error": "image data is required"
+                    })
+                    continue
+                
+                if not bbox:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": False,
+                        "error": "bbox is required"
+                    })
+                    continue
+                
+                # Verify member exists and belongs to group
+                member = attendance_db.get_member(person_id)
+                if not member:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": False,
+                        "error": "Member not found"
+                    })
+                    continue
+                
+                if member["group_id"] != group_id:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": False,
+                        "error": "Member does not belong to this group"
+                    })
+                    continue
+                
+                # Decode image
+                try:
+                    image = decode_base64_image(image_base64)
+                except Exception as e:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": False,
+                        "error": f"Invalid image data: {str(e)}"
+                    })
+                    continue
+                
+                # Optional: Validate photo quality if requested
+                skip_quality_check = reg_data.get("skip_quality_check", False)
+                if not skip_quality_check:
+                    quality_result = validate_photo_quality(image, bbox, landmarks_5)
+                    if not quality_result.get("is_acceptable", False):
+                        # Still allow registration but warn
+                        quality_warning = quality_result.get("suggestions", ["Photo quality could be better"])[0]
+                    else:
+                        quality_warning = None
+                else:
+                    quality_warning = None
+                
+                # Register the face
+                result = await edgeface_detector.register_person_async(
+                    person_id,
+                    image,
+                    bbox,
+                    landmarks_5
+                )
+                
+                if result.get("success"):
+                    success_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": True,
+                        "quality_warning": quality_warning,
+                        "member_name": member.get("name", "")
+                    })
+                else:
+                    failed_count += 1
+                    results.append({
+                        "index": idx,
+                        "person_id": person_id,
+                        "success": False,
+                        "error": result.get("error", "Registration failed")
+                    })
+                
+            except Exception as e:
+                logger.error(f"Error processing registration {idx}: {e}")
+                failed_count += 1
+                results.append({
+                    "index": idx,
+                    "person_id": reg_data.get("person_id"),
+                    "success": False,
+                    "error": str(e)
+                })
+        
+        return {
+            "success": True,
+            "group_id": group_id,
+            "group_name": group.get("name", ""),
+            "total_registrations": len(registrations),
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "results": results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk face registration: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
