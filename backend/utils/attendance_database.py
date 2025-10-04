@@ -91,10 +91,6 @@ class AttendanceDatabaseManager:
                         person_id TEXT NOT NULL,
                         group_id TEXT NOT NULL,
                         date TEXT NOT NULL,
-                        check_in TIMESTAMP,
-                        check_out TIMESTAMP,
-                        break_start TIMESTAMP,
-                        break_end TIMESTAMP,
                         total_hours REAL,
                         break_duration REAL,
                         status TEXT NOT NULL DEFAULT 'absent',
@@ -504,19 +500,14 @@ class AttendanceDatabaseManager:
                     
                     cursor.execute("""
                         INSERT OR REPLACE INTO attendance_sessions 
-                        (id, person_id, group_id, date, check_in, check_out, 
-                         break_start, break_end, total_hours, break_duration,
+                        (id, person_id, group_id, date, total_hours, break_duration,
                          status, is_late, late_minutes, notes)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         session_data['id'],
                         session_data['person_id'],
                         session_data['group_id'],
                         session_data['date'],
-                        session_data.get('check_in'),
-                        session_data.get('check_out'),
-                        session_data.get('break_start'),
-                        session_data.get('break_end'),
                         session_data.get('total_hours'),
                         session_data.get('break_duration'),
                         session_data['status'],

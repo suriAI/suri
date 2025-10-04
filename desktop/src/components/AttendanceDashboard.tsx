@@ -513,30 +513,6 @@ export function AttendanceDashboard({ onBack }: AttendanceDashboardProps) {
                                     </div>
                                     
                                     <div className="grid grid-cols-2 gap-4 text-sm">
-                                      {session.check_in && (
-                                        <div>
-                                          <span className="text-white/60">Check In:</span>
-                                          <span className="ml-2 font-mono">{formatTime(session.check_in)}</span>
-                                        </div>
-                                      )}
-                                      {session.check_out && (
-                                        <div>
-                                          <span className="text-white/60">Check Out:</span>
-                                          <span className="ml-2 font-mono">{formatTime(session.check_out)}</span>
-                                        </div>
-                                      )}
-                                      {session.break_start && (
-                                        <div>
-                                          <span className="text-white/60">Break Start:</span>
-                                          <span className="ml-2 font-mono">{formatTime(session.break_start)}</span>
-                                        </div>
-                                      )}
-                                      {session.break_end && (
-                                        <div>
-                                          <span className="text-white/60">Break End:</span>
-                                          <span className="ml-2 font-mono">{formatTime(session.break_end)}</span>
-                                        </div>
-                                      )}
                                       {session.total_hours && (
                                         <div>
                                           <span className="text-white/60">Total Hours:</span>

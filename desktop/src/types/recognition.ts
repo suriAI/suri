@@ -150,10 +150,6 @@ export interface AttendanceSession {
   person_id: string;
   group_id: string;
   date: string; // YYYY-MM-DD format
-  check_in?: Date;
-  check_out?: Date;
-  break_start?: Date;
-  break_end?: Date;
   total_hours?: number;
   break_duration?: number;
   status: AttendanceStatus;

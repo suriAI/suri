@@ -114,10 +114,6 @@ class AttendanceSessionResponse(BaseModel):
     person_id: str
     group_id: str
     date: str  # YYYY-MM-DD format
-    check_in: Optional[datetime]
-    check_out: Optional[datetime]
-    break_start: Optional[datetime]
-    break_end: Optional[datetime]
     total_hours: Optional[float]
     break_duration: Optional[float]
     status: AttendanceStatus

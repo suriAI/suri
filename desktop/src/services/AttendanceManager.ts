@@ -463,13 +463,7 @@ export class AttendanceManager {
       if (filters?.end_date) params.end_date = filters.end_date;
 
       const sessions = await this.httpClient.get<AttendanceSession[]>(API_ENDPOINTS.sessions, params);
-      return sessions.map(session => ({
-        ...session,
-        check_in: session.check_in ? new Date(session.check_in) : undefined,
-        check_out: session.check_out ? new Date(session.check_out) : undefined,
-        break_start: session.break_start ? new Date(session.break_start) : undefined,
-        break_end: session.break_end ? new Date(session.break_end) : undefined
-      }));
+      return sessions;
     } catch (error) {
       console.error('Error getting sessions:', error);
       return [];
