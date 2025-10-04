@@ -2222,6 +2222,10 @@ export default function LiveVideo() {
               </div>
             )}
             
+            
+             {/* Face Detection Display - Half of remaining space */}
+             <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0">
+               <div className="flex-1 overflow-y-auto space-y-2">
             {/* Active Cooldowns - Always visible */}
             {persistentCooldowns.size > 0 && (
               <div className="p-4 border-b border-white/[0.08] flex-shrink-0">
@@ -2251,10 +2255,6 @@ export default function LiveVideo() {
                 </div>
               </div>
             )}
-            
-             {/* Face Detection Display - Half of remaining space */}
-             <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0">
-               <div className="flex-1 overflow-y-auto space-y-2">
                 {!currentDetections?.faces?.length ? (
                   <div className="text-white/50 text-sm text-center flex items-center justify-center h-full">
                     No faces detected
