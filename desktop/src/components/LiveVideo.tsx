@@ -483,74 +483,6 @@ export default function LiveVideo() {
               );
 
               if (!shouldSkipAttendanceLogging) {
-                // Check cooldown to prevent duplicate attendance logging
-                // Use person_id as key so cooldown persists across track_id changes
-                const currentTime = Date.now();
-                const cooldownKey = response.person_id;
-                const cooldownMs = attendanceCooldownSeconds * 1000;
-
-                // CRITICAL: Use ref for synchronous check to avoid race conditions
-                const lastAttendanceTime = cooldownTimestampsRef.current.get(cooldownKey) || 0;
-                const timeSinceLastAttendance = currentTime - lastAttendanceTime;
-
-                if (timeSinceLastAttendance < cooldownMs) {
-                  const remainingCooldown = Math.ceil((cooldownMs - timeSinceLastAttendance) / 1000);
-
-                  // Update lastKnownBbox in persistentCooldowns for display even when face disappears
-                  setPersistentCooldowns(prev => {
-                    const newPersistent = new Map(prev);
-                    const existing = newPersistent.get(cooldownKey);
-                    if (existing) {
-                      newPersistent.set(cooldownKey, {
-                        ...existing,
-                        lastKnownBbox: face.bbox
-                      });
-                      return newPersistent;
-                    }
-                    return prev;
-                  });
-
-                  // Update the tracked face with cooldown info for overlay display using track_id
-                  setTrackedFaces(prev => {
-                    const newTracked = new Map(prev);
-                    const trackKey = `track_${face.track_id}`;
-                    if (newTracked.has(trackKey)) {
-                      newTracked.set(trackKey, {
-                        ...newTracked.get(trackKey)!,
-                        cooldownRemaining: remainingCooldown
-                      });
-                    }
-                    return newTracked;
-                  });
-
-                  // Use trackId instead of index for stable mapping
-                  return { trackId, result: { ...response, name: memberName, memberName, cooldownRemaining: remainingCooldown } };
-                }
-
-
-                // CRITICAL FIX: Set cooldown SYNCHRONOUSLY in ref FIRST to block immediate subsequent frames
-                // Then update state for visual display
-                const logTime = Date.now();
-                cooldownTimestampsRef.current.set(cooldownKey, logTime); // SYNC update - immediate effect!
-
-                setAttendanceCooldowns(prev => {
-                  const newCooldowns = new Map(prev);
-                  newCooldowns.set(cooldownKey, logTime);
-                  return newCooldowns;
-                });
-
-                // Add persistent cooldown for visual display using person_id as key
-                setPersistentCooldowns(prev => {
-                  const newPersistent = new Map(prev);
-                  newPersistent.set(cooldownKey, {
-                    personId: response.person_id!,
-                    startTime: logTime,
-                    memberName: memberName,
-                    lastKnownBbox: face.bbox
-                  });
-                  return newPersistent;
-                });
-
                 try {
                   // Note: Group validation is now done at recognition level
                   // Backend handles all confidence thresholding - frontend processes all valid responses
@@ -559,6 +491,73 @@ export default function LiveVideo() {
                   // Anti-spoofing validation is handled by optimized backend
 
                   if (trackingMode === 'auto') {
+                    // AUTO MODE: Check cooldown to prevent duplicate attendance logging
+                    // Use person_id as key so cooldown persists across track_id changes
+                    const currentTime = Date.now();
+                    const cooldownKey = response.person_id;
+                    const cooldownMs = attendanceCooldownSeconds * 1000;
+
+                    // CRITICAL: Use ref for synchronous check to avoid race conditions
+                    const lastAttendanceTime = cooldownTimestampsRef.current.get(cooldownKey) || 0;
+                    const timeSinceLastAttendance = currentTime - lastAttendanceTime;
+
+                    if (timeSinceLastAttendance < cooldownMs) {
+                      const remainingCooldown = Math.ceil((cooldownMs - timeSinceLastAttendance) / 1000);
+
+                      // Update lastKnownBbox in persistentCooldowns for display even when face disappears
+                      setPersistentCooldowns(prev => {
+                        const newPersistent = new Map(prev);
+                        const existing = newPersistent.get(cooldownKey);
+                        if (existing) {
+                          newPersistent.set(cooldownKey, {
+                            ...existing,
+                            lastKnownBbox: face.bbox
+                          });
+                          return newPersistent;
+                        }
+                        return prev;
+                      });
+
+                      // Update the tracked face with cooldown info for overlay display using track_id
+                      setTrackedFaces(prev => {
+                        const newTracked = new Map(prev);
+                        const trackKey = `track_${face.track_id}`;
+                        if (newTracked.has(trackKey)) {
+                          newTracked.set(trackKey, {
+                            ...newTracked.get(trackKey)!,
+                            cooldownRemaining: remainingCooldown
+                          });
+                        }
+                        return newTracked;
+                      });
+
+                      // Use trackId instead of index for stable mapping
+                      return { trackId, result: { ...response, name: memberName, memberName, cooldownRemaining: remainingCooldown } };
+                    }
+
+                    // CRITICAL FIX: Set cooldown SYNCHRONOUSLY in ref FIRST to block immediate subsequent frames
+                    // Then update state for visual display
+                    const logTime = Date.now();
+                    cooldownTimestampsRef.current.set(cooldownKey, logTime); // SYNC update - immediate effect!
+
+                    setAttendanceCooldowns(prev => {
+                      const newCooldowns = new Map(prev);
+                      newCooldowns.set(cooldownKey, logTime);
+                      return newCooldowns;
+                    });
+
+                    // Add persistent cooldown for visual display using person_id as key
+                    setPersistentCooldowns(prev => {
+                      const newPersistent = new Map(prev);
+                      newPersistent.set(cooldownKey, {
+                        personId: response.person_id!,
+                        startTime: logTime,
+                        memberName: memberName,
+                        lastKnownBbox: face.bbox
+                      });
+                      return newPersistent;
+                    });
+                    
                     // AUTO MODE: Process attendance event immediately
                     try {
                       const attendanceEvent = await attendanceManager.processAttendanceEvent(
@@ -2226,8 +2225,8 @@ export default function LiveVideo() {
              {/* Face Detection Display - Half of remaining space */}
              <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0">
                <div className="flex-1 overflow-y-auto space-y-2">
-            {/* Active Cooldowns - Always visible */}
-            {persistentCooldowns.size > 0 && (
+            {/* Active Cooldowns - Only show in Auto mode */}
+            {trackingMode === 'auto' && persistentCooldowns.size > 0 && (
               <div className="p-4 border-b border-white/[0.08] flex-shrink-0">
                 <div className="text-xs font-medium text-white/60 mb-2">Active Cooldowns:</div>
                 <div className="space-y-1">
