@@ -85,10 +85,12 @@ export function Menu({ onBack, initialSection }: MenuProps) {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<AttendanceMember | null>(null);
+  const [bulkMembersText, setBulkMembersText] = useState('');
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('');
-  const [newMemberEmployeeId, setNewMemberEmployeeId] = useState('');
-  const [newMemberStudentId, setNewMemberStudentId] = useState('');
 
   const loading = pendingTasks > 0;
   const selectedGroupRef = useRef<AttendanceGroup | null>(null);
@@ -258,8 +260,9 @@ export function Menu({ onBack, initialSection }: MenuProps) {
   const resetMemberForm = () => {
     setNewMemberName('');
     setNewMemberRole('');
-    setNewMemberEmployeeId('');
-    setNewMemberStudentId('');
+    setBulkMembersText('');
+    setBulkResults(null);
+    setIsBulkMode(false);
   };
 
   const handleAddMember = async () => {
@@ -270,9 +273,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
     await trackAsync(async () => {
       try {
         await attendanceManager.addMember(selectedGroup.id, newMemberName.trim(), {
-          role: newMemberRole.trim() || undefined,
-          employee_id: newMemberEmployeeId.trim() || undefined,
-          student_id: newMemberStudentId.trim() || undefined
+          role: newMemberRole.trim() || undefined
         });
         resetMemberForm();
         setShowAddMemberModal(false);
@@ -284,6 +285,70 @@ export function Menu({ onBack, initialSection }: MenuProps) {
     });
   };
 
+  const handleBulkAddMembers = async () => {
+    if (!selectedGroup || !bulkMembersText.trim()) {
+      return;
+    }
+
+    setIsProcessingBulk(true);
+    setBulkResults(null);
+
+    await trackAsync(async () => {
+      try {
+        const lines = bulkMembersText.split('\n').filter(line => line.trim());
+        let success = 0;
+        let failed = 0;
+        const errors: string[] = [];
+
+        for (const line of lines) {
+          const parts = line.split(',').map(p => p.trim());
+          const name = parts[0];
+          const role = parts[1] || '';
+
+          if (!name) {
+            failed++;
+            errors.push(`Empty name in line: "${line}"`);
+            continue;
+          }
+
+          try {
+            await attendanceManager.addMember(selectedGroup.id, name, {
+              role: role || undefined
+            });
+            success++;
+          } catch (err) {
+            failed++;
+            errors.push(`Failed to add "${name}": ${err instanceof Error ? err.message : 'Unknown error'}`);
+          }
+        }
+
+        setBulkResults({ success, failed, errors });
+        await fetchGroupDetails(selectedGroup.id);
+
+        if (failed === 0) {
+          setTimeout(() => {
+            resetMemberForm();
+            setShowAddMemberModal(false);
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Error bulk adding members:', err);
+        setError(err instanceof Error ? err.message : 'Failed to bulk add members');
+      } finally {
+        setIsProcessingBulk(false);
+      }
+    });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const text = await file.text();
+      setBulkMembersText(text);
+    } catch {
+      setError('Failed to read file. Please ensure it\'s a valid text or CSV file.');
+    }
+  };
+
   const handleEditMember = async () => {
     if (!editingMember || !newMemberName.trim()) {
       return;
@@ -293,9 +358,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
       try {
         const updates: Partial<AttendanceMember> = {
           name: newMemberName.trim(),
-          role: newMemberRole.trim() || undefined,
-          employee_id: newMemberEmployeeId.trim() || undefined,
-          student_id: newMemberStudentId.trim() || undefined
+          role: newMemberRole.trim() || undefined
         };
 
         await attendanceManager.updateMember(editingMember.person_id, updates);
@@ -337,8 +400,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
     setEditingMember(member);
     setNewMemberName(member.name);
     setNewMemberRole(member.role || '');
-    setNewMemberEmployeeId(member.employee_id || '');
-    setNewMemberStudentId(member.student_id || '');
     setShowEditMemberModal(true);
   };
 
@@ -905,67 +966,151 @@ export function Menu({ onBack, initialSection }: MenuProps) {
 
       {showAddMemberModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50 px-4">
-          <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-lg shadow-[0_40px_80px_rgba(0,0,0,0.6)]">
-            <h3 className="text-xl font-semibold mb-4">Add member</h3>
-            <div className="grid gap-4">
-              <label className="text-sm">
-                <span className="text-white/60 block mb-2">Full name *</span>
-                <input
-                  type="text"
-                  value={newMemberName}
-                  onChange={event => setNewMemberName(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="Enter full name"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-white/60 block mb-2">Role</span>
-                <input
-                  type="text"
-                  value={newMemberRole}
-                  onChange={event => setNewMemberRole(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="e.g. Staff, Student"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-white/60 block mb-2">Employee ID</span>
-                <input
-                  type="text"
-                  value={newMemberEmployeeId}
-                  onChange={event => setNewMemberEmployeeId(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="Optional"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-white/60 block mb-2">Student ID</span>
-                <input
-                  type="text"
-                  value={newMemberStudentId}
-                  onChange={event => setNewMemberStudentId(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="Optional"
-                />
-              </label>
+          <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-2xl shadow-[0_40px_80px_rgba(0,0,0,0.6)] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-2">Add Members</h3>
+            <p className="text-sm text-white/60 mb-4">Add one or multiple members to the group</p>
+            
+            {/* Tab selector */}
+            <div className="flex gap-2 mb-4 border-b border-white/10 pb-2">
+              <button
+                onClick={() => {
+                  setIsBulkMode(false);
+                  setBulkMembersText('');
+                }}
+                className={`px-4 py-2 text-sm rounded-lg transition ${
+                  !isBulkMode ? 'bg-blue-500/20 text-blue-200' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Single Member
+              </button>
+              <button
+                onClick={() => {
+                  setIsBulkMode(true);
+                  setNewMemberName('');
+                  setNewMemberRole('');
+                }}
+                className={`px-4 py-2 text-sm rounded-lg transition ${
+                  isBulkMode ? 'bg-blue-500/20 text-blue-200' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Bulk Add
+              </button>
             </div>
+
+            {/* Single Member Form */}
+            {!isBulkMode && (
+              <div className="grid gap-4">
+                <label className="text-sm">
+                  <span className="text-white/60 block mb-2">Full name *</span>
+                  <input
+                    type="text"
+                    value={newMemberName}
+                    onChange={event => setNewMemberName(event.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                    placeholder="Enter full name"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="text-white/60 block mb-2">Role (optional)</span>
+                  <input
+                    type="text"
+                    value={newMemberRole}
+                    onChange={event => setNewMemberRole(event.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                    placeholder="e.g. Staff, Student, Teacher"
+                  />
+                </label>
+              </div>
+            )}
+
+            {/* Bulk Add Form */}
+            {isBulkMode && (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-white/60">Upload CSV/TXT file or paste below</span>
+                    <label className="px-3 py-1 text-xs rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-200 hover:bg-blue-500/30 cursor-pointer transition">
+                      📁 Upload File
+                      <input
+                        type="file"
+                        accept=".txt,.csv"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleFileUpload(file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <textarea
+                    value={bulkMembersText}
+                    onChange={event => setBulkMembersText(event.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/60 font-mono text-sm min-h-[200px]"
+                    placeholder="Enter one member per line. Format:&#10;Name, Role (optional)&#10;&#10;Example:&#10;John Doe, Student&#10;Jane Smith, Teacher&#10;Bob Johnson"
+                  />
+                  <div className="mt-2 text-xs text-white/50">
+                    Format: <span className="text-white/70 font-mono">Name, Role</span> (one per line, role is optional)
+                  </div>
+                </div>
+
+                {/* Bulk Results */}
+                {bulkResults && (
+                  <div className={`rounded-xl border p-3 ${
+                    bulkResults.failed === 0 
+                      ? 'border-emerald-500/40 bg-emerald-500/10' 
+                      : 'border-yellow-500/40 bg-yellow-500/10'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold">
+                        {bulkResults.failed === 0 ? '✓ Success!' : '⚠ Partial Success'}
+                      </span>
+                      <span className="text-xs">
+                        {bulkResults.success} added, {bulkResults.failed} failed
+                      </span>
+                    </div>
+                    {bulkResults.errors.length > 0 && (
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                        {bulkResults.errors.map((err, idx) => (
+                          <div key={idx} className="text-xs text-red-200 bg-red-500/10 rounded px-2 py-1">
+                            {err}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => {
                   resetMemberForm();
                   setShowAddMemberModal(false);
                 }}
-                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-sm"
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleAddMember}
-                disabled={!newMemberName.trim() || loading}
-                className="px-4 py-2 rounded-full bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
-              >
-                {loading ? 'Adding…' : 'Add member'}
-              </button>
+              {!isBulkMode ? (
+                <button
+                  onClick={handleAddMember}
+                  disabled={!newMemberName.trim() || loading}
+                  className="px-4 py-2 rounded-xl bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
+                >
+                  {loading ? 'Adding…' : 'Add Member'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => void handleBulkAddMembers()}
+                  disabled={!bulkMembersText.trim() || isProcessingBulk}
+                  className="px-4 py-2 rounded-xl bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
+                >
+                  {isProcessingBulk ? 'Processing…' : `Add Members`}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -982,38 +1127,18 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                   type="text"
                   value={newMemberName}
                   onChange={event => setNewMemberName(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
                   placeholder="Enter full name"
                 />
               </label>
               <label className="text-sm">
-                <span className="text-white/60 block mb-2">Role</span>
+                <span className="text-white/60 block mb-2">Role (optional)</span>
                 <input
                   type="text"
                   value={newMemberRole}
                   onChange={event => setNewMemberRole(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="e.g. Staff, Student"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-white/60 block mb-2">Employee ID</span>
-                <input
-                  type="text"
-                  value={newMemberEmployeeId}
-                  onChange={event => setNewMemberEmployeeId(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="Optional"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="text-white/60 block mb-2">Student ID</span>
-                <input
-                  type="text"
-                  value={newMemberStudentId}
-                  onChange={event => setNewMemberStudentId(event.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
-                  placeholder="Optional"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-blue-500/60"
+                  placeholder="e.g. Staff, Student, Teacher"
                 />
               </label>
             </div>
@@ -1024,14 +1149,14 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                   setEditingMember(null);
                   setShowEditMemberModal(false);
                 }}
-                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-sm"
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEditMember}
                 disabled={!newMemberName.trim() || loading}
-                className="px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-sm disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-sm disabled:opacity-50"
               >
                 {loading ? 'Saving…' : 'Save changes'}
               </button>
