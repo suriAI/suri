@@ -8,6 +8,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { backendService } from '../services/BackendService';
+import { attendanceManager } from '../services/AttendanceManager';
+import type { AttendanceGroup } from '../types/recognition';
 
 // Quick Settings Interface
 export interface QuickSettings {
@@ -38,11 +40,20 @@ interface SettingsProps {
   isModal?: boolean;
   quickSettings?: QuickSettings;
   onQuickSettingsChange?: (settings: QuickSettings) => void;
+  attendanceGroup?: AttendanceGroup; // Optional attendance group for settings
+  onAttendanceGroupUpdate?: () => void; // Callback when group is updated
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, quickSettings: externalQuickSettings, onQuickSettingsChange }) => {
+export const Settings: React.FC<SettingsProps> = ({ 
+  onBack, 
+  isModal = false, 
+  quickSettings: externalQuickSettings, 
+  onQuickSettingsChange,
+  attendanceGroup,
+  onAttendanceGroupUpdate
+}) => {
   // State management
-  const [activeView, setActiveView] = useState<'quick' | 'overview' | 'people' | 'search' | 'advanced' | 'maintenance'>('quick');
+  const [activeView, setActiveView] = useState<'quick' | 'overview' | 'people' | 'search' | 'advanced' | 'maintenance' | 'attendance'>('quick');
   const [systemData, setSystemData] = useState<SettingsOverview>({
     totalPersons: 0,
     totalEmbeddings: 0,
@@ -55,6 +66,9 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, qui
   const [allPersons, setAllPersons] = useState<PersonDetails[]>([]);
   const [editingPerson, setEditingPerson] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [localAttendanceGroup, setLocalAttendanceGroup] = useState<AttendanceGroup | null>(attendanceGroup || null);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
+  const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
   // Quick Settings State (controlled by parent if provided)
   const [internalQuickSettings, setInternalQuickSettings] = useState<QuickSettings>({
@@ -82,6 +96,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, qui
   useEffect(() => {
     loadSystemData();
   }, []);
+
+  // Update local attendance group when prop changes
+  useEffect(() => {
+    if (attendanceGroup) {
+      setLocalAttendanceGroup(attendanceGroup);
+    }
+  }, [attendanceGroup]);
 
   const loadSystemData = async () => {
     setIsLoading(true);
@@ -194,6 +215,161 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, qui
 
   const handleRefreshData = async () => {
     await loadSystemData();
+  };
+
+  const renderAttendanceSettings = () => {
+    if (!localAttendanceGroup) {
+      return (
+        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+          <p className="text-white/60 text-center">No attendance group selected. Please select a group from the Menu.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {attendanceError && (
+          <div className="bg-rose-500/20 border border-rose-500/40 rounded-xl p-4 text-rose-200 text-sm">
+            {attendanceError}
+          </div>
+        )}
+
+        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Group Information</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-white/60">Group Name</span>
+              <span className="text-white font-medium">{localAttendanceGroup.name}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/60">Type</span>
+              <span className="text-white font-medium capitalize">{localAttendanceGroup.type}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-6">Attendance Settings</h3>
+          <div className="space-y-6">
+            <label className="block">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-white/70">Class Start Time</span>
+                <span className="text-white font-medium font-mono text-sm">
+                  {localAttendanceGroup.settings?.class_start_time ?? '08:00'}
+                </span>
+              </div>
+              <input
+                type="time"
+                value={localAttendanceGroup.settings?.class_start_time ?? '08:00'}
+                onChange={async (event) => {
+                  const time = event.target.value;
+                  setIsUpdatingAttendance(true);
+                  setAttendanceError(null);
+                  try {
+                    await attendanceManager.updateGroup(localAttendanceGroup.id, {
+                      settings: {
+                        ...localAttendanceGroup.settings,
+                        class_start_time: time
+                      }
+                    });
+                    const updatedGroup = await attendanceManager.getGroup(localAttendanceGroup.id);
+                    if (updatedGroup) {
+                      setLocalAttendanceGroup(updatedGroup);
+                      onAttendanceGroupUpdate?.();
+                    }
+                  } catch (err) {
+                    console.error('Error updating class start time:', err);
+                    setAttendanceError(err instanceof Error ? err.message : 'Failed to update class start time');
+                  } finally {
+                    setIsUpdatingAttendance(false);
+                  }
+                }}
+                disabled={isUpdatingAttendance}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500/60 text-sm font-mono text-white disabled:opacity-50"
+              />
+              <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                Actual time when class/work starts - used to determine late arrivals
+              </p>
+            </label>
+            
+            <label className="block">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-white/70">Late Threshold</span>
+                <span className="text-white font-medium text-sm">
+                  {localAttendanceGroup.settings?.late_threshold_minutes ?? 15} minutes
+                </span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="60"
+                step="5"
+                value={localAttendanceGroup.settings?.late_threshold_minutes ?? 15}
+                onChange={async (event) => {
+                  const minutes = parseInt(event.target.value);
+                  setIsUpdatingAttendance(true);
+                  setAttendanceError(null);
+                  try {
+                    await attendanceManager.updateGroup(localAttendanceGroup.id, {
+                      settings: {
+                        ...localAttendanceGroup.settings,
+                        late_threshold_minutes: minutes
+                      }
+                    });
+                    const updatedGroup = await attendanceManager.getGroup(localAttendanceGroup.id);
+                    if (updatedGroup) {
+                      setLocalAttendanceGroup(updatedGroup);
+                      onAttendanceGroupUpdate?.();
+                    }
+                  } catch (err) {
+                    console.error('Error updating late threshold:', err);
+                    setAttendanceError(err instanceof Error ? err.message : 'Failed to update late threshold');
+                  } finally {
+                    setIsUpdatingAttendance(false);
+                  }
+                }}
+                disabled={isUpdatingAttendance}
+                className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                style={{
+                  background: `linear-gradient(to right, rgb(96 165 250) 0%, rgb(96 165 250) ${((localAttendanceGroup.settings?.late_threshold_minutes ?? 15) - 5) / 55 * 100}%, rgb(255 255 255 / 0.1) ${((localAttendanceGroup.settings?.late_threshold_minutes ?? 15) - 5) / 55 * 100}%, rgb(255 255 255 / 0.1) 100%)`
+                }}
+              />
+              <div className="flex justify-between text-xs text-white/40 mt-2">
+                <span>5 min</span>
+                <span>60 min</span>
+              </div>
+              <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                Grace period after class start time before marking as late
+              </p>
+            </label>
+
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+              <h4 className="text-sm font-semibold text-blue-200 mb-2">How it works</h4>
+              <p className="text-xs text-blue-100/70 leading-relaxed">
+                Students/employees who check in after <span className="font-mono font-medium">
+                  {localAttendanceGroup.settings?.class_start_time ?? '08:00'}
+                </span> + <span className="font-medium">
+                  {localAttendanceGroup.settings?.late_threshold_minutes ?? 15} minutes
+                </span> will be marked as late.
+              </p>
+              <p className="text-xs text-blue-100/70 leading-relaxed mt-2">
+                Example: If someone checks in at{' '}
+                {(() => {
+                  const startTime = localAttendanceGroup.settings?.class_start_time ?? '08:00';
+                  const threshold = localAttendanceGroup.settings?.late_threshold_minutes ?? 15;
+                  const [hours, minutes] = startTime.split(':').map(Number);
+                  const totalMinutes = hours * 60 + minutes + threshold;
+                  const cutoffHours = Math.floor(totalMinutes / 60);
+                  const cutoffMinutes = totalMinutes % 60;
+                  const cutoffTime = `${cutoffHours.toString().padStart(2, '0')}:${cutoffMinutes.toString().padStart(2, '0')}`;
+                  return cutoffTime;
+                })()}, they will be marked as <span className="font-medium text-amber-200">LATE</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderQuickSettings = () => (
@@ -490,6 +666,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, qui
         <div className="flex space-x-1 mb-8 bg-white/[0.02] border border-white/[0.08] rounded-2xl p-2">
           {[
             { id: 'quick', label: 'Display', icon: 'M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+            { id: 'attendance', label: 'Attendance', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z' },
             { id: 'overview', label: 'Overview', icon: 'M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605' },
             { id: 'people', label: 'People', icon: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z' },
             { id: 'search', label: 'Search', icon: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z' },
@@ -497,7 +674,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, qui
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveView(tab.id as 'quick' | 'overview' | 'people' | 'search' | 'advanced' | 'maintenance')}
+              onClick={() => setActiveView(tab.id as 'quick' | 'overview' | 'people' | 'search' | 'advanced' | 'maintenance' | 'attendance')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors duration-150 transform-gpu ${
                 activeView === tab.id
                   ? 'bg-white/[0.1] text-white border border-white/[0.2]'
@@ -524,6 +701,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, qui
           )}
 
           {activeView === 'quick' && renderQuickSettings()}
+          {activeView === 'attendance' && renderAttendanceSettings()}
           {activeView === 'overview' && renderOverview()}
           {activeView === 'people' && renderPeople()}
           {activeView === 'search' && renderSearch()}

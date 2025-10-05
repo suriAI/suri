@@ -350,22 +350,24 @@ export class AttendanceManager {
         throw new Error('Group not found');
       }
 
-      const workingDays = this.getWorkingDaysBetween(startDate, endDate);
+      // Get unique dates where attendance was actually taken (any member has a session)
+      const uniqueSessionDates = new Set(sessions.map(s => s.date));
+      const actualAttendanceDays = uniqueSessionDates.size;
       
       const memberReports = members.map(member => {
         const memberSessions = sessions.filter(s => s.person_id === member.person_id);
         
         const presentDays = memberSessions.filter(s => s.status !== 'absent').length;
-        const absentDays = workingDays - presentDays;
+        const absentDays = actualAttendanceDays - presentDays;
         const lateDays = memberSessions.filter(s => s.is_late).length;
         const totalHours = memberSessions.reduce((sum, s) => sum + (s.total_hours || 0), 0);
         const averageHours = presentDays > 0 ? totalHours / presentDays : 0;
-        const attendanceRate = workingDays > 0 ? (presentDays / workingDays) * 100 : 0;
+        const attendanceRate = actualAttendanceDays > 0 ? (presentDays / actualAttendanceDays) * 100 : 0;
 
         return {
           person_id: member.person_id,
           name: member.name,
-          total_days: workingDays,
+          total_days: actualAttendanceDays,
           present_days: presentDays,
           absent_days: absentDays,
           late_days: lateDays,
@@ -390,7 +392,7 @@ export class AttendanceManager {
         date_range: { start: startDate, end: endDate },
         members: memberReports,
         summary: {
-          total_working_days: workingDays,
+          total_working_days: actualAttendanceDays,
           average_attendance_rate: Math.round(averageAttendanceRate * 100) / 100,
           total_hours_logged: Math.round(totalHoursLogged * 100) / 100,
           most_punctual: mostPunctual,
@@ -401,21 +403,6 @@ export class AttendanceManager {
       console.error('Error generating report:', error);
       throw error;
     }
-  }
-
-  private getWorkingDaysBetween(startDate: Date, endDate: Date): number {
-    let count = 0;
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-      const dayOfWeek = currentDate.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude weekends
-        count++;
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return count;
   }
 
   // Data Access Methods

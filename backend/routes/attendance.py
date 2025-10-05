@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Optional
 import uuid
 import re
@@ -523,8 +523,9 @@ async def get_sessions(
     end_date: Optional[str] = Query(None, description="YYYY-MM-DD format"),
     db: AttendanceDatabaseManager = Depends(get_attendance_db)
 ):
-    """Get attendance sessions with optional filters"""
+    """Get attendance sessions with optional filters, computing them from records if they don't exist"""
     try:
+        # Get existing sessions from database
         sessions = db.get_sessions(
             group_id=group_id,
             person_id=person_id,
@@ -532,8 +533,64 @@ async def get_sessions(
             end_date=end_date
         )
         
+        # If no sessions exist but we have a group_id and date range, compute them from records
+        if not sessions and group_id and start_date:
+            group = db.get_group(group_id)
+            if not group:
+                raise HTTPException(status_code=404, detail="Group not found")
+            
+            # Get settings from group
+            late_threshold_minutes = group.get("settings", {}).get("late_threshold_minutes", 15)
+            class_start_time = group.get("settings", {}).get("class_start_time", "08:00")
+            
+            # Get members
+            members = db.get_group_members(group_id)
+            
+            # Determine date range
+            end_date_to_use = end_date or start_date
+            
+            # Parse dates
+            start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
+            end_datetime = datetime.strptime(end_date_to_use, '%Y-%m-%d')
+            
+            # Compute sessions for each day in range
+            computed_sessions = []
+            current_date = start_datetime
+            while current_date <= end_datetime:
+                date_str = current_date.strftime('%Y-%m-%d')
+                
+                # Get records for this day
+                day_start = current_date.replace(hour=0, minute=0, second=0)
+                day_end = current_date.replace(hour=23, minute=59, second=59)
+                
+                records = db.get_records(
+                    group_id=group_id,
+                    start_date=day_start,
+                    end_date=day_end
+                )
+                
+                # Compute sessions for this day
+                day_sessions = _compute_sessions_from_records(
+                    records=records,
+                    members=members,
+                    late_threshold_minutes=late_threshold_minutes,
+                    target_date=date_str,
+                    class_start_time=class_start_time
+                )
+                
+                # Persist sessions to database
+                for session in day_sessions:
+                    db.upsert_session(session)
+                
+                computed_sessions.extend(day_sessions)
+                current_date += timedelta(days=1)
+            
+            sessions = computed_sessions
+        
         return [AttendanceSessionResponse(**session) for session in sessions]
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting sessions: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -737,12 +794,42 @@ async def get_group_stats(
         # Get group members
         members = db.get_group_members(group_id)
         
-        # Get sessions for the target date
+        # Get the group's late threshold and class start time settings
+        late_threshold_minutes = group.get("settings", {}).get("late_threshold_minutes", 15)
+        class_start_time = group.get("settings", {}).get("class_start_time", "08:00")
+        
+        # Get existing sessions for the target date
         sessions = db.get_sessions(
             group_id=group_id,
             start_date=target_date,
             end_date=target_date
         )
+        
+        # If no sessions exist, compute them from records
+        if not sessions:
+            # Get attendance records for the target date
+            target_datetime = datetime.strptime(target_date, '%Y-%m-%d')
+            start_of_day = target_datetime.replace(hour=0, minute=0, second=0)
+            end_of_day = target_datetime.replace(hour=23, minute=59, second=59)
+            
+            records = db.get_records(
+                group_id=group_id,
+                start_date=start_of_day,
+                end_date=end_of_day
+            )
+            
+            # Compute sessions from records using the group's settings
+            sessions = _compute_sessions_from_records(
+                records=records,
+                members=members,
+                late_threshold_minutes=late_threshold_minutes,
+                target_date=target_date,
+                class_start_time=class_start_time
+            )
+            
+            # Optionally, persist the computed sessions to database
+            for session in sessions:
+                db.upsert_session(session)
         
         # Calculate statistics
         stats = _calculate_group_stats(members, sessions)
@@ -968,6 +1055,101 @@ async def cleanup_old_data(
 
 
 # Helper Functions
+def _compute_sessions_from_records(
+    records: List[dict], 
+    members: List[dict],
+    late_threshold_minutes: int,
+    target_date: str,
+    class_start_time: str = "08:00"
+) -> List[dict]:
+    """Compute attendance sessions from records using configurable late threshold
+    
+    Args:
+        records: List of attendance records for the date
+        members: List of group members
+        late_threshold_minutes: Minutes after class start to consider as late
+        target_date: Date string in YYYY-MM-DD format
+        class_start_time: Class start time in HH:MM format (e.g., "08:00")
+    
+    Returns:
+        List of session dictionaries with status and late information
+    """
+    from datetime import time as dt_time
+    
+    sessions = []
+    
+    # Group records by person_id
+    records_by_person = {}
+    for record in records:
+        person_id = record["person_id"]
+        if person_id not in records_by_person:
+            records_by_person[person_id] = []
+        records_by_person[person_id].append(record)
+    
+    # Parse class start time (format: "HH:MM")
+    try:
+        time_parts = class_start_time.split(":")
+        day_start_hour = int(time_parts[0])
+        day_start_minute = int(time_parts[1])
+    except (ValueError, IndexError):
+        # Fallback to 8:00 AM if parsing fails
+        day_start_hour = 8
+        day_start_minute = 0
+    
+    for member in members:
+        person_id = member["person_id"]
+        person_records = records_by_person.get(person_id, [])
+        
+        if not person_records:
+            # No records = absent
+            sessions.append({
+                "id": generate_id(),
+                "person_id": person_id,
+                "group_id": member["group_id"],
+                "date": target_date,
+                "total_hours": None,
+                "status": "absent",
+                "is_late": False,
+                "late_minutes": None,
+                "notes": None
+            })
+            continue
+        
+        # Sort records by timestamp
+        person_records.sort(key=lambda r: r["timestamp"])
+        first_record = person_records[0]
+        
+        # Get timestamp of first attendance
+        timestamp = first_record["timestamp"]
+        if isinstance(timestamp, str):
+            timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        
+        # Calculate minutes after day start
+        day_start = timestamp.replace(hour=day_start_hour, minute=day_start_minute, second=0, microsecond=0)
+        time_diff_minutes = (timestamp - day_start).total_seconds() / 60
+        
+        # Determine if late
+        is_late = time_diff_minutes > late_threshold_minutes
+        late_minutes = int(time_diff_minutes - late_threshold_minutes) if is_late else 0
+        
+        # Determine status
+        status = "late" if is_late else "present"
+        
+        sessions.append({
+            "id": generate_id(),
+            "person_id": person_id,
+            "group_id": member["group_id"],
+            "date": target_date,
+            "total_hours": None,  # Could be calculated if we track check-out
+            "status": status,
+            "is_late": is_late,
+            "late_minutes": late_minutes if is_late else None,
+            "notes": None
+        })
+    
+    return sessions
+
+
 def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
     """Calculate group attendance statistics"""
     total_members = len(members)

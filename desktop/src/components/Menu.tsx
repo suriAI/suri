@@ -515,17 +515,20 @@ export function Menu({ onBack, initialSection }: MenuProps) {
               {activeSection === 'overview' && stats && (
             <section className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-4">
-                  <p className="text-xs text-white/40">Present</p>
-                  <div className="text-2xl font-semibold text-green-200 mt-1">{stats.present_today}</div>
+                <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent p-4">
+                  <p className="text-xs text-emerald-100/60 uppercase tracking-wider">Present Today</p>
+                  <div className="text-2xl font-semibold text-emerald-200 mt-1">{stats.present_today}</div>
+                  <p className="text-[10px] text-emerald-100/40 mt-1">out of {stats.total_members} members</p>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent p-4">
-                  <p className="text-xs text-white/40">Absent</p>
-                  <div className="text-2xl font-semibold text-red-200 mt-1">{stats.absent_today}</div>
+                <div className="rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-transparent p-4">
+                  <p className="text-xs text-rose-100/60 uppercase tracking-wider">Absent Today</p>
+                  <div className="text-2xl font-semibold text-rose-200 mt-1">{stats.absent_today}</div>
+                  <p className="text-[10px] text-rose-100/40 mt-1">no check-in record</p>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-yellow-500/20 via-yellow-500/10 to-transparent p-4">
-                  <p className="text-xs text-white/40">Late</p>
-                  <div className="text-2xl font-semibold text-yellow-200 mt-1">{stats.late_today}</div>
+                <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent p-4">
+                  <p className="text-xs text-amber-100/60 uppercase tracking-wider">Late Today</p>
+                  <div className="text-2xl font-semibold text-amber-200 mt-1">{stats.late_today}</div>
+                  <p className="text-[10px] text-amber-100/40 mt-1">exceeded late threshold</p>
                 </div>
               </div>
 
@@ -586,12 +589,12 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                             : 'No record';
 
                     const statusClass = session?.status === 'present'
-                      ? 'bg-green-500/20 text-green-200 border border-green-400/40'
+                      ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
                       : session?.status === 'late'
-                        ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-400/40'
+                        ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
                         : session?.status === 'checked_out'
                           ? 'bg-white/10 text-white/70 border border-white/20'
-                          : 'bg-red-500/20 text-red-200 border border-red-400/40';
+                          : 'bg-rose-500/20 text-rose-200 border border-rose-400/40';
 
                     return (
                       <div key={member.person_id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
@@ -615,7 +618,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                           </button>
                           <button
                             onClick={() => handleRemoveMember(member.person_id)}
-                            className="flex-1 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-400/40 text-red-100 hover:bg-red-500/30 transition-colors"
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-rose-500/20 border border-rose-400/40 text-rose-100 hover:bg-rose-500/30 transition-colors"
                           >
                             Remove
                           </button>
@@ -670,17 +673,27 @@ export function Menu({ onBack, initialSection }: MenuProps) {
               {report && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs text-white/40">Working days</p>
-                      <div className="text-2xl font-semibold mt-1">{report.summary.total_working_days}</div>
+                    <div className="rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent p-4">
+                      <p className="text-xs text-blue-100/60 uppercase tracking-wider">Days Tracked</p>
+                      <div className="text-2xl font-semibold text-blue-200 mt-1">{report.summary.total_working_days}</div>
+                      <p className="text-[10px] text-blue-100/40 mt-1">attendance taken</p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-4">
-                    <p className="text-xs text-white/40">Avg attendance</p>
-                    <div className="text-2xl font-semibold text-green-200 mt-1">{report.summary.average_attendance_rate}%</div>
+                  <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent p-4">
+                    <p className="text-xs text-emerald-100/60 uppercase tracking-wider">Avg Attendance</p>
+                    <div className="text-2xl font-semibold text-emerald-200 mt-1">{report.summary.average_attendance_rate}%</div>
+                    <p className="text-[10px] text-emerald-100/40 mt-1">across all members</p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70 space-y-1">
-                    <div>Punctual: <span className="text-white">{report.summary.most_punctual}</span></div>
-                    <div>Absent: <span className="text-white">{report.summary.most_absent}</span></div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] text-white/50 uppercase tracking-wider">Most Punctual</p>
+                        <span className="text-xs text-emerald-200 font-medium">{report.summary.most_punctual}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] text-white/50 uppercase tracking-wider">Most Absent</p>
+                        <span className="text-xs text-rose-200 font-medium">{report.summary.most_absent}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -700,16 +713,16 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                           {report.members.map((member, index) => (
                             <tr key={member.person_id} className={index % 2 === 0 ? 'bg-white/5' : ''}>
                               <td className="px-4 py-3 text-sm font-medium text-white">{member.name}</td>
-                              <td className="px-4 py-3 text-sm text-center text-green-200">{member.present_days}</td>
-                              <td className="px-4 py-3 text-sm text-center text-red-200">{member.absent_days}</td>
-                              <td className="px-4 py-3 text-sm text-center text-yellow-200">{member.late_days}</td>
+                              <td className="px-4 py-3 text-sm text-center text-emerald-200">{member.present_days}</td>
+                              <td className="px-4 py-3 text-sm text-center text-rose-200">{member.absent_days}</td>
+                              <td className="px-4 py-3 text-sm text-center text-amber-200">{member.late_days}</td>
                               <td className="px-4 py-3 text-sm text-center">
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                   member.attendance_rate >= 90
-                                    ? 'bg-green-500/20 text-green-200 border border-green-400/40'
+                                    ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
                                     : member.attendance_rate >= 75
-                                      ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-400/40'
-                                      : 'bg-red-500/20 text-red-200 border border-red-400/40'
+                                      ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
+                                      : 'bg-rose-500/20 text-rose-200 border border-rose-400/40'
                                 }`}
                                 >
                                   {member.attendance_rate}%
@@ -772,7 +785,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
                   <h3 className="text-sm font-semibold">Group details</h3>
                   <div className="space-y-2 text-xs text-white/70">
@@ -795,10 +808,15 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                       <span className="text-white">{members.length}</span>
                     </div>
                   </div>
+                  <p className="text-[10px] text-white/50 mt-3 pt-3 border-t border-white/5">
+                    💡 Attendance settings (class start time, late threshold) can be configured in the system Settings panel
+                  </p>
                 </div>
+              </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
-                  <h3 className="text-sm font-semibold">Data tools</h3>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                <h3 className="text-sm font-semibold">Data tools</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <button
                     onClick={async () => {
                       if (!confirm('Remove records older than 30 days?')) {
@@ -818,13 +836,13 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                         }
                       });
                     }}
-                    className="w-full px-3 py-2 rounded-lg bg-yellow-500/20 border border-yellow-400/40 text-yellow-100 hover:bg-yellow-500/30 transition-colors text-xs"
+                    className="px-3 py-2 rounded-lg bg-yellow-500/20 border border-yellow-400/40 text-yellow-100 hover:bg-yellow-500/30 transition-colors text-xs"
                   >
                     Clean old records (30d+)
                   </button>
                   <button
                     onClick={exportData}
-                    className="w-full px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-xs"
+                    className="px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-xs"
                   >
                     Export snapshot
                   </button>

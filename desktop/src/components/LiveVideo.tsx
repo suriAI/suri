@@ -2414,6 +2414,16 @@ export default function LiveVideo() {
               isModal={true}
               quickSettings={quickSettings}
               onQuickSettingsChange={setQuickSettings}
+              attendanceGroup={currentGroup ?? undefined}
+              onAttendanceGroupUpdate={async () => {
+                // Refresh the current group data
+                if (currentGroup) {
+                  const updatedGroup = await attendanceManager.getGroup(currentGroup.id);
+                  if (updatedGroup) {
+                    setCurrentGroup(updatedGroup);
+                  }
+                }
+              }}
             />
           )}
   

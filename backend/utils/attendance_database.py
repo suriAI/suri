@@ -46,7 +46,8 @@ class AttendanceDatabaseManager:
                         is_active BOOLEAN DEFAULT 1,
                         auto_checkout_hours INTEGER,
                         late_threshold_minutes INTEGER,
-                        require_checkout BOOLEAN DEFAULT 0
+                        require_checkout BOOLEAN DEFAULT 0,
+                        class_start_time TEXT DEFAULT '08:00'
                     )
                 """)
                 
@@ -119,6 +120,13 @@ class AttendanceDatabaseManager:
                 # Migration: Add attendance_cooldown_seconds column if it doesn't exist
                 try:
                     cursor.execute("ALTER TABLE attendance_settings ADD COLUMN attendance_cooldown_seconds INTEGER DEFAULT 10")
+                except sqlite3.OperationalError:
+                    # Column already exists, ignore the error
+                    pass
+                
+                # Migration: Add class_start_time column if it doesn't exist
+                try:
+                    cursor.execute("ALTER TABLE attendance_groups ADD COLUMN class_start_time TEXT DEFAULT '08:00'")
                 except sqlite3.OperationalError:
                     # Column already exists, ignore the error
                     pass
@@ -211,7 +219,8 @@ class AttendanceDatabaseManager:
                     group['settings'] = {
                         'auto_checkout_hours': group.pop('auto_checkout_hours'),
                         'late_threshold_minutes': group.pop('late_threshold_minutes'),
-                        'require_checkout': bool(group.pop('require_checkout'))
+                        'require_checkout': bool(group.pop('require_checkout')),
+                        'class_start_time': group.pop('class_start_time', '08:00')
                     }
                     groups.append(group)
                 
@@ -235,7 +244,8 @@ class AttendanceDatabaseManager:
                     group['settings'] = {
                         'auto_checkout_hours': group.pop('auto_checkout_hours'),
                         'late_threshold_minutes': group.pop('late_threshold_minutes'),
-                        'require_checkout': bool(group.pop('require_checkout'))
+                        'require_checkout': bool(group.pop('require_checkout')),
+                        'class_start_time': group.pop('class_start_time', '08:00')
                     }
                     return group
                 return None
