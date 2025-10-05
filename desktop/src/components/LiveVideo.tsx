@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackendService } from '../services/BackendService';
-import { Settings } from './Settings';
+import { Settings, type QuickSettings } from './Settings';
 import { attendanceManager } from '../services/AttendanceManager';
 import { Menu, type MenuSection } from './Menu';
 import type { 
@@ -125,6 +125,15 @@ export default function LiveVideo() {
 
   // Settings view state
   const [showSettings, setShowSettings] = useState(false);
+  const [quickSettings, setQuickSettings] = useState<QuickSettings>({
+    showFPS: true,
+    showPreprocessing: false,
+    showBoundingBoxes: true,
+    showLandmarks: false,
+    showAntiSpoofStatus: true,
+    showRecognitionNames: true,
+    showDebugInfo: false,
+  });
 
   // Attendance system state
   const attendanceEnabled = true;
@@ -1424,23 +1433,30 @@ export default function LiveVideo() {
       const recognitionResult = currentRecognitionResults.get(trackId);
       const color = getFaceColor(recognitionResult || null, recognitionEnabled);
 
-      // Setup context and draw bounding box
+      // Setup context and conditionally draw bounding box
       setupCanvasContext(ctx, color);
-      drawBoundingBox(ctx, x1, y1, x2, y2);
+      if (quickSettings.showBoundingBoxes) {
+        drawBoundingBox(ctx, x1, y1, x2, y2);
+      }
 
       // Draw label
       const isRecognized = recognitionEnabled && recognitionResult?.person_id;
       let label = "Unknown";
+      let shouldShowLabel = false;
       
-      if (isRecognized && recognitionResult) {
+      if (isRecognized && recognitionResult && quickSettings.showRecognitionNames) {
         // Show name if available, fallback to person_id
-        label = recognitionResult.name || recognitionResult.person_id || "Unknown"
-      } else if (antispoofing?.status === 'fake') {
+        label = recognitionResult.name || recognitionResult.person_id || "Unknown";
+        shouldShowLabel = true;
+      } else if (antispoofing?.status === 'fake' && quickSettings.showAntiSpoofStatus) {
         label = "⚠ SPOOF";
+        shouldShowLabel = true;
       }
 
-      ctx.font = 'bold 16px "Courier New", monospace';
-      ctx.fillText(label, x1, y1 - 10);
+      if (shouldShowLabel) {
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillText(label, x1, y1 - 10);
+      }
 
       // Show modern logged indicator if person is in cooldown
       if (isRecognized && recognitionResult?.person_id) {
@@ -1487,18 +1503,20 @@ export default function LiveVideo() {
       }
 
       // Status indicator
-      if (isRecognized) {
+      if (isRecognized && quickSettings.showRecognitionNames) {
         ctx.font = 'bold 10px "Courier New", monospace';
         ctx.fillStyle = "#00ff00";
         ctx.fillText("RECOGNIZED", x1 + 10, y2 + 15);
       }
 
       // Draw facial landmarks - prefer FaceMesh 468 landmarks for better visualization
-      if (face.landmarks_468 && face.landmarks_468.length > 0) {
-        drawFaceMeshLandmarks(ctx, face.landmarks_468, scaleX, scaleY, offsetX, offsetY);
-      } else if (face.landmarks) {
-        // Fallback to YuNet 5-point landmarks if FaceMesh not available
-        drawLandmarks(ctx, face.landmarks, scaleX, scaleY, offsetX, offsetY);
+      if (quickSettings.showLandmarks) {
+        if (face.landmarks_468 && face.landmarks_468.length > 0) {
+          drawFaceMeshLandmarks(ctx, face.landmarks_468, scaleX, scaleY, offsetX, offsetY);
+        } else if (face.landmarks) {
+          // Fallback to YuNet 5-point landmarks if FaceMesh not available
+          drawLandmarks(ctx, face.landmarks, scaleX, scaleY, offsetX, offsetY);
+        }
       }
 
       // Reset context
@@ -1506,7 +1524,7 @@ export default function LiveVideo() {
     });
 
     // Cooldown for persons not currently detected is handled in sidebar only (no canvas drawing)
-  }, [currentDetections, isStreaming, getVideoRect, calculateScaleFactors, currentRecognitionResults, recognitionEnabled, persistentCooldowns, attendanceCooldownSeconds]);
+  }, [currentDetections, isStreaming, getVideoRect, calculateScaleFactors, currentRecognitionResults, recognitionEnabled, persistentCooldowns, attendanceCooldownSeconds, quickSettings]);
 
   // OPTIMIZED animation loop with better performance
   const animate = useCallback(() => {
@@ -1948,6 +1966,25 @@ export default function LiveVideo() {
                 }}
               />
               
+              {/* FPS Counter Overlay */}
+              {quickSettings.showFPS && detectionFps > 0 && (
+                <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 pointer-events-none" style={{ zIndex: 20 }}>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-green-400 font-mono text-sm font-semibold">{detectionFps.toFixed(1)} FPS</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Debug Info Overlay */}
+              {quickSettings.showDebugInfo && currentDetections && (
+                <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 pointer-events-none text-xs font-mono space-y-1" style={{ zIndex: 20 }}>
+                  <div className="text-white/60">Time: <span className="text-white">{currentDetections.processing_time.toFixed(1)}ms</span></div>
+                  <div className="text-white/60">Faces: <span className="text-white">{currentDetections.faces.length}</span></div>
+                  <div className="text-white/60">WS: <span className={websocketStatus === 'connected' ? 'text-green-400' : 'text-red-400'}>{websocketStatus}</span></div>
+                </div>
+              )}
+              
               {/* Hidden canvas for frame capture */}
               <canvas ref={canvasRef} className="hidden" />
             </div>
@@ -1957,25 +1994,10 @@ export default function LiveVideo() {
           <div className="px-4 pt-2 pb-2">
             <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4 flex items-center justify-between">
               <div className="flex items-center space-x-6">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    isStreaming ? 'bg-green-500' : 'bg-red-500'
-                  }`}></div>
-                </div>
 
-                <div className="text-sm text-white/60">
-                  FPS: {detectionFps.toFixed(1)}
-                </div>
-
-                              <div className="flex justify-between items-center">
-                <span className="text-white/60">Process time: &nbsp;</span>
-                <span className="font-mono text-white/60"> {currentDetections?.processing_time?.toFixed(3) || 0}ms</span>
-              </div>
-                
                 {/* Camera Selection */}
                 {cameraDevices.length > 0 && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-white/60">Camera:</span>
                     <select
                       value={selectedCamera}
                       onChange={(e) => setSelectedCamera(e.target.value)}
@@ -1990,6 +2012,11 @@ export default function LiveVideo() {
                     </select>
                   </div>
                 )}
+                                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    isStreaming ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+                </div>
               </div>
               
               <div className="flex items-center space-x-4">
@@ -2383,7 +2410,12 @@ export default function LiveVideo() {
   
           {/* Settings Modal */}
           {showSettings && (
-            <Settings onBack={() => setShowSettings(false)} isModal={true} />
+            <Settings 
+              onBack={() => setShowSettings(false)} 
+              isModal={true}
+              quickSettings={quickSettings}
+              onQuickSettingsChange={setQuickSettings}
+            />
           )}
   
           {/* Delete Group Confirmation Dialog */}

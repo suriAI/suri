@@ -9,7 +9,18 @@
 import React, { useState, useEffect } from 'react';
 import { backendService } from '../services/BackendService';
 
-// Interfaces for Settings component
+// Quick Settings Interface
+export interface QuickSettings {
+  showFPS: boolean;
+  showPreprocessing: boolean;
+  showBoundingBoxes: boolean;
+  showLandmarks: boolean;
+  showAntiSpoofStatus: boolean;
+  showRecognitionNames: boolean;
+  showDebugInfo: boolean;
+}
+
+// Database Settings Interfaces
 interface SettingsOverview {
   totalPersons: number;
   totalEmbeddings: number;
@@ -24,12 +35,14 @@ interface PersonDetails {
 
 interface SettingsProps {
   onBack: () => void;
-  isModal?: boolean; // New prop to determine if rendered as modal
+  isModal?: boolean;
+  quickSettings?: QuickSettings;
+  onQuickSettingsChange?: (settings: QuickSettings) => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) => {
+export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false, quickSettings: externalQuickSettings, onQuickSettingsChange }) => {
   // State management
-  const [activeView, setActiveView] = useState<'overview' | 'people' | 'search' | 'advanced' | 'maintenance'>('overview');
+  const [activeView, setActiveView] = useState<'quick' | 'overview' | 'people' | 'search' | 'advanced' | 'maintenance'>('quick');
   const [systemData, setSystemData] = useState<SettingsOverview>({
     totalPersons: 0,
     totalEmbeddings: 0,
@@ -42,6 +55,28 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
   const [allPersons, setAllPersons] = useState<PersonDetails[]>([]);
   const [editingPerson, setEditingPerson] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+
+  // Quick Settings State (controlled by parent if provided)
+  const [internalQuickSettings, setInternalQuickSettings] = useState<QuickSettings>({
+    showFPS: true,
+    showPreprocessing: false,
+    showBoundingBoxes: true,
+    showLandmarks: false,
+    showAntiSpoofStatus: true,
+    showRecognitionNames: true,
+    showDebugInfo: false,
+  });
+
+  const quickSettings = externalQuickSettings || internalQuickSettings;
+
+  const toggleQuickSetting = (key: keyof QuickSettings) => {
+    const newSettings = { ...quickSettings, [key]: !quickSettings[key] };
+    if (onQuickSettingsChange) {
+      onQuickSettingsChange(newSettings);
+    } else {
+      setInternalQuickSettings(newSettings);
+    }
+  };
 
   // Load system data on component mount
   useEffect(() => {
@@ -160,6 +195,69 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
   const handleRefreshData = async () => {
     await loadSystemData();
   };
+
+  const renderQuickSettings = () => (
+    <div className="space-y-6">
+      <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-6">
+        <h3 className="text-lg font-light text-white/90 mb-6 flex items-center space-x-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>Display Controls</span>
+        </h3>
+        
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            { key: 'showFPS' as keyof QuickSettings, label: 'FPS Counter', desc: 'Frame rate', icon: '⚡' },
+            { key: 'showBoundingBoxes' as keyof QuickSettings, label: 'Face Boxes', desc: 'Detection boxes', icon: '▢' },
+            { key: 'showLandmarks' as keyof QuickSettings, label: 'Landmarks', desc: 'Face keypoints', icon: '●' },
+            { key: 'showAntiSpoofStatus' as keyof QuickSettings, label: 'Anti-Spoof', desc: 'Spoof detection', icon: '🛡️' },
+            { key: 'showRecognitionNames' as keyof QuickSettings, label: 'Names', desc: 'Person labels', icon: '👤' },
+            { key: 'showDebugInfo' as keyof QuickSettings, label: 'Debug', desc: 'Technical info', icon: '🔧' },
+          ].map(({ key, label, desc, icon }) => (
+            <button
+              key={key}
+              onClick={() => toggleQuickSetting(key)}
+              className={`p-4 rounded-xl border transition-all duration-200 text-left ${
+                quickSettings[key]
+                  ? 'bg-white/[0.08] border-green-500/50 hover:bg-white/[0.1]'
+                  : 'bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.05]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">{icon}</span>
+                  <span className="text-white font-light text-sm">{label}</span>
+                </div>
+                <div className={`w-9 h-5 rounded-full transition-colors ${
+                  quickSettings[key] ? 'bg-green-500' : 'bg-white/20'
+                }`}>
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
+                    quickSettings[key] ? 'translate-x-4' : 'translate-x-0.5'
+                  } mt-0.5`} />
+                </div>
+              </div>
+              <p className="text-xs text-white/40">{desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6">
+        <div className="flex items-start space-x-3">
+          <svg className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+          <div>
+            <h4 className="text-white font-light mb-1">Display Controls</h4>
+            <p className="text-sm text-white/60 leading-relaxed">
+              Toggle visual overlays on the live video feed. Changes take effect instantly.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -391,6 +489,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
         {/* Navigation Tabs */}
         <div className="flex space-x-1 mb-8 bg-white/[0.02] border border-white/[0.08] rounded-2xl p-2">
           {[
+            { id: 'quick', label: 'Display', icon: 'M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
             { id: 'overview', label: 'Overview', icon: 'M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605' },
             { id: 'people', label: 'People', icon: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z' },
             { id: 'search', label: 'Search', icon: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z' },
@@ -398,7 +497,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveView(tab.id as 'overview' | 'people' | 'search' | 'advanced' | 'maintenance')}
+              onClick={() => setActiveView(tab.id as 'quick' | 'overview' | 'people' | 'search' | 'advanced' | 'maintenance')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors duration-150 transform-gpu ${
                 activeView === tab.id
                   ? 'bg-white/[0.1] text-white border border-white/[0.2]'
@@ -424,6 +523,7 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, isModal = false }) =
             </div>
           )}
 
+          {activeView === 'quick' && renderQuickSettings()}
           {activeView === 'overview' && renderOverview()}
           {activeView === 'people' && renderPeople()}
           {activeView === 'search' && renderSearch()}
