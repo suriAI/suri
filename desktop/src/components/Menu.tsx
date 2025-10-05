@@ -66,7 +66,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
   const [report, setReport] = useState<AttendanceReport | null>(null);
   const [recentRecords, setRecentRecords] = useState<AttendanceRecord[]>([]);
   const [todaySessions, setTodaySessions] = useState<AttendanceSession[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [reportStartDate, setReportStartDate] = useState<string>(
     new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
@@ -103,13 +102,14 @@ export function Menu({ onBack, initialSection }: MenuProps) {
     await trackAsync(async () => {
       try {
         setError(null);
+        const todayStr = new Date().toISOString().split('T')[0];
         const [groupMembers, groupStats, sessions, records] = await Promise.all([
           attendanceManager.getGroupMembers(groupId),
-          attendanceManager.getGroupStats(groupId, new Date(selectedDate)),
+          attendanceManager.getGroupStats(groupId, new Date()),
           attendanceManager.getSessions({
             group_id: groupId,
-            start_date: selectedDate,
-            end_date: selectedDate
+            start_date: todayStr,
+            end_date: todayStr
           }),
           attendanceManager.getRecords({
             group_id: groupId,
@@ -126,7 +126,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
         setError(err instanceof Error ? err.message : 'Failed to load group data');
       }
     });
-  }, [selectedDate, trackAsync]);
+  }, [trackAsync]);
 
   fetchGroupDetailsRef.current = fetchGroupDetails;
 
@@ -434,37 +434,54 @@ export function Menu({ onBack, initialSection }: MenuProps) {
 
   return (
     <div className="h-screen bg-black text-white flex flex-col">
-      <header className="px-8 pt-12 pb-6 border-b border-white/10 bg-black/80 backdrop-blur">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-            <h1 className="text-3xl md:text-4xl font-semibold">Menu</h1>
-          <div className="flex flex-wrap items-center gap-3 justify-end">
+      <header className="px-6 py-4 border-b border-white/10 bg-black/80 backdrop-blur">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-semibold">Menu</h1>
+            <div className="h-6 w-px bg-white/10" />
+            <select
+              value={selectedGroup?.id ?? ''}
+              onChange={event => {
+                const group = groups.find(item => item.id === event.target.value) ?? null;
+                setSelectedGroup(group);
+              }}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500/60"
+            >
+              <option value="">Select group…</option>
+              {groups.map(group => (
+                <option key={group.id} value={group.id} className="bg-black text-white">
+                  {getGroupTypeIcon(group.type)} {group.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
             {loading && (
-              <div className="flex items-center gap-2 text-blue-300 text-sm">
-                <span className="h-4 w-4 border-2 border-blue-400/40 border-t-blue-300 rounded-full animate-spin" />
-                Loading…
+              <div className="flex items-center gap-2 text-blue-300 text-xs">
+                <span className="h-3 w-3 border-2 border-blue-400/40 border-t-blue-300 rounded-full animate-spin" />
               </div>
             )}
             <button
               onClick={exportData}
               disabled={loading}
-              className="px-4 py-2 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-200 hover:bg-blue-600/30 transition-colors text-sm disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-200 hover:bg-blue-600/30 transition-colors text-xs disabled:opacity-50"
             >
-              Export data
+              Export
             </button>
             <button
               onClick={onBack}
-              className="px-4 py-2 rounded-full bg-white text-black hover:bg-gray-100 transition-colors text-sm"
+              className="px-3 py-1.5 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors text-xs font-medium"
             >
               Close
             </button>
           </div>
         </div>
-        <nav className="mt-6 flex flex-wrap gap-2">
+        <nav className="mt-3 flex flex-wrap gap-1.5">
           {SECTION_CONFIG.map(section => (
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`px-4 py-2 rounded-full text-sm transition-colors border ${
+              className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${
                 activeSection === section.id
                   ? 'border-blue-500/60 bg-blue-600/20 text-blue-200'
                   : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
@@ -477,7 +494,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
       </header>
 
       {error && (
-        <div className="px-8 py-3 bg-red-600/20 border-b border-red-500/40 text-red-200 flex items-center justify-between">
+        <div className="px-6 py-2 bg-red-600/20 border-b border-red-500/40 text-red-200 flex items-center justify-between text-sm">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-red-200 hover:text-red-100">
             ✕
@@ -485,158 +502,78 @@ export function Menu({ onBack, initialSection }: MenuProps) {
         </div>
       )}
 
-      <div className="px-8 py-4 border-b border-white/10 bg-black/60 flex flex-wrap gap-4 items-end">
-        <div className="flex-1 min-w-[220px]">
-          <select
-            value={selectedGroup?.id ?? ''}
-            onChange={event => {
-              const group = groups.find(item => item.id === event.target.value) ?? null;
-              setSelectedGroup(group);
-            }}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60"
-          >
-            <option value="">Select a group…</option>
-            {groups.map(group => (
-              <option key={group.id} value={group.id} className="bg-black text-white">
-                {getGroupTypeIcon(group.type)} {group.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={event => setSelectedDate(event.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500/60"
-          />
-        </div>
-      </div>
-
       <main className="flex-1 overflow-hidden bg-gradient-to-b from-black via-[#050505] to-black">
-        <div className="h-full overflow-y-auto px-8 py-10 space-y-10">
-          {activeSection === 'overview' && (
-            <section className="space-y-6">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-6">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Selected group</p>
-                    <h2 className="text-xl font-semibold mt-1">
-                      {selectedGroup
-                        ? `${getGroupTypeIcon(selectedGroup.type)} ${selectedGroup.name}`
-                        : 'None'}
-                    </h2>
-                    <p className="text-sm text-white/50 mt-2 max-w-xl">
-                      Pick a group to view the metrics below. Switch groups anytime using the selector above.
-                    </p>
-                  </div>
-                  {selectedGroup && (
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      <div className="uppercase text-xs tracking-[0.2em] text-white/40">Created</div>
-                      <div className="mt-1 font-medium text-white">
-                        {selectedGroupCreatedAt ? selectedGroupCreatedAt.toLocaleDateString() : '—'}
-                      </div>
-                      <div className="text-xs text-white/50 mt-1">ID: {selectedGroup.id}</div>
-                    </div>
-                  )}
+        <div className="h-full overflow-y-auto px-6 py-6 space-y-6">
+          {!selectedGroup ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-3 max-w-md">
+                <div className="text-4xl opacity-40">📊</div>
+                <h3 className="text-lg font-medium text-white/70">No group selected</h3>
+                <p className="text-sm text-white/40">Select a group from the dropdown above to view attendance data</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {activeSection === 'overview' && stats && (
+            <section className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-4">
+                  <p className="text-xs text-white/40">Present</p>
+                  <div className="text-2xl font-semibold text-green-200 mt-1">{stats.present_today}</div>
                 </div>
-
-                <div className="flex gap-4 overflow-x-auto pb-1">
-                  {groups.map(group => (
-                    <button
-                      key={group.id}
-                      onClick={() => setSelectedGroup(group)}
-                      className={`min-w-[200px] rounded-2xl border px-5 py-4 text-left transition-colors ${
-                        selectedGroup?.id === group.id
-                          ? 'border-blue-500/60 bg-blue-600/20 text-blue-100'
-                          : 'border-white/10 bg-white/5 text-white/80 hover:border-blue-500/40'
-                      }`}
-                    >
-                      <div className="text-2xl mb-3">{getGroupTypeIcon(group.type)}</div>
-                      <div className="text-lg font-semibold">{group.name}</div>
-                      <div className="text-xs uppercase tracking-[0.2em] mt-2 text-white/40">{group.type}</div>
-                    </button>
-                  ))}
-
-                  {groups.length === 0 && (
-                    <div className="min-w-[220px] rounded-2xl border border-dashed border-white/15 px-5 py-4 text-white/50">
-                      <div className="text-base font-medium mb-1">No groups added</div>
-                      <p className="text-sm text-white/40">Create a group in the admin tools to begin.</p>
-                    </div>
-                  )}
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent p-4">
+                  <p className="text-xs text-white/40">Absent</p>
+                  <div className="text-2xl font-semibold text-red-200 mt-1">{stats.absent_today}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-yellow-500/20 via-yellow-500/10 to-transparent p-4">
+                  <p className="text-xs text-white/40">Late</p>
+                  <div className="text-2xl font-semibold text-yellow-200 mt-1">{stats.late_today}</div>
                 </div>
               </div>
 
-              {stats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Present</p>
-                    <div className="text-3xl font-semibold text-green-200 mt-2">{stats.present_today}</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Absent</p>
-                    <div className="text-3xl font-semibold text-red-200 mt-2">{stats.absent_today}</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-yellow-500/20 via-yellow-500/10 to-transparent p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">Late</p>
-                    <div className="text-3xl font-semibold text-yellow-200 mt-2">{stats.late_today}</div>
-                  </div>
-                </div>
-              )}
-
-              {stats && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                    <h3 className="text-lg font-semibold">Recent activity</h3>
-                    <div className="mt-4 max-h-64 overflow-y-auto pr-2 space-y-3 text-sm">
-                      {recentRecords.length > 0 ? (
-                        recentRecords.slice(0, 24).map(record => {
-                          const member = members.find(item => item.person_id === record.person_id);
-                          return (
-                            <div
-                              key={record.id}
-                              className="flex items-center justify-between border-b border-white/5 pb-3 last:border-b-0 last:pb-0"
-                            >
-                              <div>
-                                <div className="font-medium text-white">{member?.name ?? record.person_id}</div>
-                                <div className="text-xs text-white/40">
-                                  {toDate(record.timestamp).toLocaleDateString()} · {formatTime(record.timestamp)}
-                                </div>
-                              </div>
-                              <div className="text-xs text-white/40">{(record.confidence * 100).toFixed(0)}%</div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <h3 className="text-sm font-semibold mb-3">Recent activity</h3>
+                <div className="max-h-64 overflow-y-auto pr-2 space-y-2 text-sm">
+                  {recentRecords.length > 0 ? (
+                    recentRecords.slice(0, 24).map(record => {
+                      const member = members.find(item => item.person_id === record.person_id);
+                      return (
+                        <div
+                          key={record.id}
+                          className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0"
+                        >
+                          <div>
+                            <div className="font-medium text-white text-sm">{member?.name ?? record.person_id}</div>
+                            <div className="text-xs text-white/40">
+                              {toDate(record.timestamp).toLocaleDateString()} · {formatTime(record.timestamp)}
                             </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-white/40 text-sm py-8 text-center">No activity for the selected date.</div>
-                      )}
-                    </div>
-                  </div>
+                          </div>
+                          <div className="text-xs text-white/40">{(record.confidence * 100).toFixed(0)}%</div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-white/40 text-xs py-6 text-center">No activity</div>
+                  )}
                 </div>
-              )}
+              </div>
             </section>
           )}
 
-          {activeSection === 'members' && (
-            <section className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-semibold">Members</h2>
-                  <p className="text-white/60 text-sm">View attendance details for people in this group.</p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => setShowAddMemberModal(true)}
-                    disabled={!selectedGroup}
-                    className="px-4 py-2 rounded-full bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
-                  >
-                    Add member
-                  </button>
-                </div>
+              {activeSection === 'members' && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Members</h2>
+                <button
+                  onClick={() => setShowAddMemberModal(true)}
+                  className="px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-xs"
+                >
+                  Add member
+                </button>
               </div>
 
-              {members.length > 0 ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {members.length > 0 && (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   {members.map(member => {
                     const session = todaySessions.find(item => item.person_id === member.person_id);
 
@@ -659,32 +596,28 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                           : 'bg-red-500/20 text-red-200 border border-red-400/40';
 
                     return (
-                      <div key={member.person_id} className="rounded-3xl border border-white/10 bg-white/5 p-6 flex flex-col gap-4">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div>
-                            <div className="text-lg font-semibold">{member.name}</div>
-                            <div className="text-sm text-white/50 mt-1">
+                      <div key={member.person_id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-base font-semibold truncate">{member.name}</div>
+                            <div className="text-xs text-white/50 mt-0.5">
                               {member.role && <span>{member.role} · </span>}
-                              ID: {member.person_id}
-                            </div>
-                            <div className="text-xs text-white/30 mt-1 space-x-2">
-                              {member.employee_id && <span>Employee: {member.employee_id}</span>}
-                              {member.student_id && <span>Student: {member.student_id}</span>}
+                              <span className="text-white/30">{member.person_id}</span>
                             </div>
                           </div>
-                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${statusClass}`}>{statusLabel}</div>
+                          <div className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${statusClass}`}>{statusLabel}</div>
                         </div>
 
-                        <div className="flex flex-wrap gap-3 text-sm">
+                        <div className="flex gap-2 text-xs">
                           <button
                             onClick={() => openEditMember(member)}
-                            className="px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors"
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleRemoveMember(member.person_id)}
-                            className="px-4 py-2 rounded-full bg-red-500/20 border border-red-400/40 text-red-100 hover:bg-red-500/30 transition-colors"
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-400/40 text-red-100 hover:bg-red-500/30 transition-colors"
                           >
                             Remove
                           </button>
@@ -693,75 +626,67 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                     );
                   })}
                 </div>
-              ) : (
-                <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-white/50">
-                  {selectedGroup ? 'No members in this group yet.' : 'Select a group to view members.'}
-                </div>
               )}
             </section>
           )}
 
-          {activeSection === 'reports' && (
-            <section className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-semibold">Reports</h2>
-                  <p className="text-white/60 text-sm">Create and export attendance summaries.</p>
-                </div>
-                <div className="flex flex-wrap gap-3 items-center">
-                  <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
-                    <span className="text-xs uppercase tracking-[0.2em] text-white/40">Start</span>
+              {activeSection === 'reports' && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Reports</h2>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs">
+                    <span className="text-white/40">From</span>
                     <input
                       type="date"
                       value={reportStartDate}
                       onChange={event => setReportStartDate(event.target.value)}
-                      className="bg-transparent focus:outline-none"
+                      className="bg-transparent focus:outline-none w-28"
                     />
                   </label>
-                  <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
-                    <span className="text-xs uppercase tracking-[0.2em] text-white/40">End</span>
+                  <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs">
+                    <span className="text-white/40">To</span>
                     <input
                       type="date"
                       value={reportEndDate}
                       onChange={event => setReportEndDate(event.target.value)}
-                      className="bg-transparent focus:outline-none"
+                      className="bg-transparent focus:outline-none w-28"
                     />
                   </label>
                   <button
                     onClick={generateReport}
-                    disabled={!selectedGroup}
-                    className="px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs"
                   >
                     Refresh
                   </button>
                   <button
                     onClick={exportReport}
-                    disabled={!report || !selectedGroup}
-                    className="px-4 py-2 rounded-full bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-sm disabled:opacity-50"
+                    disabled={!report}
+                    className="px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-400/40 text-green-100 hover:bg-green-500/30 transition-colors text-xs disabled:opacity-50"
                   >
-                    Export CSV
+                    Export
                   </button>
                 </div>
               </div>
 
-              {report ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-white/40">Working days</p>
-                      <div className="text-3xl font-semibold mt-2">{report.summary.total_working_days}</div>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-white/40">Avg attendance</p>
-                      <div className="text-3xl font-semibold text-green-200 mt-2">{report.summary.average_attendance_rate}%</div>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 space-y-1">
-                      <div>Most punctual: <span className="text-white">{report.summary.most_punctual}</span></div>
-                      <div>Most absent: <span className="text-white">{report.summary.most_absent}</span></div>
-                    </div>
+              {report && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs text-white/40">Working days</p>
+                      <div className="text-2xl font-semibold mt-1">{report.summary.total_working_days}</div>
                   </div>
+                  <div className="rounded-xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-4">
+                    <p className="text-xs text-white/40">Avg attendance</p>
+                    <div className="text-2xl font-semibold text-green-200 mt-1">{report.summary.average_attendance_rate}%</div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70 space-y-1">
+                    <div>Punctual: <span className="text-white">{report.summary.most_punctual}</span></div>
+                    <div>Absent: <span className="text-white">{report.summary.most_absent}</span></div>
+                  </div>
+                </div>
 
-                  <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
+                <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse">
                         <thead className="bg-white/10 text-xs uppercase tracking-[0.2em] text-white/40">
@@ -799,103 +724,83 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-white/50">
-                  Generate a report to view group history.
-                </div>
               )}
             </section>
           )}
 
-          {activeSection === 'registration' && (
-            <section className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-semibold">Face registration</h2>
-                  <p className="text-white/60 text-sm">Capture and update face data for group members.</p>
+              {activeSection === 'registration' && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Face registration</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowBulkRegistration(true)}
+                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-400/40 text-purple-100 hover:bg-purple-500/30 transition-colors text-xs"
+                  >
+                    📁 Bulk
+                  </button>
+                  <button
+                    onClick={() => setShowCameraQueue(true)}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-xs"
+                  >
+                    🎥 Camera
+                  </button>
                 </div>
-                {selectedGroup && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowBulkRegistration(true)}
-                      className="px-4 py-2 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-100 hover:bg-purple-500/30 transition-colors text-sm"
-                    >
-                      � Bulk Upload
-                    </button>
-                    <button
-                      onClick={() => setShowCameraQueue(true)}
-                      className="px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm"
-                    >
-                      🎥 Camera Queue
-                    </button>
-                  </div>
-                )}
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                {selectedGroup ? (
-                  <FaceRegistrationLab
-                    group={selectedGroup}
-                    members={members}
-                    onRefresh={() => {
-                      if (selectedGroup) {
-                        void fetchGroupDetails(selectedGroup.id);
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="text-center text-white/50 py-12">Select a group to enable face registration.</div>
-                )}
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <FaceRegistrationLab
+                  group={selectedGroup}
+                  members={members}
+                  onRefresh={() => {
+                    if (selectedGroup) {
+                      void fetchGroupDetails(selectedGroup.id);
+                    }
+                  }}
+                />
               </div>
             </section>
           )}
 
-          {activeSection === 'settings' && (
-            <section className="space-y-6 pb-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-semibold">Settings</h2>
-                  <p className="text-white/60 text-sm">Review group details and manage stored data.</p>
-                </div>
+              {activeSection === 'settings' && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Settings</h2>
                 <button
                   onClick={exportData}
-                  className="px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm"
+                  className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs"
                 >
-                  Export data
+                  Export
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
-                  <h3 className="text-lg font-semibold">Group details</h3>
-                  {selectedGroup ? (
-                    <div className="space-y-3 text-sm text-white/70">
-                      <div className="flex justify-between">
-                        <span>Name</span>
-                        <span className="text-white">{selectedGroup.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Type</span>
-                        <span className="text-white">{getGroupTypeIcon(selectedGroup.type)} {selectedGroup.type}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Created</span>
-                        <span className="text-white">
-                          {selectedGroupCreatedAt ? selectedGroupCreatedAt.toLocaleDateString() : '—'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Members</span>
-                        <span className="text-white">{members.length}</span>
-                      </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold">Group details</h3>
+                  <div className="space-y-2 text-xs text-white/70">
+                    <div className="flex justify-between">
+                      <span>Name</span>
+                      <span className="text-white">{selectedGroup.name}</span>
                     </div>
-                  ) : (
-                    <div className="text-white/50 text-sm">Select a group to view its details.</div>
-                  )}
+                    <div className="flex justify-between">
+                      <span>Type</span>
+                      <span className="text-white">{getGroupTypeIcon(selectedGroup.type)} {selectedGroup.type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Created</span>
+                      <span className="text-white">
+                        {selectedGroupCreatedAt ? selectedGroupCreatedAt.toLocaleDateString() : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Members</span>
+                      <span className="text-white">{members.length}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
-                  <h3 className="text-lg font-semibold">Data tools</h3>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold">Data tools</h3>
                   <button
                     onClick={async () => {
                       if (!confirm('Remove records older than 30 days?')) {
@@ -915,24 +820,24 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                         }
                       });
                     }}
-                    className="w-full px-4 py-3 rounded-2xl bg-yellow-500/20 border border-yellow-400/40 text-yellow-100 hover:bg-yellow-500/30 transition-colors text-sm"
+                    className="w-full px-3 py-2 rounded-lg bg-yellow-500/20 border border-yellow-400/40 text-yellow-100 hover:bg-yellow-500/30 transition-colors text-xs"
                   >
-                    Clean records older than 30 days
+                    Clean old records (30d+)
                   </button>
                   <button
                     onClick={exportData}
-                    className="w-full px-4 py-3 rounded-2xl bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-sm"
+                    className="w-full px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-100 hover:bg-blue-500/30 transition-colors text-xs"
                   >
                     Export snapshot
                   </button>
                 </div>
               </div>
             </section>
+              )}
+            </>
           )}
         </div>
-      </main>
-
-      {showAddMemberModal && (
+      </main>      {showAddMemberModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50 px-4">
           <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-2xl shadow-[0_40px_80px_rgba(0,0,0,0.6)] max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold mb-2">Add Members</h3>
