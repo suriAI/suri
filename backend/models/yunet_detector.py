@@ -23,7 +23,7 @@ class YuNetDetector:
         self,
         model_path: str,
         input_size: List[int] = [320, 320],
-        conf_threshold: float = 0.6,
+        conf_threshold: float = 0.9,
         nms_threshold: float = 0.3,
         top_k: int = 5000,
         backend_id: int = 0,

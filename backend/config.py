@@ -97,7 +97,7 @@ MODEL_CONFIGS = {
         "name": "YuNet",
         "model_path": WEIGHTS_DIR / "face_detection_yunet_2023mar.onnx",
         "input_size": (320, 320),  # Fixed size for consistent performance
-        "score_threshold": 0.5,    # Balanced for speed vs accuracy
+        "score_threshold": 0.9,    # Balanced for speed vs accuracy
         "nms_threshold": 0.3,      # Optimized for speed vs accuracy balance
         "top_k": 5000,             # Reduced for faster processing
         "backend_id": 0,  # OpenCV DNN backend
