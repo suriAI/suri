@@ -98,9 +98,7 @@ export class AttendanceManager {
       auto_checkout_enabled: true,
       auto_checkout_hours: 8,
       late_threshold_minutes: 15,
-      break_duration_minutes: 60,
       require_manual_checkout: false,
-      enable_break_tracking: true,
       enable_location_tracking: false,
       attendance_cooldown_seconds: 3
     };
@@ -125,7 +123,6 @@ export class AttendanceManager {
         settings: {
           auto_checkout_hours: this.settings.auto_checkout_hours,
           late_threshold_minutes: this.settings.late_threshold_minutes,
-          break_duration_minutes: this.settings.break_duration_minutes,
           require_checkout: !this.settings.auto_checkout_enabled
         }
       };
@@ -324,7 +321,6 @@ export class AttendanceManager {
         present_today: 0,
         absent_today: 0,
         late_today: 0,
-        on_break: 0,
         average_hours_today: 0,
         total_hours_today: 0
       };

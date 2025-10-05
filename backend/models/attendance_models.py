@@ -15,7 +15,6 @@ class AttendanceStatus(str, Enum):
     PRESENT = "present"
     ABSENT = "absent"
     LATE = "late"
-    ON_BREAK = "on_break"
     CHECKED_OUT = "checked_out"
 
 
@@ -23,7 +22,6 @@ class AttendanceStatus(str, Enum):
 class GroupSettings(BaseModel):
     auto_checkout_hours: Optional[int] = 8
     late_threshold_minutes: Optional[int] = 15
-    break_duration_minutes: Optional[int] = 60
     require_checkout: bool = False
 
 
@@ -115,7 +113,6 @@ class AttendanceSessionResponse(BaseModel):
     group_id: str
     date: str  # YYYY-MM-DD format
     total_hours: Optional[float]
-    break_duration: Optional[float]
     status: AttendanceStatus
     is_late: bool
     late_minutes: Optional[int]
@@ -146,9 +143,7 @@ class AttendanceSettingsUpdate(BaseModel):
     auto_checkout_enabled: Optional[bool] = None
     auto_checkout_hours: Optional[int] = Field(None, ge=1, le=24)
     late_threshold_minutes: Optional[int] = Field(None, ge=0, le=120)
-    break_duration_minutes: Optional[int] = Field(None, ge=0, le=480)
     require_manual_checkout: Optional[bool] = None
-    enable_break_tracking: Optional[bool] = None
     enable_location_tracking: Optional[bool] = None
     confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
     attendance_cooldown_seconds: Optional[int] = Field(None, ge=1, le=300)
@@ -159,9 +154,7 @@ class AttendanceSettingsResponse(BaseModel):
     auto_checkout_enabled: bool
     auto_checkout_hours: int
     late_threshold_minutes: int
-    break_duration_minutes: int
     require_manual_checkout: bool
-    enable_break_tracking: bool
     enable_location_tracking: bool
     confidence_threshold: float
     attendance_cooldown_seconds: int
@@ -173,7 +166,6 @@ class AttendanceStatsResponse(BaseModel):
     present_today: int
     absent_today: int
     late_today: int
-    on_break: int
     average_hours_today: float
     total_hours_today: float
 

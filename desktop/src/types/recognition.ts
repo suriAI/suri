@@ -104,7 +104,7 @@ export interface DetectionWithRecognitionResult {
  */
 
 export type GroupType = 'employee' | 'student' | 'visitor' | 'general';
-export type AttendanceStatus = 'present' | 'absent' | 'late' | 'on_break' | 'checked_out';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'checked_out';
 
 export interface AttendanceGroup {
   id: string;
@@ -116,7 +116,6 @@ export interface AttendanceGroup {
   settings: {
     auto_checkout_hours?: number;
     late_threshold_minutes?: number;
-    break_duration_minutes?: number;
     require_checkout: boolean;
   };
 }
@@ -151,7 +150,6 @@ export interface AttendanceSession {
   group_id: string;
   date: string; // YYYY-MM-DD format
   total_hours?: number;
-  break_duration?: number;
   status: AttendanceStatus;
   is_late: boolean;
   late_minutes?: number;
@@ -163,7 +161,6 @@ export interface AttendanceStats {
   present_today: number;
   absent_today: number;
   late_today: number;
-  on_break: number;
   average_hours_today: number;
   total_hours_today: number;
 }
@@ -199,9 +196,7 @@ export interface AttendanceSettings {
   auto_checkout_enabled: boolean;
   auto_checkout_hours: number;
   late_threshold_minutes: number;
-  break_duration_minutes: number;
   require_manual_checkout: boolean;
-  enable_break_tracking: boolean;
   enable_location_tracking: boolean;
   attendance_cooldown_seconds: number; // Cooldown period to prevent duplicate attendance logging
 }

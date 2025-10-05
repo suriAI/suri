@@ -58,16 +58,6 @@ const formatTime = (value: Date | string): string => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const formatDuration = (hours: number | null | undefined): string => {
-  if (!hours) {
-    return '0h 00m';
-  }
-
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}h ${m.toString().padStart(2, '0')}m`;
-};
-
 export function Menu({ onBack, initialSection }: MenuProps) {
   const [selectedGroup, setSelectedGroup] = useState<AttendanceGroup | null>(null);
   const [groups, setGroups] = useState<AttendanceGroup[]>([]);
@@ -578,7 +568,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
               </div>
 
               {stats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-5">
                     <p className="text-xs uppercase tracking-[0.2em] text-white/40">Present</p>
                     <div className="text-3xl font-semibold text-green-200 mt-2">{stats.present_today}</div>
@@ -591,28 +581,11 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                     <p className="text-xs uppercase tracking-[0.2em] text-white/40">Late</p>
                     <div className="text-3xl font-semibold text-yellow-200 mt-2">{stats.late_today}</div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/40">On break</p>
-                    <div className="text-3xl font-semibold text-blue-200 mt-2">{stats.on_break}</div>
-                  </div>
                 </div>
               )}
 
               {stats && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                    <h3 className="text-lg font-semibold">Hours summary</h3>
-                    <div className="mt-4 space-y-3 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Total hours today</span>
-                        <span className="font-mono text-white">{formatDuration(stats.total_hours_today)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Average hours</span>
-                        <span className="font-mono text-white">{formatDuration(stats.average_hours_today)}</span>
-                      </div>
-                    </div>
-                  </div>
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
                     <h3 className="text-lg font-semibold">Recent activity</h3>
                     <div className="mt-4 max-h-64 overflow-y-auto pr-2 space-y-3 text-sm">
@@ -671,23 +644,19 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                       ? 'Present'
                       : session?.status === 'late'
                         ? `Late (${session.late_minutes ?? 0}m)`
-                        : session?.status === 'on_break'
-                          ? 'On break'
-                          : session?.status === 'checked_out'
-                            ? 'Checked out'
-                            : session?.status === 'absent'
-                              ? 'Absent'
-                              : 'No record';
+                        : session?.status === 'checked_out'
+                          ? 'Checked out'
+                          : session?.status === 'absent'
+                            ? 'Absent'
+                            : 'No record';
 
                     const statusClass = session?.status === 'present'
                       ? 'bg-green-500/20 text-green-200 border border-green-400/40'
                       : session?.status === 'late'
                         ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-400/40'
-                        : session?.status === 'on_break'
-                          ? 'bg-blue-500/20 text-blue-200 border border-blue-400/40'
-                          : session?.status === 'checked_out'
-                            ? 'bg-white/10 text-white/70 border border-white/20'
-                            : 'bg-red-500/20 text-red-200 border border-red-400/40';
+                        : session?.status === 'checked_out'
+                          ? 'bg-white/10 text-white/70 border border-white/20'
+                          : 'bg-red-500/20 text-red-200 border border-red-400/40';
 
                     return (
                       <div key={member.person_id} className="rounded-3xl border border-white/10 bg-white/5 p-6 flex flex-col gap-4">
@@ -704,19 +673,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                             </div>
                           </div>
                           <div className={`px-3 py-1 rounded-full text-xs font-medium ${statusClass}`}>{statusLabel}</div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-white/60">
-                          <div className="flex justify-between">
-                            <span>Hours today</span>
-                            <span className="font-mono text-white">{formatDuration(session?.total_hours ?? 0)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Break time</span>
-                            <span className="font-mono text-white">
-                              {session?.break_duration ? `${Math.round(session.break_duration)}m` : '—'}
-                            </span>
-                          </div>
                         </div>
 
                         <div className="flex flex-wrap gap-3 text-sm">
@@ -790,7 +746,7 @@ export function Menu({ onBack, initialSection }: MenuProps) {
 
               {report ? (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                       <p className="text-xs uppercase tracking-[0.2em] text-white/40">Working days</p>
                       <div className="text-3xl font-semibold mt-2">{report.summary.total_working_days}</div>
@@ -798,10 +754,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                     <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent p-5">
                       <p className="text-xs uppercase tracking-[0.2em] text-white/40">Avg attendance</p>
                       <div className="text-3xl font-semibold text-green-200 mt-2">{report.summary.average_attendance_rate}%</div>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-white/40">Total hours</p>
-                      <div className="text-3xl font-semibold mt-2">{formatDuration(report.summary.total_hours_logged)}</div>
                     </div>
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 space-y-1">
                       <div>Most punctual: <span className="text-white">{report.summary.most_punctual}</span></div>
@@ -818,8 +770,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                             <th className="px-4 py-3 text-center">Present</th>
                             <th className="px-4 py-3 text-center">Absent</th>
                             <th className="px-4 py-3 text-center">Late</th>
-                            <th className="px-4 py-3 text-center">Total hours</th>
-                            <th className="px-4 py-3 text-center">Avg hours</th>
                             <th className="px-4 py-3 text-center">Attendance %</th>
                           </tr>
                         </thead>
@@ -830,8 +780,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
                               <td className="px-4 py-3 text-sm text-center text-green-200">{member.present_days}</td>
                               <td className="px-4 py-3 text-sm text-center text-red-200">{member.absent_days}</td>
                               <td className="px-4 py-3 text-sm text-center text-yellow-200">{member.late_days}</td>
-                              <td className="px-4 py-3 text-sm text-center font-mono text-white">{formatDuration(member.total_hours)}</td>
-                              <td className="px-4 py-3 text-sm text-center font-mono text-white">{formatDuration(member.average_hours)}</td>
                               <td className="px-4 py-3 text-sm text-center">
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                   member.attendance_rate >= 90

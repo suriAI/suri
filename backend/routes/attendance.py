@@ -974,7 +974,6 @@ def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
     present_today = 0
     absent_today = 0
     late_today = 0
-    on_break = 0
     total_hours = 0.0
     members_with_hours = 0
     
@@ -992,8 +991,6 @@ def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
                 present_today += 1
                 if session.get("is_late"):
                     late_today += 1
-            elif status == "on_break":
-                on_break += 1
             else:
                 absent_today += 1
             
@@ -1011,7 +1008,6 @@ def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
         "present_today": present_today,
         "absent_today": absent_today,
         "late_today": late_today,
-        "on_break": on_break,
         "average_hours_today": round(average_hours, 2),
         "total_hours_today": round(total_hours, 2)
     }

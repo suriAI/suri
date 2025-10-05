@@ -46,7 +46,6 @@ class AttendanceDatabaseManager:
                         is_active BOOLEAN DEFAULT 1,
                         auto_checkout_hours INTEGER,
                         late_threshold_minutes INTEGER,
-                        break_duration_minutes INTEGER,
                         require_checkout BOOLEAN DEFAULT 0
                     )
                 """)
@@ -92,7 +91,6 @@ class AttendanceDatabaseManager:
                         group_id TEXT NOT NULL,
                         date TEXT NOT NULL,
                         total_hours REAL,
-                        break_duration REAL,
                         status TEXT NOT NULL DEFAULT 'absent',
                         is_late BOOLEAN DEFAULT 0,
                         late_minutes INTEGER,
@@ -110,9 +108,7 @@ class AttendanceDatabaseManager:
                         auto_checkout_enabled BOOLEAN DEFAULT 1,
                         auto_checkout_hours INTEGER DEFAULT 8,
                         late_threshold_minutes INTEGER DEFAULT 15,
-                        break_duration_minutes INTEGER DEFAULT 60,
                         require_manual_checkout BOOLEAN DEFAULT 0,
-                        enable_break_tracking BOOLEAN DEFAULT 1,
                         enable_location_tracking BOOLEAN DEFAULT 0,
                         confidence_threshold REAL DEFAULT 0.7,
                         attendance_cooldown_seconds INTEGER DEFAULT 10,
@@ -177,8 +173,8 @@ class AttendanceDatabaseManager:
                     cursor.execute("""
                         INSERT INTO attendance_groups 
                         (id, name, type, description, auto_checkout_hours, 
-                         late_threshold_minutes, break_duration_minutes, require_checkout)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                         late_threshold_minutes, require_checkout)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                     """, (
                         group_data['id'],
                         group_data['name'],
@@ -186,7 +182,6 @@ class AttendanceDatabaseManager:
                         group_data.get('description'),
                         group_data.get('settings', {}).get('auto_checkout_hours'),
                         group_data.get('settings', {}).get('late_threshold_minutes'),
-                        group_data.get('settings', {}).get('break_duration_minutes'),
                         group_data.get('settings', {}).get('require_checkout', False)
                     ))
                     
@@ -216,7 +211,6 @@ class AttendanceDatabaseManager:
                     group['settings'] = {
                         'auto_checkout_hours': group.pop('auto_checkout_hours'),
                         'late_threshold_minutes': group.pop('late_threshold_minutes'),
-                        'break_duration_minutes': group.pop('break_duration_minutes'),
                         'require_checkout': bool(group.pop('require_checkout'))
                     }
                     groups.append(group)
@@ -241,7 +235,6 @@ class AttendanceDatabaseManager:
                     group['settings'] = {
                         'auto_checkout_hours': group.pop('auto_checkout_hours'),
                         'late_threshold_minutes': group.pop('late_threshold_minutes'),
-                        'break_duration_minutes': group.pop('break_duration_minutes'),
                         'require_checkout': bool(group.pop('require_checkout'))
                     }
                     return group
@@ -500,16 +493,15 @@ class AttendanceDatabaseManager:
                     
                     cursor.execute("""
                         INSERT OR REPLACE INTO attendance_sessions 
-                        (id, person_id, group_id, date, total_hours, break_duration,
+                        (id, person_id, group_id, date, total_hours,
                          status, is_late, late_minutes, notes)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         session_data['id'],
                         session_data['person_id'],
                         session_data['group_id'],
                         session_data['date'],
                         session_data.get('total_hours'),
-                        session_data.get('break_duration'),
                         session_data['status'],
                         session_data.get('is_late', False),
                         session_data.get('late_minutes'),
@@ -598,9 +590,7 @@ class AttendanceDatabaseManager:
                     'auto_checkout_enabled': True,
                     'auto_checkout_hours': 8,
                     'late_threshold_minutes': 15,
-                    'break_duration_minutes': 60,
                     'require_manual_checkout': False,
-                    'enable_break_tracking': True,
                     'enable_location_tracking': False,
                     'confidence_threshold': 0.7,
                     'attendance_cooldown_seconds': 10
