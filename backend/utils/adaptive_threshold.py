@@ -72,51 +72,67 @@ class AdaptiveThresholdManager:
         boosters = []
         penalties = []
         
-        # BOOST 1: Model Agreement
+        # BOOST 1: Model Agreement (with spoof detection safeguard)
         score_diff = abs(v2_score - v1se_score)
+        avg_score = (v2_score + v1se_score) / 2
         
-        if score_diff < 0.10:  # Very strong agreement
-            boost += self.boost_factors["both_models_agree"]
-            boosters.append({
-                "factor": "both_models_agree",
-                "value": self.boost_factors["both_models_agree"],
-                "reason": f"Models agree strongly (diff={score_diff:.3f})"
-            })
-        elif score_diff < 0.15:  # Moderate agreement
-            partial_boost = self.boost_factors["both_models_agree"] * 0.6
-            boost += partial_boost
-            boosters.append({
-                "factor": "models_agree_moderate",
-                "value": partial_boost,
-                "reason": f"Models agree moderately (diff={score_diff:.3f})"
-            })
-        elif score_diff > 0.25:  # Strong disagreement
-            penalty = self.penalty_factors["models_disagree"]
-            boost -= penalty
-            penalties.append({
-                "factor": "models_disagree",
-                "value": penalty,
-                "reason": f"Models disagree (diff={score_diff:.3f})"
-            })
-        
-        # BOOST 2: Quality Score
-        if quality_score is not None:
-            if quality_score >= 0.85:  # High quality
-                boost += self.boost_factors["high_quality_crop"]
-                boosters.append({
-                    "factor": "high_quality_crop",
-                    "value": self.boost_factors["high_quality_crop"],
-                    "reason": f"High quality crop (score={quality_score:.2f})"
+        # SPOOF DETECTION SAFEGUARD: Don't boost if both models give low real scores
+        # This prevents false live classifications on high-quality spoofs
+        if avg_score < 0.60:  # Both models think it's likely spoof
+            # Don't apply agreement boost for low scores (likely spoofs)
+            if score_diff > 0.25:  # Still apply disagreement penalty
+                penalty = self.penalty_factors["models_disagree"]
+                boost -= penalty
+                penalties.append({
+                    "factor": "models_disagree",
+                    "value": penalty,
+                    "reason": f"Models disagree on likely spoof (diff={score_diff:.3f}, avg={avg_score:.3f})"
                 })
-            elif quality_score >= 0.70:  # Good quality
-                partial_boost = self.boost_factors["high_quality_crop"] * 0.5
+        else:  # Models think it might be real (avg_score >= 0.60)
+            if score_diff < 0.10:  # Very strong agreement
+                boost += self.boost_factors["both_models_agree"]
+                boosters.append({
+                    "factor": "both_models_agree",
+                    "value": self.boost_factors["both_models_agree"],
+                    "reason": f"Models agree strongly on likely real (diff={score_diff:.3f}, avg={avg_score:.3f})"
+                })
+            elif score_diff < 0.15:  # Moderate agreement
+                partial_boost = self.boost_factors["both_models_agree"] * 0.6
                 boost += partial_boost
                 boosters.append({
-                    "factor": "good_quality_crop",
+                    "factor": "models_agree_moderate",
                     "value": partial_boost,
-                    "reason": f"Good quality crop (score={quality_score:.2f})"
+                    "reason": f"Models agree moderately on likely real (diff={score_diff:.3f}, avg={avg_score:.3f})"
                 })
-            elif quality_score < 0.50:  # Poor quality
+            elif score_diff > 0.25:  # Strong disagreement
+                penalty = self.penalty_factors["models_disagree"]
+                boost -= penalty
+                penalties.append({
+                    "factor": "models_disagree",
+                    "value": penalty,
+                    "reason": f"Models disagree on likely real (diff={score_diff:.3f}, avg={avg_score:.3f})"
+                })
+        
+        # BOOST 2: Quality Score (with spoof detection safeguard)
+        if quality_score is not None:
+            # SPOOF DETECTION SAFEGUARD: Don't boost quality for likely spoofs
+            if avg_score >= 0.60:  # Only boost quality if models think it might be real
+                if quality_score >= 0.85:  # High quality
+                    boost += self.boost_factors["high_quality_crop"]
+                    boosters.append({
+                        "factor": "high_quality_crop",
+                        "value": self.boost_factors["high_quality_crop"],
+                        "reason": f"High quality crop on likely real (score={quality_score:.2f}, avg={avg_score:.3f})"
+                    })
+                elif quality_score >= 0.70:  # Good quality
+                    partial_boost = self.boost_factors["high_quality_crop"] * 0.5
+                    boost += partial_boost
+                    boosters.append({
+                        "factor": "good_quality_crop",
+                        "value": partial_boost,
+                        "reason": f"Good quality crop on likely real (score={quality_score:.2f}, avg={avg_score:.3f})"
+                    })
+            elif quality_score < 0.50:  # Poor quality (always apply penalty)
                 penalty = self.penalty_factors["poor_quality"]
                 boost -= penalty
                 penalties.append({
@@ -151,16 +167,17 @@ class AdaptiveThresholdManager:
                     "reason": f"Short tracking (stability={track_stability:.2f})"
                 })
         
-        # BOOST 4: Temporal Consistency
+        # BOOST 4: Temporal Consistency (with spoof detection safeguard)
         if temporal_verdict is not None and temporal_confidence is not None:
             if temporal_verdict == "REAL" and temporal_confidence >= 0.75:
-                # Temporal analysis confirms REAL with high confidence
-                boost += self.boost_factors["temporal_consistency"]
-                boosters.append({
-                    "factor": "temporal_consistency_real",
-                    "value": self.boost_factors["temporal_consistency"],
-                    "reason": f"Temporal analysis confirms REAL (conf={temporal_confidence:.2f})"
-                })
+                # Only boost temporal consistency if models also think it might be real
+                if avg_score >= 0.60:
+                    boost += self.boost_factors["temporal_consistency"]
+                    boosters.append({
+                        "factor": "temporal_consistency_real",
+                        "value": self.boost_factors["temporal_consistency"],
+                        "reason": f"Temporal analysis confirms REAL on likely real (conf={temporal_confidence:.2f}, avg={avg_score:.3f})"
+                    })
             elif temporal_verdict == "SPOOF" and temporal_confidence >= 0.80:
                 # Temporal analysis detects SPOOF with high confidence
                 # Apply strong penalty (make threshold much higher)
