@@ -32,6 +32,8 @@ interface DetectionResult {
     antispoofing?: {
       is_real: boolean | null;
       confidence: number;
+      real_score?: number;
+      fake_score?: number;
       status: 'real' | 'fake' | 'error' | 'too_small' | 'processing_failed' | 'invalid_bbox' | 'out_of_frame' | 'unknown';
       label?: string;
       message?: string;
@@ -50,6 +52,8 @@ interface WebSocketFaceData {
   antispoofing?: {
     is_real?: boolean | null;
     confidence?: number;
+    real_score?: number;
+    fake_score?: number;
     status?: 'real' | 'fake' | 'error' | 'too_small' | 'processing_failed' | 'invalid_bbox' | 'out_of_frame' | 'unknown';
     label?: string;
     message?: string;
@@ -293,6 +297,23 @@ export default function LiveVideo() {
     return () => clearInterval(interval);
   }, [attendanceCooldowns, attendanceCooldownSeconds, persistentCooldowns]);
 
+  // Debug effect to log antispoofing data
+  useEffect(() => {
+    if (currentDetections && currentDetections.faces.length > 0) {
+      currentDetections.faces.forEach((face, index) => {
+        if (face.antispoofing) {
+          console.log(`DEBUG: Face ${index} antispoofing data:`, {
+            status: face.antispoofing.status,
+            real_score: face.antispoofing.real_score,
+            fake_score: face.antispoofing.fake_score,
+            real_score_defined: face.antispoofing.real_score !== undefined,
+            fake_score_defined: face.antispoofing.fake_score !== undefined,
+            confidence: face.antispoofing.confidence
+          });
+        }
+      });
+    }
+  }, [currentDetections]);
 
   const [showMenuPanel, setShowMenuPanel] = useState(false);
 
@@ -373,10 +394,16 @@ export default function LiveVideo() {
             return null;
           }
           
-          // CRITICAL: Anti-spoofing validation FIRST - Reject spoofed faces BEFORE recognition
+          // CRITICAL: Anti-spoofing validation FIRST - Skip recognition for spoofed faces but still display them
           if (face.antispoofing?.status === 'fake') {
-            console.log(`🚫 Spoofed face detected and blocked (track ${face.track_id})`);
-            return null; // Filter out spoofed faces completely - NO recognition for spoofed faces
+            console.log(`🚫 Spoofed face detected - skipping recognition but keeping for display (track ${face.track_id})`);
+            // Don't return null - we want to show spoofed faces in the sidebar
+            // Just skip the recognition processing
+            return {
+              face: face,
+              skipRecognition: true,
+              reason: 'spoofed'
+            };
           }
           
           // SECURITY FIX: Block "too_small" faces - prevents tilted/compressed spoof bypass
@@ -670,11 +697,50 @@ export default function LiveVideo() {
       const newRecognitionResults = new Map<number, FaceRecognitionResponse>();
       recognitionResults.forEach((result) => {
         if (result) {
-          newRecognitionResults.set(result.trackId, result.result);
+          // Handle spoofed faces that skip recognition
+          if (result.skipRecognition) {
+            // For spoofed faces, we still want to show them in the sidebar
+            // but with no recognition result
+            newRecognitionResults.set(result.face.track_id ?? -1, {
+              success: false,
+              person_id: undefined,
+              similarity: 0,
+              processing_time: 0,
+              error: 'Spoofed face - recognition skipped'
+            });
+          } else if (result.result) {
+            newRecognitionResults.set(result.trackId, result.result);
+          }
         }
       });
       
       setCurrentRecognitionResults(newRecognitionResults);
+
+      // Handle spoofed faces that skipped recognition but should still be displayed
+      recognitionResults.forEach((result) => {
+        if (result && result.skipRecognition) {
+          const face = result.face;
+          const faceId = `spoofed_track_${face.track_id}`;
+          const currentTime = Date.now();
+          
+          setTrackedFaces(prev => {
+            const newTracked = new Map(prev);
+            newTracked.set(faceId, {
+              id: faceId,
+              bbox: face.bbox,
+              confidence: face.confidence,
+              lastSeen: currentTime,
+              trackingHistory: [{ timestamp: currentTime, bbox: face.bbox, confidence: face.confidence }],
+              isLocked: false,
+              personId: undefined,
+              occlusionCount: 0,
+              angleConsistency: 1.0,
+              antispoofingStatus: face.antispoofing?.status
+            });
+            return newTracked;
+          });
+        }
+      });
 
     } catch (error) {
       console.error('❌ Face recognition processing failed:', error);
@@ -811,6 +877,8 @@ export default function LiveVideo() {
                 antispoofing: face.antispoofing ? {
                   is_real: face.antispoofing.is_real ?? null,
                   confidence: face.antispoofing.confidence || 0,
+                  real_score: face.antispoofing.real_score,
+                  fake_score: face.antispoofing.fake_score,
                   status: face.antispoofing.status || 'error'
                 } : undefined
               };
@@ -819,6 +887,12 @@ export default function LiveVideo() {
             processing_time: data.processing_time || 0
           };
 
+          // DEBUG: Log the detection result to see what antispoofing data we're getting
+          console.log('DEBUG: Detection result antispoofing data:', detectionResult.faces.map(face => ({
+            track_id: face.track_id,
+            antispoofing: face.antispoofing
+          })));
+          
           setCurrentDetections(detectionResult);
           lastDetectionRef.current = detectionResult;
 
@@ -2012,6 +2086,18 @@ export default function LiveVideo() {
                   <div className="text-white/60">Time: <span className="text-white">{currentDetections.processing_time.toFixed(1)}ms</span></div>
                   <div className="text-white/60">Faces: <span className="text-white">{currentDetections.faces.length}</span></div>
                   <div className="text-white/60">WS: <span className={websocketStatus === 'connected' ? 'text-green-400' : 'text-red-400'}>{websocketStatus}</span></div>
+                  
+                  {/* Detailed Spoof Detection Info */}
+                  {currentDetections.faces.map((face, index) => (
+                    face.antispoofing && face.antispoofing.real_score !== undefined && face.antispoofing.fake_score !== undefined && (
+                      <div key={index} className="border-t border-white/10 pt-1 mt-1">
+                        <div className="text-white/60">Face {index + 1}:</div>
+                        <div className="text-green-400">Live: {(face.antispoofing.real_score * 100).toFixed(1)}%</div>
+                        <div className="text-red-400">Spoof: {(face.antispoofing.fake_score * 100).toFixed(1)}%</div>
+                        <div className="text-white/60">Status: <span className={face.antispoofing.status === 'real' ? 'text-green-400' : 'text-red-400'}>{face.antispoofing.status}</span></div>
+                      </div>
+                    )
+                  ))}
                 </div>
               )}
               
@@ -2203,9 +2289,44 @@ export default function LiveVideo() {
                                 face.antispoofing.status === 'too_small' ? 'bg-blue-900 text-blue-300' :
                                 'bg-yellow-900 text-yellow-300'
                               }`}>
-                                {face.antispoofing.status === 'real' ? '✓ Live' :
-                                 face.antispoofing.status === 'fake' ? '⚠ Spoof' :
-                                 face.antispoofing.status === 'too_small' ? '📏 Move Closer' : '? Unknown'}
+                                <div className="flex items-center justify-between">
+                                  <span>
+                                    {face.antispoofing.status === 'real' ? '✓ Live' :
+                                     face.antispoofing.status === 'fake' ? '⚠ Spoof' :
+                                     face.antispoofing.status === 'too_small' ? '📏 Move Closer' : '? Unknown'}
+                                  </span>
+                                  {/* Show percentages if available - show if at least one score is defined */}
+                                  {((face.antispoofing.real_score !== undefined && face.antispoofing.real_score !== null) || 
+                                    (face.antispoofing.fake_score !== undefined && face.antispoofing.fake_score !== null)) && (
+                                    <div className="text-xs ml-2 text-right">
+                                      {face.antispoofing.real_score !== undefined && face.antispoofing.real_score !== null && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-green-200">Live:</span>
+                                          <span className="font-mono">{((face.antispoofing.real_score || 0) * 100).toFixed(0)}%</span>
+                                        </div>
+                                      )}
+                                      {face.antispoofing.fake_score !== undefined && face.antispoofing.fake_score !== null && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-red-200">Spoof:</span>
+                                          <span className="font-mono">{((face.antispoofing.fake_score || 0) * 100).toFixed(0)}%</span>
+                                        </div>
+                                      )}
+                                      {/* Confidence bar */}
+                                      <div className="w-full bg-white/20 rounded-full h-1 mt-1">
+                                        <div 
+                                          className={`h-1 rounded-full transition-all duration-300 ${
+                                            face.antispoofing?.status === 'real' ? 'bg-green-400' : 'bg-red-400'
+                                          }`}
+                                          style={{ 
+                                            width: `${(face.antispoofing?.status === 'real' ? 
+                                              (face.antispoofing?.real_score || 0) : 
+                                              (face.antispoofing?.fake_score || 0)) * 100}%` 
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                             {/* Manual Log Button */}

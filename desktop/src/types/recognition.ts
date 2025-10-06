@@ -88,6 +88,8 @@ export interface FaceWithRecognition {
   antispoofing?: {
     is_real: boolean | null;
     confidence: number;
+    real_score?: number;
+    fake_score?: number;
     status: 'real' | 'fake' | 'error';
   };
   recognition?: RecognitionResult;
