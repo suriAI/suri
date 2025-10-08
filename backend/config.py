@@ -161,6 +161,21 @@ MODEL_CONFIGS = {
         "min_consecutive_recognitions": 1,  # Reduced to 1 for immediate recognition
         "facemesh_alignment": True,  # Enable FaceMesh-based alignment
         "facemesh_model": "facemesh",  # Reference to FaceMesh model config
+    },
+    "deep_sort": {
+        "name": "Deep SORT",
+        "max_age": 30,  # Maximum frames to keep track alive without detection
+        "n_init": 3,  # Number of consecutive detections before track is confirmed
+        "max_iou_distance": 0.7,  # Maximum IOU distance for matching (1 - IOU threshold)
+        "max_cosine_distance": 0.3,  # Maximum cosine distance for appearance matching
+        "nn_budget": 100,  # Maximum size of feature gallery per track
+        "description": "Deep SORT tracker with appearance features for robust face tracking",
+        "version": "1.0.0",
+        "enable_appearance_matching": True,  # Use EdgeFace embeddings for tracking
+        "matching_weights": {
+            "appearance": 0.7,  # 70% weight on appearance matching
+            "motion": 0.3  # 30% weight on IOU/motion matching
+        }
     }
 }
 
@@ -363,3 +378,4 @@ YUNET_CONFIG = config["models"]["yunet"]
 ANTISPOOFING_CONFIG = config["models"]["antispoofing"]
 EDGEFACE_MODEL_PATH = config["models"]["edgeface"]["model_path"]
 EDGEFACE_CONFIG = config["models"]["edgeface"]
+DEEP_SORT_CONFIG = config["models"]["deep_sort"]

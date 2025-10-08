@@ -23,12 +23,12 @@ from models.yunet_detector import YuNet
 from models.antispoof_detector import AntiSpoof
 from models.edgeface_detector import EdgeFaceDetector
 from models.facemesh_detector import FaceMeshDetector
-from models.sort_tracker import FaceTracker
+from models.deep_sort_tracker import DeepSortFaceTracker
 from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
 from utils.attendance_database import AttendanceDatabaseManager
 from routes import attendance
-from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS, CORS_CONFIG
+from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS, CORS_CONFIG, DEEP_SORT_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -164,12 +164,16 @@ async def startup_event():
             facemesh_config=MODEL_CONFIGS.get("facemesh", {}) if EDGEFACE_CONFIG.get("facemesh_alignment") else None
         )
         
-        # Initialize SORT face tracker
-        face_tracker = FaceTracker(
-            max_age=30,  # Keep tracks alive for 30 frames without detection
-            min_hits=1,  # Require only 1 detection for immediate tracking (faster, more responsive)
-            iou_threshold=0.2  # Lower IOU threshold for better separation of nearby faces (was 0.3)
+        # Initialize Deep SORT face tracker (appearance + motion features)
+        logger.info("Initializing Deep SORT tracker with appearance features")
+        face_tracker = DeepSortFaceTracker(
+            max_age=DEEP_SORT_CONFIG.get("max_age", 30),
+            n_init=DEEP_SORT_CONFIG.get("n_init", 3),
+            max_iou_distance=DEEP_SORT_CONFIG.get("max_iou_distance", 0.7),
+            max_cosine_distance=DEEP_SORT_CONFIG.get("max_cosine_distance", 0.3),
+            nn_budget=DEEP_SORT_CONFIG.get("nn_budget", 100)
         )
+        logger.info("Deep SORT tracker initialized successfully")
         
         # Initialize attendance database
         attendance_database = AttendanceDatabaseManager("data/attendance.db")
@@ -226,6 +230,39 @@ async def process_antispoofing(faces: List[Dict], image: np.ndarray, enable: boo
             }
     
     return faces
+
+async def process_face_tracking(faces: List[Dict], image: np.ndarray) -> List[Dict]:
+    """
+    Process face tracking with Deep SORT (appearance + motion matching)
+    Extracts EdgeFace embeddings and uses them for robust tracking
+    """
+    if not (faces and face_tracker and edgeface_detector):
+        return faces
+    
+    try:
+        # Extract embeddings for all faces (batch processing for efficiency)
+        loop = asyncio.get_event_loop()
+        embeddings = await loop.run_in_executor(
+            None,
+            edgeface_detector.extract_embeddings_for_tracking,
+            image,
+            faces
+        )
+        
+        # Update Deep SORT tracker with faces and embeddings
+        tracked_faces = await loop.run_in_executor(
+            None,
+            face_tracker.update,
+            faces,
+            embeddings if len(embeddings) == len(faces) else None
+        )
+        
+        return tracked_faces
+            
+    except Exception as e:
+        logger.warning(f"Deep SORT tracking failed: {e}")
+        # Return original faces without tracking on error
+        return faces
 
 @app.get("/")
 async def root():
@@ -331,13 +368,8 @@ async def detect_faces(request: DetectionRequest):
             else:
                 faces = yunet_detector.detect_faces(image)
             
-            # CRITICAL: Add face tracking for consistent track_id (like WebSocket)
-            if faces and face_tracker:
-                try:
-                    loop = asyncio.get_event_loop()
-                    faces = await loop.run_in_executor(None, face_tracker.update, faces)
-                except Exception as e:
-                    logger.warning(f"Face tracking failed: {e}")
+            # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
+            faces = await process_face_tracking(faces, image)
             
             faces = await process_antispoofing(faces, image, request.enable_antispoofing)
             
@@ -383,6 +415,10 @@ async def detect_faces(request: DetectionRequest):
                 track_id_value = face['track_id']
                 if isinstance(track_id_value, (np.integer, np.int32, np.int64)):
                     face['track_id'] = int(track_id_value)
+            
+            # Remove embeddings from response (not needed by frontend, causes JSON errors)
+            if 'embedding' in face:
+                del face['embedding']
         
         return DetectionResponse(
             success=True,
@@ -440,13 +476,8 @@ async def detect_faces_upload(
             else:
                 faces = yunet_detector.detect_faces(image)
             
-            # CRITICAL: Add face tracking for consistent track_id (like WebSocket)
-            if faces and face_tracker:
-                try:
-                    loop = asyncio.get_event_loop()
-                    faces = await loop.run_in_executor(None, face_tracker.update, faces)
-                except Exception as e:
-                    logger.warning(f"Face tracking failed: {e}")
+            # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
+            faces = await process_face_tracking(faces, image)
             
             faces = await process_antispoofing(faces, image, enable_antispoofing)
             
@@ -487,6 +518,10 @@ async def detect_faces_upload(
                 track_id_value = face['track_id']
                 if isinstance(track_id_value, (np.integer, np.int32, np.int64)):
                     face['track_id'] = int(track_id_value)
+            
+            # Remove embeddings from response (not needed by frontend, causes JSON errors)
+            if 'embedding' in face:
+                del face['embedding']
         
         return {
             "success": True,
@@ -970,12 +1005,8 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                     else:
                         faces = []
                     
-                    if faces and face_tracker:
-                        try:
-                            loop = asyncio.get_event_loop()
-                            faces = await loop.run_in_executor(None, face_tracker.update, faces)
-                        except Exception as e:
-                            logger.warning(f"Face tracking failed: {e}")
+                    # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
+                    faces = await process_face_tracking(faces, image)
                     
                     enable_antispoofing = message.get("enable_antispoofing", True)
                     
@@ -1053,6 +1084,10 @@ async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
                                 track_id_value = face['track_id']
                                 if isinstance(track_id_value, (np.integer, np.int32, np.int64)):
                                     face['track_id'] = int(track_id_value)
+                            
+                            # Remove embeddings from response (not needed by frontend, causes JSON errors)
+                            if 'embedding' in face:
+                                del face['embedding']
                     
                     await websocket.send_text(json.dumps(response))
                     

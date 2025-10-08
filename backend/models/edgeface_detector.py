@@ -495,6 +495,98 @@ class EdgeFaceDetector:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.recognize_face, image, bbox, facemesh_landmarks_5)
     
+    def recognize_from_embedding(self, embedding: np.ndarray) -> Dict:
+        """
+        Recognize face from pre-extracted embedding (for Deep SORT reuse)
+        
+        Args:
+            embedding: Pre-extracted face embedding (512-dim, normalized)
+            
+        Returns:
+            Recognition result with person_id and similarity
+        """
+        try:
+            # Find best match using existing embedding
+            person_id, similarity = self._find_best_match(embedding)
+            
+            return {
+                "person_id": person_id,
+                "similarity": similarity,
+                "success": True
+            }
+            
+        except Exception as e:
+            logger.error(f"Recognition from embedding error: {e}")
+            return {
+                "person_id": None,
+                "similarity": 0.0,
+                "success": False,
+                "error": str(e)
+            }
+    
+    def extract_embeddings_for_tracking(self, image: np.ndarray, face_detections: List[Dict]) -> List[np.ndarray]:
+        """
+        Extract embeddings for Deep SORT tracking (no recognition, just embeddings)
+        
+        Args:
+            image: Input image as numpy array (BGR format)
+            face_detections: List of face detection dicts with 'bbox' key
+            
+        Returns:
+            List of normalized face embeddings (512-dim each), aligned with input faces
+        """
+        try:
+            if not face_detections:
+                return []
+            
+            # Prepare face data for batch processing
+            face_data_list = []
+            for face in face_detections:
+                bbox = face.get('bbox')
+                
+                # Convert bbox dict to list if needed
+                if isinstance(bbox, dict):
+                    bbox_list = [
+                        bbox.get('x', 0),
+                        bbox.get('y', 0),
+                        bbox.get('width', 0),
+                        bbox.get('height', 0)
+                    ]
+                elif isinstance(bbox, (list, tuple)):
+                    bbox_list = list(bbox[:4])
+                else:
+                    logger.warning(f"Invalid bbox format: {bbox}")
+                    continue
+                
+                face_data = {
+                    'bbox': bbox_list,
+                    'landmarks_5': face.get('landmarks_5')
+                }
+                face_data_list.append(face_data)
+            
+            # Batch extract embeddings
+            embeddings = self._extract_embeddings_batch(image, face_data_list)
+            
+            return embeddings
+            
+        except Exception as e:
+            logger.error(f"Embedding extraction for tracking failed: {e}")
+            return []
+    
+    async def extract_embeddings_for_tracking_async(self, image: np.ndarray, face_detections: List[Dict]) -> List[np.ndarray]:
+        """
+        Extract embeddings for Deep SORT tracking (asynchronous)
+        
+        Args:
+            image: Input image as numpy array (BGR format)
+            face_detections: List of face detection dicts with 'bbox' key
+            
+        Returns:
+            List of normalized face embeddings
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.extract_embeddings_for_tracking, image, face_detections)
+    
     def recognize_faces_batch(self, image: np.ndarray, face_data_list: List[Dict]) -> List[Dict]:
         """
         BATCH PROCESSING: Recognize multiple faces in a single inference call
