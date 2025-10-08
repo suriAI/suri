@@ -1139,32 +1139,19 @@ export default function LiveVideo() {
 
   // Process current frame directly without queue (async for Binary ArrayBuffer)
   const processCurrentFrame = useCallback(async () => {
-    console.log('🎬 processCurrentFrame called:', {
-      isProcessing: isProcessingRef.current,
-      websocketReady: backendServiceRef.current?.isWebSocketReady(),
-      detectionEnabled: detectionEnabledRef.current,
-      isStreaming: isStreamingRef.current
-    });
-    
     // OPTIMIZATION: Enhanced frame skipping logic with frame ID tracking
     if (isProcessingRef.current || 
         !backendServiceRef.current?.isWebSocketReady() || 
         !detectionEnabledRef.current ||
         !isStreamingRef.current) {
-      console.log('❌ processCurrentFrame skipped - conditions not met');
       return;
     }
-    
-    console.log('✅ processCurrentFrame proceeding - all conditions met');
 
     try {
-      console.log('📸 Capturing frame...');
       const frameData = await captureFrame();
       if (!frameData || !backendServiceRef.current) {
-        console.warn('⚠️ processCurrentFrame: No frame data or backend service');
         return;
       }
-      console.log('✅ Frame captured, size:', frameData.byteLength);
 
       isProcessingRef.current = true;
       
@@ -1172,7 +1159,6 @@ export default function LiveVideo() {
       const frameTimestamp = Date.now();
       
       // Backend handles all threshold configuration
-      console.log('📤 Sending detection request to backend...');
       backendServiceRef.current.sendDetectionRequest(frameData, {
         model_type: 'yunet',
         nms_threshold: 0.3,
@@ -1221,19 +1207,10 @@ export default function LiveVideo() {
 
   // Start detection interval helper - now triggers initial frame only
   const startDetectionInterval = useCallback(() => {
-    console.log('🔍 startDetectionInterval called:', {
-      detectionEnabled: detectionEnabledRef.current,
-      websocketReady: backendServiceRef.current?.isWebSocketReady(),
-      backendReady: backendServiceReadyRef.current
-    });
-    
     if (detectionEnabledRef.current && 
         backendServiceRef.current?.isWebSocketReady()) {
-      console.log('✅ Starting detection - calling processFrameForDetection');
       // Send initial frame to start the adaptive processing chain
       processFrameForDetection();
-    } else {
-      console.log('❌ Detection not started - conditions not met');
     }
   }, [processFrameForDetection]);
 
@@ -1266,16 +1243,6 @@ export default function LiveVideo() {
       isStartingRef.current = true;
       lastStartTimeRef.current = now;
       
-      console.log('🚀 Starting camera - Current state:', {
-        isStreaming: isStreamingRef.current,
-        detectionEnabled: detectionEnabledRef.current,
-        websocketStatus,
-        backendReady: backendServiceReadyRef.current,
-        currentGroup: currentGroup?.name || 'No group selected',
-        recognitionEnabled,
-        timeSinceLastStart,
-        timeSinceLastStop
-      });
       setError(null);
       
       // Refresh camera devices list to ensure we have current devices
@@ -1411,18 +1378,15 @@ export default function LiveVideo() {
             // CRITICAL: Ensure detection is enabled before starting
             setDetectionEnabled(true);
             detectionEnabledRef.current = true; // Set ref immediately for synchronous access
-            console.log('✅ Detection enabled for existing connection');
             
             // CRITICAL: Ensure streaming state is also properly set
             if (!isStreamingRef.current) {
-              console.log('🔧 Fixing streaming state for existing connection');
               setIsStreaming(true);
               isStreamingRef.current = true;
             }
             
             // CRITICAL: Reset processing state to ensure clean start
             isProcessingRef.current = false;
-            console.log('🔧 Reset processing state for clean start');
             
             startDetectionInterval();
           }
@@ -1441,18 +1405,15 @@ export default function LiveVideo() {
           // CRITICAL: Ensure detection is enabled for connecting state
           setDetectionEnabled(true);
           detectionEnabledRef.current = true; // Set ref immediately for synchronous access
-          console.log('✅ Detection enabled for connecting state');
           
           // CRITICAL: Ensure streaming state is also properly set
           if (!isStreamingRef.current) {
-            console.log('🔧 Fixing streaming state for connecting state');
             setIsStreaming(true);
             isStreamingRef.current = true;
           }
           
           // CRITICAL: Reset processing state to ensure clean start
           isProcessingRef.current = false;
-          console.log('🔧 Reset processing state for clean start (connecting)');
         }
       }
     } catch (err) {
@@ -1485,13 +1446,6 @@ export default function LiveVideo() {
     isStoppingRef.current = true;
     lastStopTimeRef.current = now;
     
-    console.log('🛑 Stopping camera - Current state:', {
-      isStreaming: isStreamingRef.current,
-      detectionEnabled: detectionEnabledRef.current,
-      websocketStatus,
-      backendReady: backendServiceReadyRef.current,
-      timeSinceLastStop
-    });
     
     // Stop media stream
     if (streamRef.current) {
@@ -1512,7 +1466,6 @@ export default function LiveVideo() {
     
     // Reset processing state
     isProcessingRef.current = false;
-    console.log('🔧 Reset processing state during stop');
     
     // CRITICAL: Reset backend ready state for proper restart
     backendServiceReadyRef.current = false;
@@ -1547,7 +1500,6 @@ export default function LiveVideo() {
     
     // PRESERVE cooldowns - don't clear them so they persist across stop/start cycles
     // This prevents duplicate detections when restarting quickly
-    console.log('🔒 Preserving cooldowns across stop/start cycles');
     
     // Note: We keep persistentCooldowns, attendanceCooldowns, and cooldownTimestampsRef
     // so that recently detected people can't be detected again immediately after restart
