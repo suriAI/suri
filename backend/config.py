@@ -49,35 +49,54 @@ CORS_CONFIG = {
     "allow_headers": ["*"],
 }
 
-# Optimized ONNX Runtime Providers (prioritized by performance)
-OPTIMIZED_PROVIDERS = [
-    # GPU providers (if available) - can provide 5-10x speedup
-    ('CUDAExecutionProvider', {
-        'device_id': 0,
-        'arena_extend_strategy': 'kNextPowerOfTwo',
-        'gpu_mem_limit': 2 * 1024 * 1024 * 1024,  # 2GB limit
-        'cudnn_conv_algo_search': 'EXHAUSTIVE',
-        'do_copy_in_default_stream': True,
-    }),
-    ('TensorrtExecutionProvider', {
-        'device_id': 0,
-        'trt_max_workspace_size': 2147483648,  # 2GB
-        'trt_fp16_enable': True,
-        'trt_engine_cache_enable': True,
-    }),
-    ('DirectMLExecutionProvider', {
-        'device_id': 0,
-    }),
-    # CPU fallback with optimizations
-    ('CPUExecutionProvider', {
+# Auto-detect and configure GPU/CPU providers
+# Automatically enables: NVIDIA GPU (CUDA/TensorRT) > Intel/AMD iGPU (DirectML) > CPU
+try:
+    import onnxruntime as ort
+    
+    # Get available providers
+    available = ort.get_available_providers()
+    providers = []
+    gpu_name = "CPU Only"
+    
+    # Priority 1: NVIDIA CUDA
+    if 'CUDAExecutionProvider' in available:
+        providers.append(('CUDAExecutionProvider', {
+            'device_id': 0,
+            'arena_extend_strategy': 'kNextPowerOfTwo',
+            'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
+        }))
+        gpu_name = "NVIDIA GPU (CUDA)"
+        if 'TensorrtExecutionProvider' in available:
+            providers.append(('TensorrtExecutionProvider', {'device_id': 0}))
+            gpu_name = "NVIDIA GPU (CUDA + TensorRT)"
+    
+    # Priority 2: DirectML (Intel/AMD iGPU)
+    elif 'DmlExecutionProvider' in available:
+        providers.append(('DmlExecutionProvider', {'device_id': 0}))
+        gpu_name = "Intel/AMD iGPU (DirectML)"
+    
+    # Always add CPU fallback
+    providers.append(('CPUExecutionProvider', {
         'arena_extend_strategy': 'kSameAsRequested',
         'enable_cpu_mem_arena': True,
         'enable_memory_pattern': True,
-    })
-]
-
-# Import ONNX Runtime for proper enum values
-import onnxruntime as ort
+    }))
+    
+    OPTIMIZED_PROVIDERS = providers
+    print(f"GPU Auto-Detection: {gpu_name}")
+    
+except Exception as e:
+    print(f"GPU detection error: {e}")
+    OPTIMIZED_PROVIDERS = [
+        ('CUDAExecutionProvider', {'device_id': 0}),
+        ('DmlExecutionProvider', {'device_id': 0}),
+        ('CPUExecutionProvider', {
+            'arena_extend_strategy': 'kSameAsRequested',
+            'enable_cpu_mem_arena': True,
+            'enable_memory_pattern': True,
+        })
+    ]
 
 # Optimized ONNX Session Options for maximum performance
 OPTIMIZED_SESSION_OPTIONS = {
