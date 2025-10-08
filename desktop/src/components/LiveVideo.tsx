@@ -1021,8 +1021,7 @@ export default function LiveVideo() {
           setCurrentDetections(detectionResult);
           lastDetectionRef.current = detectionResult;
 
-          // Reset processing flag immediately to allow next frame processing
-          isProcessingRef.current = false;
+          // 🚀 PERFORMANCE: No processing flag - continuous frame sending
 
           // Perform face recognition if enabled
           if (recognitionEnabled && backendServiceReadyRef.current && detectionResult.faces.length > 0) {
@@ -1045,8 +1044,7 @@ export default function LiveVideo() {
             requestAnimationFrame(() => processCurrentFrame());
           }
         } else {
-          // No faces detected, reset processing flag - backend will request next frame
-          isProcessingRef.current = false;
+          // No faces detected - continue processing
           
           // Trigger next frame for continuous processing (IPC continuous loop)
           if (detectionEnabledRef.current && isStreamingRef.current) {
@@ -1075,7 +1073,6 @@ export default function LiveVideo() {
         
         console.error('❌ WebSocket error message:', data);
         setError(`Detection error: ${data.message || 'Unknown error'}`);
-        isProcessingRef.current = false;
         
         // Trigger next frame for continuous processing (IPC continuous loop)
         if (detectionEnabledRef.current && isStreamingRef.current) {
@@ -1139,9 +1136,9 @@ export default function LiveVideo() {
 
   // Process current frame directly without queue (async for Binary ArrayBuffer)
   const processCurrentFrame = useCallback(async () => {
-    // OPTIMIZATION: Enhanced frame skipping logic with frame ID tracking
-    if (isProcessingRef.current || 
-        !backendServiceRef.current?.isWebSocketReady() || 
+    // 🚀 PERFORMANCE FIX: Remove isProcessingRef blocking for maximum throughput
+    // Backend will handle frame dropping if overloaded
+    if (!backendServiceRef.current?.isWebSocketReady() || 
         !detectionEnabledRef.current ||
         !isStreamingRef.current) {
       return;
@@ -1152,32 +1149,29 @@ export default function LiveVideo() {
       if (!frameData || !backendServiceRef.current) {
         return;
       }
-
-      isProcessingRef.current = true;
       
       // Add frame timestamp for synchronization
       const frameTimestamp = Date.now();
       
-      // Backend handles all threshold configuration
+      // 🚀 NO BLOCKING - Send frames continuously at max rate
+      // Backend drops old frames automatically if processing is slow
       backendServiceRef.current.sendDetectionRequest(frameData, {
         model_type: 'yunet',
         nms_threshold: 0.3,
         enable_antispoofing: true,
-        frame_timestamp: frameTimestamp  // Add timestamp for frame ordering
+        frame_timestamp: frameTimestamp
       }).catch(error => {
         console.error('❌ WebSocket detection request failed:', error);
-        isProcessingRef.current = false;
         
-        // Trigger next frame for continuous processing (IPC continuous loop)
+        // Continue processing on error
         if (detectionEnabledRef.current && isStreamingRef.current) {
           requestAnimationFrame(() => processCurrentFrame());
         }
       });
     } catch (error) {
       console.error('❌ Frame capture failed:', error);
-      isProcessingRef.current = false;
       
-      // Trigger next frame for continuous processing (IPC continuous loop)
+      // Continue processing on error
       if (detectionEnabledRef.current && isStreamingRef.current) {
         requestAnimationFrame(() => processCurrentFrame());
       }
