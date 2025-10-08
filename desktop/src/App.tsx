@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import LiveVideo from './components/LiveVideo.tsx'
+import Main from './components/Main'
 import TitleBar from './components/TitleBar.tsx'
 import LoadingScreen from './components/LoadingScreen.tsx'
 
@@ -45,7 +45,7 @@ function App() {
   }, []);
 
   const renderCurrentComponent = () => {
-        return <LiveVideo />
+        return <Main />
   }
 
   return (

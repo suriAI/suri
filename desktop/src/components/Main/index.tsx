@@ -1,98 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BackendService } from '../services/BackendService';
-import { Settings, type QuickSettings } from './Settings';
-import { attendanceManager } from '../services/AttendanceManager';
-import { Menu, type MenuSection } from './Menu';
+import { BackendService } from '../../services/BackendService';
+import { Settings, type QuickSettings } from '../Settings';
+import { attendanceManager } from '../../services/AttendanceManager';
+import { Menu, type MenuSection } from '../Menu';
 import type { 
   FaceRecognitionResponse,
   AttendanceGroup,
   AttendanceMember,
   AttendanceRecord,
   GroupType
-} from '../types/recognition';
-
-interface DetectionResult {
-  faces: Array<{
-    bbox: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-    confidence: number;
-    track_id?: number; // SORT tracker ID for consistent face tracking
-    landmarks: {
-      right_eye: { x: number; y: number };
-      left_eye: { x: number; y: number };
-      nose_tip: { x: number; y: number };
-      right_mouth_corner: { x: number; y: number };
-      left_mouth_corner: { x: number; y: number };
-    };
-    landmarks_468?: Array<{ x: number; y: number }>; // FaceMesh 468 landmarks for visualization
-    antispoofing?: {
-      is_real: boolean | null;
-      confidence: number;
-      live_score?: number;
-      spoof_score?: number;
-      status: 'real' | 'fake' | 'error';
-      label?: string;
-      message?: string;
-    };
-  }>;
-  model_used: string;
-  processing_time: number;
-}
-
-interface WebSocketFaceData {
-  bbox?: number[];
-  confidence?: number;
-  track_id?: number; // SORT tracker ID for consistent face tracking
-  landmarks?: number[][];
-  landmarks_468?: number[][]; // FaceMesh 468 landmarks for frontend visualization
-  antispoofing?: {
-    is_real?: boolean | null;
-    confidence?: number;
-    live_score?: number;
-    spoof_score?: number;
-    status?: 'real' | 'fake' | 'error';
-    label?: string;
-    message?: string;
-  };
-}
-
-interface WebSocketDetectionResponse {
-  faces?: WebSocketFaceData[];
-  model_used?: string;
-  processing_time?: number;
-  timestamp?: number;
-  frame_timestamp?: number;  // Original frame timestamp for ordering
-  frame_dropped?: boolean;
-  performance_metrics?: {
-    actual_fps?: number;
-    avg_processing_time?: number;
-    overload_counter?: number;
-    samples_count?: number;
-    queue_size?: number;
-    dropped_frames?: number;
-    max_performance_mode?: boolean;
-  };
-}
-
-interface WebSocketConnectionMessage {
-  message?: string;
-  status?: string;
-}
-
-interface WebSocketErrorMessage {
-  message?: string;
-  error?: string;
-}
-
-type DashboardTab = MenuSection;
+} from '../../types/recognition';
+import { VideoCanvas } from './components/VideoCanvas';
+import { ControlBar } from './components/ControlBar';
+import { CooldownList } from './components/CooldownList';
+import { DetectionPanel } from './components/DetectionPanel';
+import { AttendancePanel } from './components/AttendancePanel';
+import { GroupManagement } from './modals/GroupManagement';
+import { DeleteConfirmation } from './modals/DeleteConfirmation';
+import { drawOverlays, getGroupTypeIcon } from './utils/overlayRenderer';
+import type { DetectionResult, TrackedFace, DashboardTab, WebSocketFaceData, WebSocketDetectionResponse, WebSocketConnectionMessage, WebSocketErrorMessage } from './types';
 
 const NON_LOGGING_ANTISPOOF_STATUSES = new Set<'real' | 'fake' | 'error'>(['fake', 'error']);
 
-export default function LiveVideo() {
+export default function Main() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -1555,306 +1485,24 @@ export default function LiveVideo() {
     return scaleFactorsRef.current;
   }, []);
 
-  // Helper function to determine face color
-  const getFaceColor = (
-    recognitionResult: { person_id?: string; confidence?: number; name?: string } | null, 
-    recognitionEnabled: boolean
-  ) => {
-    const isRecognized = recognitionEnabled && recognitionResult?.person_id;
-    
-    if (isRecognized) return "#00ff41"; // Green for recognized faces
-    
-    // All unknown/unrecognized faces should be red, regardless of antispoofing status
-    return "#ff0000"; // Red for all unknown faces
-  };
+  // Drawing helpers moved to utils/overlayRenderer.ts
 
-  // Helper function to draw modern bounding box with rounded corners
-  const drawBoundingBox = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) => {
-    const width = x2 - x1;
-    const height = y2 - y1;
-    const cornerRadius = 8; // Modern rounded corners
-    
-    ctx.beginPath();
-    ctx.roundRect(x1, y1, width, height, cornerRadius);
-    ctx.stroke();
-    
-    // Add subtle corner accents for modern look
-    const accentLength = 20;
-    const accentOffset = 4;
-    
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    
-    // Top-left corner accent
-    ctx.beginPath();
-    ctx.moveTo(x1 + accentOffset, y1 + accentLength);
-    ctx.lineTo(x1 + accentOffset, y1 + accentOffset);
-    ctx.lineTo(x1 + accentLength, y1 + accentOffset);
-    ctx.stroke();
-    
-    // Top-right corner accent
-    ctx.beginPath();
-    ctx.moveTo(x2 - accentLength, y1 + accentOffset);
-    ctx.lineTo(x2 - accentOffset, y1 + accentOffset);
-    ctx.lineTo(x2 - accentOffset, y1 + accentLength);
-    ctx.stroke();
-    
-    // Bottom-left corner accent
-    ctx.beginPath();
-    ctx.moveTo(x1 + accentOffset, y2 - accentLength);
-    ctx.lineTo(x1 + accentOffset, y2 - accentOffset);
-    ctx.lineTo(x1 + accentLength, y2 - accentOffset);
-    ctx.stroke();
-    
-    // Bottom-right corner accent
-    ctx.beginPath();
-    ctx.moveTo(x2 - accentLength, y2 - accentOffset);
-    ctx.lineTo(x2 - accentOffset, y2 - accentOffset);
-    ctx.lineTo(x2 - accentOffset, y2 - accentLength);
-    ctx.stroke();
-  };
-
-  // Helper function to setup canvas context with modern styling
-  const setupCanvasContext = (ctx: CanvasRenderingContext2D, color: string) => {
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 2; // Slightly thicker for modern look
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8; // Softer glow effect
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-  };
-
-  // Helper function to draw facial landmarks (5-point YuNet landmarks)
-  const drawLandmarks = (
-    ctx: CanvasRenderingContext2D, 
-    landmarks: {
-      right_eye: { x: number; y: number };
-      left_eye: { x: number; y: number };
-      nose_tip: { x: number; y: number };
-      right_mouth_corner: { x: number; y: number };
-      left_mouth_corner: { x: number; y: number };
-    },
-    scaleX: number,
-    scaleY: number,
-    offsetX: number,
-    offsetY: number
-  ) => {
-    // Use a single modern color that fits the theme
-    const landmarkColor = '#00D4FF'; // Modern cyan that matches the UI theme
-
-    // Draw each landmark point
-    Object.entries(landmarks).forEach(([, point]) => {
-      // Scale and position the landmark
-      const x = point.x * scaleX + offsetX;
-      const y = point.y * scaleY + offsetY;
-
-      // Save context for landmark drawing
-      ctx.save();
-      
-      // Set up modern styling for landmark
-      ctx.fillStyle = landmarkColor;
-      ctx.shadowColor = landmarkColor;
-      ctx.shadowBlur = 4;
-
-      // Draw landmark as a small circle
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.restore();
+  // Wrapper for drawOverlays utility
+  const handleDrawOverlays = useCallback(() => {
+    drawOverlays({
+      videoRef,
+      overlayCanvasRef,
+      currentDetections,
+      isStreaming,
+      currentRecognitionResults,
+      recognitionEnabled,
+      persistentCooldowns,
+      attendanceCooldownSeconds,
+      quickSettings,
+      getVideoRect,
+      calculateScaleFactors,
     });
-  };
-
-  // Helper function to draw FaceMesh 468 landmarks
-  const drawFaceMeshLandmarks = (
-    ctx: CanvasRenderingContext2D,
-    landmarks: Array<{ x: number; y: number }>,
-    scaleX: number,
-    scaleY: number,
-    offsetX: number,
-    offsetY: number
-  ) => {
-    // Use a more subtle color for the dense landmark mesh
-    const landmarkColor = '#00D4FF'; // Modern cyan that matches the UI theme
-    const landmarkSize = 1; // Smaller size for dense landmarks
-
-    ctx.save();
-    
-    // Set up styling for FaceMesh landmarks
-    ctx.fillStyle = landmarkColor;
-    ctx.shadowColor = landmarkColor;
-    ctx.shadowBlur = 2;
-
-    // Draw each landmark point
-    landmarks.forEach(point => {
-      const x = point.x * scaleX + offsetX;
-      const y = point.y * scaleY + offsetY;
-
-      // Draw landmark as a small circle
-      ctx.beginPath();
-      ctx.arc(x, y, landmarkSize, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-
-    ctx.restore();
-  };
-
-  const drawOverlays = useCallback(() => {
-    const video = videoRef.current;
-    const overlayCanvas = overlayCanvasRef.current;
-    
-    if (!video || !overlayCanvas || !currentDetections) return;
-
-    const ctx = overlayCanvas.getContext('2d', { 
-      alpha: true, 
-      willReadFrequently: false 
-    });
-    if (!ctx) return;
-
-    // Early exit if no streaming or detections
-    if (!isStreaming || !currentDetections.faces?.length) {
-      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-      return;
-    }
-
-    const rect = getVideoRect();
-    if (!rect) return;
-
-    const displayWidth = Math.round(rect.width);
-    const displayHeight = Math.round(rect.height);
-
-    // Resize canvas if needed
-    if (overlayCanvas.width !== displayWidth || overlayCanvas.height !== displayHeight) {
-      overlayCanvas.width = displayWidth;
-      overlayCanvas.height = displayHeight;
-      overlayCanvas.style.width = `${displayWidth}px`;
-      overlayCanvas.style.height = `${displayHeight}px`;
-    }
-
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
-
-    const scaleFactors = calculateScaleFactors();
-    if (!scaleFactors) return;
-
-    const { scaleX, scaleY, offsetX, offsetY } = scaleFactors;
-
-    // Validate scale factors
-    if (!isFinite(scaleX) || !isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) return;
-
-    // Draw each face detection
-    currentDetections.faces.forEach((face) => {
-      const { bbox, antispoofing } = face;
-      
-      // Validate bbox
-      if (!bbox || !isFinite(bbox.x) || !isFinite(bbox.y) || !isFinite(bbox.width) || !isFinite(bbox.height)) return;
-
-      // Calculate scaled coordinates
-      const x1 = bbox.x * scaleX + offsetX;
-      const y1 = bbox.y * scaleY + offsetY;
-      const x2 = (bbox.x + bbox.width) * scaleX + offsetX;
-      const y2 = (bbox.y + bbox.height) * scaleY + offsetY;
-
-      // Validate scaled coordinates
-      if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) return;
-
-      // Look up recognition by track_id (from SORT)
-      const trackId = face.track_id!; // Backend always provides track_id
-      const recognitionResult = currentRecognitionResults.get(trackId);
-      const color = getFaceColor(recognitionResult || null, recognitionEnabled);
-
-      // Setup context and conditionally draw bounding box
-      setupCanvasContext(ctx, color);
-      if (quickSettings.showBoundingBoxes) {
-        drawBoundingBox(ctx, x1, y1, x2, y2);
-      }
-
-      // Draw label
-      const isRecognized = recognitionEnabled && recognitionResult?.person_id;
-      let label = "Unknown";
-      let shouldShowLabel = false;
-      
-      if (isRecognized && recognitionResult && quickSettings.showRecognitionNames) {
-        // Show name if available, fallback to person_id
-        label = recognitionResult.name || recognitionResult.person_id || "Unknown";
-        shouldShowLabel = true;
-      } else if (antispoofing?.status === 'fake' && quickSettings.showAntiSpoofStatus) {
-        label = "⚠ SPOOF";
-        shouldShowLabel = true;
-      }
-
-      if (shouldShowLabel) {
-        ctx.font = 'bold 16px "Courier New", monospace';
-        ctx.fillText(label, x1, y1 - 10);
-      }
-
-      // Show modern logged indicator if person is in cooldown
-      if (isRecognized && recognitionResult?.person_id) {
-        // Use person_id as cooldown key (consistent with performFaceRecognition)
-        const cooldownKey = recognitionResult.person_id;
-        const cooldownInfo = persistentCooldowns.get(cooldownKey);
-        if (cooldownInfo) {
-          const currentTime = Date.now();
-          const timeSinceStart = currentTime - cooldownInfo.startTime;
-          const cooldownMs = attendanceCooldownSeconds * 1000;
-          
-          if (timeSinceStart < cooldownMs) {
-            // Modern logged indicator in center of bounding box
-            ctx.save();
-            
-            const centerX = (x1 + x2) / 2;
-            const centerY = (y1 + y2) / 2;
-            
-            // Modern pill-shaped background with subtle transparency
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
-            
-            const pillWidth = 80;
-            const pillHeight = 28;
-            const pillRadius = 14;
-            
-            // Draw pill background
-            ctx.beginPath();
-            ctx.roundRect(centerX - pillWidth/2, centerY - pillHeight/2, pillWidth, pillHeight, pillRadius);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Draw text with modern typography
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = '500 14px system-ui, -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Logged', centerX, centerY);
-            
-            ctx.restore();
-          }
-        }
-      }
-
-      // Status indicator
-      if (isRecognized && quickSettings.showRecognitionNames) {
-        ctx.font = 'bold 10px "Courier New", monospace';
-        ctx.fillStyle = "#00ff00";
-        ctx.fillText("RECOGNIZED", x1 + 10, y2 + 15);
-      }
-
-      // Draw facial landmarks - prefer FaceMesh 468 landmarks for better visualization
-      if (quickSettings.showLandmarks) {
-        if (face.landmarks_468 && face.landmarks_468.length > 0) {
-          drawFaceMeshLandmarks(ctx, face.landmarks_468, scaleX, scaleY, offsetX, offsetY);
-        } else if (face.landmarks) {
-          // Fallback to YuNet 5-point landmarks if FaceMesh not available
-          drawLandmarks(ctx, face.landmarks, scaleX, scaleY, offsetX, offsetY);
-        }
-      }
-
-      // Reset context
-      ctx.shadowBlur = 0;
-    });
-
-    // Cooldown for persons not currently detected is handled in sidebar only (no canvas drawing)
-  }, [currentDetections, isStreaming, getVideoRect, calculateScaleFactors, currentRecognitionResults, recognitionEnabled, persistentCooldowns, attendanceCooldownSeconds, quickSettings]);
+  }, [currentDetections, isStreaming, currentRecognitionResults, recognitionEnabled, persistentCooldowns, attendanceCooldownSeconds, quickSettings, getVideoRect, calculateScaleFactors]);
 
   // OPTIMIZED animation loop with better performance
   const animate = useCallback(() => {
@@ -1872,14 +1520,14 @@ export default function LiveVideo() {
       `${currentDetections.faces.length}-${currentDetections.faces.map(f => `${f.bbox.x},${f.bbox.y}`).join(',')}-${currentRecognitionResults.size}-${Array.from(currentRecognitionResults.values()).map(r => r.person_id || 'none').join(',')}` : '';
     
     if (currentHash !== lastDetectionHashRef.current) {
-      drawOverlays();
+      handleDrawOverlays();
       lastDetectionHashRef.current = currentHash;
     }
 
     if (isStreaming) {
       animationFrameRef.current = requestAnimationFrame(animate);
     }
-  }, [isStreaming, drawOverlays, currentDetections, currentRecognitionResults]);
+  }, [isStreaming, handleDrawOverlays, currentDetections, currentRecognitionResults]);
 
 
 
@@ -2085,15 +1733,7 @@ export default function LiveVideo() {
 
 
 
-  const getGroupTypeIcon = (type: GroupType): string => {
-    switch (type) {
-      case 'employee': return '👔';
-      case 'student': return '🎓';
-      case 'visitor': return '👤';
-      case 'general': return '👥';
-      default: return '👥';
-    }
-  };
+  // getGroupTypeIcon moved to utils/overlayRenderer.ts
 
   // Initialize
   useEffect(() => {
