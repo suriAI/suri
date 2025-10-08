@@ -870,282 +870,53 @@ async def get_face_stats():
         logger.error(f"Get stats error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {e}")
 
-@app.websocket("/ws/{client_id}")
-async def websocket_stream_endpoint(websocket: WebSocket, client_id: str):
+@app.websocket("/ws/notifications/{client_id}")
+async def websocket_notifications_endpoint(websocket: WebSocket, client_id: str):
     """
-    WebSocket endpoint for real-time face detection streaming with adaptive processing
-    """
-    # Import time module for performance tracking
-    import time
-    # Ensure numpy is accessible (Python scoping fix)
-    import numpy as np_local
-    import cv2 as cv2_local
+    🌐 Lightweight WebSocket endpoint for real-time notifications (SaaS-ready)
     
+    Purpose: Attendance events, system alerts, dashboard updates
+    NOT for: Model inference, detection streaming (use IPC → HTTP for that)
+    
+    Usage:
+    - Desktop App: Optional real-time notifications
+    - Web App (SaaS): Real-time attendance updates, alerts
+    """
     await manager.connect(websocket, client_id)
-    session_id = client_id
-    
-    # Performance monitoring (simplified - no delays)
-    processing_times = []
-    max_samples = 15  # Rolling window for performance tracking
-    overload_counter = 0   # Track consecutive overload situations
-    
-    # Queue management for maximum throughput
-    processing_queue = []
-    max_queue_size = 100  # High capacity for maximum performance (was 10)
-    is_processing = False
-    dropped_frames = 0
-    
-    # NO DELAY FUNCTION - Removed for maximum performance
-    
-    # Track pending binary data
-    pending_metadata = None
-    pending_binary_data = None
+    logger.info(f"✅ Notification client connected: {client_id}")
     
     try:
+        # Send welcome message
+        await websocket.send_text(json.dumps({
+            "type": "connection",
+            "status": "connected",
+            "client_id": client_id,
+            "message": "WebSocket notifications ready",
+            "timestamp": asyncio.get_event_loop().time()
+        }))
+        
+        # Keep connection alive and handle pings
         while True:
-            # Receive data from client (text or binary)
             message_data = await websocket.receive()
             
-            # Check if it's text (JSON) or binary (ArrayBuffer)
             if "text" in message_data:
-                # Text message (JSON metadata)
                 message = json.loads(message_data["text"])
                 
-                # Check if this is a binary metadata header
-                if message.get("binary") is True:
-                    # Store metadata and wait for binary data
-                    pending_metadata = message
-                    continue
-                    
-            elif "bytes" in message_data:
-                # Binary message (ArrayBuffer from frontend)
-                binary_data = message_data["bytes"]
-                
-                # Use pending metadata if available
-                if not pending_metadata:
-                    # Legacy: binary data without metadata (skip)
-                    logger.warning("Received binary data without metadata")
-                    continue
-                
-                message = pending_metadata
-                pending_binary_data = binary_data
-                pending_metadata = None
-            else:
-                logger.warning(f"Unknown message type: {message_data.keys()}")
-                continue
-            
-            if message.get("type") == "detection_request":
-                # Queue management - prevent overload
-                if is_processing and len(processing_queue) >= max_queue_size:
-                    # Drop frame if queue is full
-                    dropped_frames += 1
-                    logger.warning(f"Frame dropped due to queue overload. Total dropped: {dropped_frames}")
-                    
-                    # Send immediate response to maintain flow
-                    overload_response = {
-                        "type": "detection_response",
-                        "session_id": session_id,
-                        "faces": [],
-                        "model_used": message.get("model_type", "yunet"),
-                        "processing_time": 0.001,  # Minimal processing time
-                        "timestamp": asyncio.get_event_loop().time(),
-                        "frame_dropped": True,
-                        "performance_metrics": {
-                            "actual_fps": 0,
-                            "avg_processing_time": sum(processing_times) / len(processing_times) if processing_times else 0,
-                            "overload_counter": overload_counter,
-                            "samples_count": len(processing_times),
-                            "queue_size": len(processing_queue),
-                            "dropped_frames": dropped_frames,
-                            "max_performance_mode": True
-                        }
-                    }
-                    await websocket.send_text(json.dumps(overload_response))
-                    continue
-                
-                # Add to queue if currently processing
-                if is_processing:
-                    processing_queue.append(message)
-                    continue
-                
-                # Process detection request
-                is_processing = True
-                try:
-                    start_time = time.time()
-                    
-                    # Decode image: Binary (fast) or Base64 (legacy fallback)
-                    if message.get("binary") is True and pending_binary_data:
-                        try:
-                            # Decode binary JPEG data directly (30% faster than Base64!)
-                            nparr = np_local.frombuffer(pending_binary_data, np_local.uint8)
-                            image = cv2_local.imdecode(nparr, cv2_local.IMREAD_COLOR)  # Returns BGR
-                            if image is None:
-                                raise ValueError("Failed to decode binary JPEG data")
-                            # OPTIMIZATION: No color conversion - keep BGR format
-                            pending_binary_data = None  # Clear after use
-                        except Exception as e:
-                            logger.error(f"Binary decode error: {e}, falling back to Base64")
-                            # Fallback to Base64 if binary decode fails
-                            if "image" in message:
-                                image = decode_base64_image(message["image"])  # Returns BGR
-                                # OPTIMIZATION: No color conversion - keep BGR format
-                            else:
-                                raise ValueError("No image data available")
-                    else:
-                        # Legacy Base64 format (fallback)
-                        image = decode_base64_image(message["image"])  # Returns BGR
-                        # OPTIMIZATION: No color conversion - keep BGR format
-                    
-                    model_type = message.get("model_type", "yunet")
-                    confidence_threshold = message.get("confidence_threshold", 0.6)
-                    nms_threshold = message.get("nms_threshold", 0.3)
-                    frame_timestamp = message.get("frame_timestamp", asyncio.get_event_loop().time())
-                    
-                    if model_type == "yunet" and yunet_detector:
-                        yunet_detector.set_confidence_threshold(confidence_threshold)
-                        yunet_detector.set_nms_threshold(nms_threshold)
-                        
-                        enable_rotation_correction = YUNET_CONFIG.get("enable_rotation_correction", False)
-                        enable_multi_scale = YUNET_CONFIG.get("enable_multi_scale", False)
-                        
-                        if enable_rotation_correction or enable_multi_scale:
-                            faces = yunet_detector.detect_faces_with_corrections(
-                                image, 
-                                enable_rotation_correction=enable_rotation_correction,
-                                enable_multi_scale=enable_multi_scale
-                            )
-                        else:
-                            faces = yunet_detector.detect_faces(image)
-                        
-                        pass
-                    else:
-                        faces = []
-                    
-                    # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
-                    faces = await process_face_tracking(faces, image)
-                    
-                    enable_antispoofing = message.get("enable_antispoofing", True)
-                    
-                    faces = await process_antispoofing(faces, image, enable_antispoofing)
-                    
-                    # Add FaceMesh 468 landmarks for accurate face alignment
-                    if facemesh_detector and faces:
-                        try:
-                            for face in faces:
-                                bbox_orig = face.get('bbox_original', face.get('bbox', {}))
-                                x, y, w, h = bbox_orig.get('x', 0), bbox_orig.get('y', 0), bbox_orig.get('width', 0), bbox_orig.get('height', 0)
-                                face_bbox = [x, y, x + w, y + h]
-                                
-                                loop = asyncio.get_event_loop()
-                                facemesh_result = await loop.run_in_executor(None, facemesh_detector.detect_landmarks, image, face_bbox)
-                                
-                                if facemesh_result and 'landmarks_468' in facemesh_result:
-                                    face['landmarks_468'] = facemesh_result['landmarks_468']
-                                    face['landmarks_5'] = facemesh_result.get('landmarks_5', [])
-                                    face['facemesh_result'] = facemesh_result
-                                else:
-                                    face['landmarks_468'] = []
-                                    face['landmarks_5'] = []
-                                    face['facemesh_result'] = None
-                        except Exception as e:
-                            logger.warning(f"FaceMesh detection failed: {e}")
-                            for face in faces:
-                                face['landmarks_468'] = []
-                                face['landmarks_5'] = []
-                                face['facemesh_result'] = None
-                    
-                    # Calculate processing time
-                    processing_time = time.time() - start_time
-                    
-                    # Track processing times for monitoring
-                    processing_times.append(processing_time)
-                    if len(processing_times) > max_samples:
-                        processing_times.pop(0)
-                    
-                    for face in faces:
-                        if 'bbox' in face and isinstance(face['bbox'], dict):
-                            bbox_orig = face.get('bbox_original', face['bbox'])
-                            face['bbox'] = [bbox_orig.get('x', 0), bbox_orig.get('y', 0), bbox_orig.get('width', 0), bbox_orig.get('height', 0)]
-                    
-                    # Send response with simplified performance metrics
-                    avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else processing_time
-                    actual_fps = 1.0 / processing_time if processing_time > 0 else 1000
-                    
-                    response = {
-                        "type": "detection_response",
-                        "session_id": session_id,
-                        "faces": faces,
-                        "model_used": model_type,
-                        "processing_time": processing_time,
-                        "timestamp": asyncio.get_event_loop().time(),
-                        "frame_timestamp": frame_timestamp,  # Include original frame timestamp
-                        "frame_dropped": False,
-                        "performance_metrics": {
-                            "actual_fps": actual_fps,
-                            "avg_processing_time": avg_processing_time,
-                            "overload_counter": overload_counter,
-                            "samples_count": len(processing_times),
-                            "queue_size": len(processing_queue),
-                            "dropped_frames": dropped_frames,
-                            "max_performance_mode": True
-                        }
-                    }
-                    
-                    # Convert numpy types to native Python types for JSON serialization
-                    if faces:
-                        for i, face in enumerate(faces):
-                            # Convert track_id to native Python int if it exists
-                            if 'track_id' in face:
-                                import numpy as np
-                                track_id_value = face['track_id']
-                                if isinstance(track_id_value, (np.integer, np.int32, np.int64)):
-                                    face['track_id'] = int(track_id_value)
-                            
-                            # Remove embeddings from response (not needed by frontend, causes JSON errors)
-                            if 'embedding' in face:
-                                del face['embedding']
-                    
-                    await websocket.send_text(json.dumps(response))
-                    
-                    # Mark processing as complete
-                    is_processing = False
-                    
-                    # NO DELAY - Request next frame immediately for maximum performance
-                    # (Removed: await asyncio.sleep(adaptive_delay))
-                    
-                    # Request next frame for continuous processing
-                    next_frame_request = {
-                        "type": "request_next_frame",
-                        "session_id": session_id,
+                # Handle ping/pong for connection health
+                if message.get("type") == "ping":
+                    await websocket.send_text(json.dumps({
+                        "type": "pong",
+                        "client_id": client_id,
                         "timestamp": asyncio.get_event_loop().time()
-                    }
-                    
-                    await websocket.send_text(json.dumps(next_frame_request))
-                    
-                except Exception as e:
-                    # Reset processing flag on error
-                    is_processing = False
-                    
-                    error_response = {
-                        "type": "error",
-                        "message": str(e),
-                        "session_id": session_id
-                    }
-                    await websocket.send_text(json.dumps(error_response))
-            
-            elif message.get("type") == "ping":
-                # Respond to ping
-                pong_response = {
-                    "type": "pong",
-                    "session_id": session_id,
-                    "timestamp": asyncio.get_event_loop().time()
-                }
-                await websocket.send_text(json.dumps(pong_response))
+                    }))
                 
+                # Ignore any other message types (this is notification-only endpoint)
+                    
     except WebSocketDisconnect:
+        logger.info(f"📡 Notification client disconnected: {client_id}")
         manager.disconnect(client_id)
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"❌ WebSocket notification error: {e}")
         manager.disconnect(client_id)
 
 if __name__ == "__main__":

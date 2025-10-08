@@ -1081,48 +1081,8 @@ export default function LiveVideo() {
         }
       });
 
-      // Handle pong messages
-      backendServiceRef.current.onMessage('pong', () => {
-      });
-
-      // Handle attendance event broadcasts
-      backendServiceRef.current.onMessage('attendance_event', (data) => {
-        const attendanceData = data.data as { 
-          person_id: string; 
-          group_id: string; 
-          attendance_type: string;
-          member_name: string;
-          timestamp: string;
-        } | undefined;
-        
-        if (attendanceData) {
-          // Force immediate reload of attendance data to update sidebar
-          // Use small delay to ensure backend transaction is committed
-          setTimeout(() => {
-            loadAttendanceData().catch(error => {
-              console.error('Failed to reload attendance data:', error);
-            });
-          }, 150);
-        }
-      });
-
-      // Handle next frame requests from adaptive backend
-      backendServiceRef.current.onMessage('request_next_frame', () => {
-        // CRITICAL: Ignore frame requests when not streaming
-        if (!isStreamingRef.current || !detectionEnabledRef.current) {
-          return;
-        }
-        
-        // Backend is ready for next frame - send it immediately
-        if (detectionEnabledRef.current && backendServiceRef.current?.isWebSocketReady()) {
-          processFrameForDetection();
-        } else {
-            console.warn('⚠️ Cannot process next frame:', {
-              detectionEnabled: detectionEnabledRef.current,
-              websocketReady: backendServiceRef.current?.isWebSocketReady()
-            });
-        }
-      });
+      // Note: Removed unused WebSocket event listeners (attendance_event, request_next_frame, pong)
+      // These were from old WebSocket streaming code - now using IPC → HTTP for detection
 
       // Status will be managed by polling the actual WebSocket state
       

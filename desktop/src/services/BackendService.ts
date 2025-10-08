@@ -281,10 +281,18 @@ export class BackendService {
   }
 
   /**
-   * Connect to IPC (instant connection, no setup needed)
+   * 🔌 Initialize IPC connection (instant, no setup needed)
+   * 
+   * NOTE: Misleading name "connectWebSocket" for backward compatibility
+   * This is actually IPC → HTTP communication, NOT WebSocket!
+   * 
+   * Architecture:
+   * - Frontend → IPC → Electron → HTTP → Backend (for detection/recognition)
+   * - WebSocket only used for future SaaS notifications (not currently connected)
    */
   async connectWebSocket(): Promise<void> {
-    console.log('[BackendService] IPC connection ready (instant, no overhead)');
+    console.log('[BackendService] 🔌 IPC connection ready (instant, no overhead)');
+    console.log('[BackendService] 📡 Detection: IPC → HTTP (NOT WebSocket)');
     
     // Send connection message to handlers
     setTimeout(() => {
@@ -408,9 +416,11 @@ export class BackendService {
 
   /**
    * Check if ready for sending messages
+   * 
+   * NOTE: Misleading name "isWebSocketReady" - this is IPC, not WebSocket!
    */
   isWebSocketReady(): boolean {
-    return true; // IPC is always ready
+    return true; // IPC is always ready (no connection setup required)
   }
 
   // Face Recognition Methods

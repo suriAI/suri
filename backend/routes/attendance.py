@@ -705,7 +705,9 @@ async def process_attendance_event(
             }
         }
         
-        # Broadcast asynchronously without blocking the response
+        # 🌐 SaaS-Ready: Broadcast attendance event to WebSocket clients
+        # Desktop App: Currently not connected (uses polling instead)
+        # Web App (Future): Will receive real-time notifications via /ws/notifications/{client_id}
         asyncio.create_task(ws_manager.broadcast(broadcast_message))
         
         return AttendanceEventResponse(
