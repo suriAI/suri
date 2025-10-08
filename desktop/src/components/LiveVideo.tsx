@@ -803,6 +803,11 @@ export default function LiveVideo() {
         
         // Register message handler for detection responses
         backendServiceRef.current.onMessage('detection_response', (data: WebSocketDetectionResponse) => {
+        // CRITICAL: Ignore messages when not streaming to prevent data restoration
+        if (!isStreamingRef.current || !detectionEnabledRef.current) {
+          return;
+        }
+        
         // Reduced logging for performance
         
         // FRAME ORDERING: Check if this response is for the most recent frame
@@ -947,6 +952,11 @@ export default function LiveVideo() {
 
       // Handle error messages
       backendServiceRef.current.onMessage('error', (data: WebSocketErrorMessage) => {
+        // CRITICAL: Ignore errors when not streaming to prevent state updates
+        if (!isStreamingRef.current || !detectionEnabledRef.current) {
+          return;
+        }
+        
         console.error('❌ WebSocket error message:', data);
         setError(`Detection error: ${data.message || 'Unknown error'}`);
         isProcessingRef.current = false;
@@ -985,6 +995,11 @@ export default function LiveVideo() {
 
       // Handle next frame requests from adaptive backend
       backendServiceRef.current.onMessage('request_next_frame', () => {
+        // CRITICAL: Ignore frame requests when not streaming
+        if (!isStreamingRef.current || !detectionEnabledRef.current) {
+          return;
+        }
+        
         // Backend is ready for next frame - send it immediately
         if (detectionEnabledRef.current && backendServiceRef.current?.isWebSocketReady()) {
           processFrameForDetection();
@@ -1252,6 +1267,9 @@ export default function LiveVideo() {
     // Reset processing state
     isProcessingRef.current = false;
     
+    // CRITICAL: Reset backend ready state for proper restart
+    backendServiceReadyRef.current = false;
+    
     // Disconnect WebSocket
     if (backendServiceRef.current) {
       backendServiceRef.current.disconnect();
@@ -1266,9 +1284,24 @@ export default function LiveVideo() {
     
     // No longer using detectionIntervalRef for setInterval - adaptive processing instead
     
-    // Clear detection results
+    // Clear all detection and recognition data
     setCurrentDetections(null);
     lastDetectionRef.current = null;
+    
+    // Clear recognition results
+    setCurrentRecognitionResults(new Map());
+    
+    // Clear tracked faces
+    setTrackedFaces(new Map());
+    
+    // Clear persistent cooldowns
+    setPersistentCooldowns(new Map());
+    
+    // Clear attendance cooldowns
+    setAttendanceCooldowns(new Map());
+    
+    // Clear cooldown timestamps ref
+    cooldownTimestampsRef.current.clear();
     
     // Reset ACCURATE FPS tracking
     setDetectionFps(0);
@@ -1283,9 +1316,6 @@ export default function LiveVideo() {
     lastVideoSizeRef.current = {width: 0, height: 0};
     lastCanvasSizeRef.current = {width: 0, height: 0};
     scaleFactorsRef.current = {scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0};
-    
-    // Clear recognition results
-    setCurrentRecognitionResults(new Map());
     
     // Clear any errors
     setError(null);

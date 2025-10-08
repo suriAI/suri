@@ -376,10 +376,12 @@ export class BackendService {
   }
 
   /**
-   * Disconnect (cleanup handlers)
+   * Disconnect (lightweight cleanup for IPC restart)
+   * NOTE: We DON'T clear message handlers because they need to persist for restart
    */
   disconnect(): void {
-    this.messageHandlers.clear();
+    // For IPC mode, we keep handlers alive for instant reconnection
+    // No cleanup needed - handlers will be reused on next connect
   }
 
   /**
