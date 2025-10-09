@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { attendanceManager } from '../services/AttendanceManager';
-import { backendService } from '../services/BackendService';
-import type { AttendanceGroup, AttendanceMember } from '../types/recognition';
+import { attendanceManager } from '../../../services/AttendanceManager';
+import { backendService } from '../../../services/BackendService';
+import type { AttendanceGroup, AttendanceMember } from '../../../types/recognition';
 
 type RegistrationMode = 'quick' | 'full';
 type CaptureStatus = 'pending' | 'capturing' | 'processing' | 'completed' | 'error';
