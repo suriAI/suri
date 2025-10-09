@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaceRegistrationLab } from './registration/FaceRegistrationLab.js';
+import { FaceCapture } from './registration/FaceCapture.js';
 import { BulkFaceRegistration } from '../modals/BulkFaceRegistration.js';
 import { AssistedCameraRegistration } from '../modals/AssistedCameraRegistration.js';
 import type {
@@ -52,7 +52,7 @@ export function Registration({ group, members, onRefresh }: RegistrationProps) {
           </svg>
           Back
         </button>
-        <FaceRegistrationLab
+        <FaceCapture
           group={group}
           members={members}
           onRefresh={onRefresh}

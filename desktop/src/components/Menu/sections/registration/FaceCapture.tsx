@@ -23,7 +23,7 @@ interface CapturedFrame {
   error?: string;
 }
 
-interface FaceRegistrationLabProps {
+interface FaceCaptureProps {
   group: AttendanceGroup | null;
   members: AttendanceMember[];
   onRefresh?: () => Promise<void> | void;
@@ -60,7 +60,7 @@ const getImageDimensions = (dataUrl: string) => new Promise<{ width: number; hei
   img.src = dataUrl;
 });
 
-export function FaceRegistrationLab({ group, members, onRefresh }: FaceRegistrationLabProps) {
+export function FaceCapture({ group, members, onRefresh }: FaceCaptureProps) {
   const [mode, setMode] = useState<RegistrationMode>('quick');
   const [source, setSource] = useState<CaptureSource>('upload');
   const [selectedMemberId, setSelectedMemberId] = useState('');
@@ -785,3 +785,4 @@ export function FaceRegistrationLab({ group, members, onRefresh }: FaceRegistrat
     </div>
   );
 }
+
