@@ -4,6 +4,7 @@
 node_modules/
 .pnpm-store/
 .pnpm-debug.log
+desktop/pnpm-lock.yaml
 
 # ===================================
 # BUILD OUTPUTS
@@ -125,3 +126,4 @@ playground/
 # CI/CD (optional)
 # ===================================
 .github/
+
