@@ -65,8 +65,6 @@ export function AssistedCameraRegistration({ group, members, onRefresh, onClose 
       setCameraError(null);
       const constraints: MediaStreamConstraints = {
         video: { 
-          width: { ideal: 1280 }, 
-          height: { ideal: 720 },
           facingMode: 'user'
         },
         audio: false

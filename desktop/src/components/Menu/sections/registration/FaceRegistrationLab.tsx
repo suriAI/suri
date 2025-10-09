@@ -108,7 +108,7 @@ export function FaceRegistrationLab({ group, members, onRefresh }: FaceRegistrat
     try {
       setCameraError(null);
       const constraints: MediaStreamConstraints = {
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: true,
         audio: false
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
