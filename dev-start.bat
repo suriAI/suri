@@ -7,8 +7,8 @@ echo ========================================
 echo.
 
 :: Check if we're in the correct directory
-if not exist "backend" (
-    echo Error: backend directory not found. Please run this script from the project root.
+if not exist "server" (
+    echo Error: server directory not found. Please run this script from the project root.
     pause
     exit /b 1
 )
@@ -22,11 +22,11 @@ if not exist "desktop" (
 echo Starting development servers...
 echo.
 
-:: Start backend in a new window
-echo Starting Python backend...
-start "Suri Backend" cmd /k "cd backend && python run.py"
+:: Start server in a new window
+echo Starting Python server...
+start "Suri Server" cmd /k "cd server && python run.py"
 
-:: Wait a moment for backend to start
+:: Wait a moment for server to start
 timeout /t 3 /nobreak > nul
 
 :: Start frontend

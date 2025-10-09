@@ -6,8 +6,8 @@ echo "========================================"
 echo
 
 # Check if we're in the correct directory
-if [ ! -d "backend" ]; then
-    echo "Error: backend directory not found. Please run this script from the project root."
+if [ ! -d "server" ]; then
+    echo "Error: server directory not found. Please run this script from the project root."
     exit 1
 fi
 
@@ -23,8 +23,8 @@ echo
 cleanup() {
     echo
     echo "Stopping development servers..."
-    if [ ! -z "$BACKEND_PID" ]; then
-        kill $BACKEND_PID 2>/dev/null
+    if [ ! -z "$SERVER_PID" ]; then
+        kill $SERVER_PID 2>/dev/null
     fi
     exit 0
 }
@@ -32,14 +32,14 @@ cleanup() {
 # Set up signal handlers
 trap cleanup SIGINT SIGTERM
 
-# Start backend in background
-echo "Starting Python backend..."
-cd backend
+# Start server in background
+echo "Starting Python server..."
+cd server
 python run.py &
-BACKEND_PID=$!
+SERVER_PID=$!
 cd ..
 
-# Wait a moment for backend to start
+# Wait a moment for server to start
 sleep 3
 
 # Start frontend (this will block)

@@ -110,8 +110,8 @@ export class BackendService {
     if (isDev()) {
       // In development, use Python script
       const currentDir = path.dirname(fileURLToPath(import.meta.url));
-      const backendDir = path.join(currentDir, '..', '..', '..', 'backend');
-      return path.join(backendDir, 'run.py');
+      const serverDir = path.join(currentDir, '..', '..', '..', 'server');
+      return path.join(serverDir, 'run.py');
     } else {
       // In production, use PyInstaller executable
       const platform = process.platform;
@@ -119,10 +119,10 @@ export class BackendService {
       
       // Try multiple possible locations
       const possiblePaths = [
-        path.join(process.resourcesPath, 'backend', executableName),
+        path.join(process.resourcesPath, 'server', executableName),
         path.join(process.resourcesPath, executableName),
-        path.join(app.getAppPath(), 'backend', executableName),
-        path.join(app.getAppPath(), 'resources', 'backend', executableName),
+        path.join(app.getAppPath(), 'server', executableName),
+        path.join(app.getAppPath(), 'resources', 'server', executableName),
       ];
 
       for (const execPath of possiblePaths) {
@@ -131,7 +131,7 @@ export class BackendService {
         }
       }
 
-      throw new Error(`Backend executable not found. Searched paths: ${possiblePaths.join(', ')}`);
+      throw new Error(`Server executable not found. Searched paths: ${possiblePaths.join(', ')}`);
     }
   }
 

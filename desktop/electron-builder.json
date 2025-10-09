@@ -18,8 +18,8 @@
         "target": ["portable", "msi"],
         "extraResources": [
             {
-                "from": "../backend/dist/suri-backend.exe",
-                "to": "backend/suri-backend.exe"
+                "from": "../server/dist/suri-backend.exe",
+                "to": "server/suri-backend.exe"
             }
         ]
     },
@@ -28,8 +28,8 @@
         "category": "utility",
         "extraResources": [
             {
-                "from": "../backend/dist/suri-backend",
-                "to": "backend/suri-backend"
+                "from": "../server/dist/suri-backend",
+                "to": "server/suri-backend"
             }
         ]
     },
@@ -37,8 +37,8 @@
         "target": "dmg",
         "extraResources": [
             {
-                "from": "../backend/dist/suri-backend",
-                "to": "backend/suri-backend"
+                "from": "../server/dist/suri-backend",
+                "to": "server/suri-backend"
             }
         ]
     }
