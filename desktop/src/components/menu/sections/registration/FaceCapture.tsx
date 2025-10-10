@@ -509,15 +509,24 @@ export function FaceCapture({ group, members, onRefresh }: FaceCaptureProps) {
                     )}
                   </div>
                   {hasEmbeddings && isSelected && (
-                    <button
+                    <div
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveFaceData(member);
                       }}
-                      className="mt-2 w-full rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRemoveFaceData(member);
+                        }
+                      }}
+                      className="mt-2 w-full rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors cursor-pointer"
                     >
                       Remove Face Data
-                    </button>
+                    </div>
                   )}
                 </button>
               );
