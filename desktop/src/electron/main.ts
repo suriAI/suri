@@ -46,12 +46,6 @@ async function startBackend(): Promise<void> {
     }
 }
 
-function stopBackend(): void {
-    backendService.stop().catch(error => {
-        console.error('Error stopping backend service:', error);
-    });
-}
-
 // Face Recognition Pipeline IPC handlers
 // Removed legacy face-recognition IPC; detection/recognition handled in renderer via Web Workers
 
