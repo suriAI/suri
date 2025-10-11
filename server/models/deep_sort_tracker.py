@@ -202,7 +202,8 @@ class Track:
         if feature is not None:
             self.features.append(feature)
         
-        self.feature_budget = 100  # Maximum features to store
+        # 🚀 OPTIMIZED: Reduced from 100 to 30 for faster matching
+        self.feature_budget = 30  # Maximum features to store
     
     def predict(self) -> np.ndarray:
         """

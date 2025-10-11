@@ -130,8 +130,7 @@ async def startup_event():
             input_size=tuple(YUNET_CONFIG["input_size"]),
             conf_threshold=YUNET_CONFIG["score_threshold"],
             nms_threshold=YUNET_CONFIG["nms_threshold"],
-            top_k=YUNET_CONFIG["top_k"],
-            bbox_expansion=YUNET_CONFIG.get("bbox_expansion", 0.3)
+            top_k=YUNET_CONFIG["top_k"]
         )
         
         optimized_antispoofing_detector = AntiSpoof(

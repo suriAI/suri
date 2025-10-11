@@ -58,13 +58,19 @@ class AntiSpoof:
     def preprocessing(self, img: np.ndarray) -> np.ndarray:
         """
         Preprocess image for anti-spoofing model
-        OPTIMIZED: Convert BGR to RGB only at model input (not earlier)
         
         Args:
             img: Input image (BGR format from OpenCV)
             
         Returns:
             Preprocessed image tensor (RGB format for ONNX model)
+            
+        Process:
+            1. Resize to model input size (128x128) maintaining aspect ratio
+            2. Add padding with black borders if needed
+            3. Convert BGR → RGB (models expect RGB)
+            4. Normalize to [0, 1] range
+            5. Transpose to CHW format and add batch dimension
         """
         new_size = self.model_img_size
         old_size = img.shape[:2]
@@ -110,12 +116,16 @@ class AntiSpoof:
         Matches Face-AntiSpoofing prototype implementation exactly
         
         Args:
-            img: Input image (RGB format)
+            img: Input image (BGR format from OpenCV)
             bbox: Bounding box (x1, y1, x2, y2)
-            bbox_inc: Bounding box expansion factor (default 1.2 from prototype)
+            bbox_inc: Bounding box expansion factor (1.2 = 20% expansion on all sides)
             
         Returns:
-            Cropped face image in RGB format
+            Cropped and expanded face region in BGR format
+            
+        Example:
+            Original bbox: 100x100 pixels
+            With bbox_inc=1.2: Returns 120x120 pixel crop (20% larger)
         """
         real_h, real_w = img.shape[:2]
         
@@ -140,13 +150,24 @@ class AntiSpoof:
     def predict(self, imgs: List[np.ndarray]) -> List[Dict]:
         """
         Predict anti-spoofing for list of face images
-        OPTIMIZED: Accepts BGR input, converts to RGB in preprocessing
         
         Args:
-            imgs: List of face images (BGR format - OpenCV native)
+            imgs: List of face crops (BGR format from increased_crop)
             
         Returns:
-            List of prediction results
+            List of prediction results with scores and classification
+            
+        Output format:
+            {
+                'is_real': bool,           # True if live face
+                'live_score': float,       # Probability of real face
+                'spoof_score': float,      # print_score + replay_score
+                'confidence': float,       # Max of live/spoof score
+                'label': str,              # 'Live' or 'Spoof'
+                'predicted_class': int,    # 0=live, 1=print, 2=replay
+                'print_score': float,      # Photo attack probability
+                'replay_score': float      # Video replay attack probability
+            }
         """
         if not self.ort_session:
             return []
@@ -199,14 +220,17 @@ class AntiSpoof:
     def detect_faces(self, image: np.ndarray, face_detections: List[Dict]) -> List[Dict]:
         """
         Process face detections with anti-spoofing
-        CRITICAL: Input is already RGB from main.py - NO CONVERSION NEEDED
         
         Args:
-            image: Input image (RGB format - already converted in main.py)
-            face_detections: List of face detection dictionaries
+            image: Input image (BGR format from OpenCV)
+            face_detections: List of face detection dictionaries with bbox info
             
         Returns:
             List of face detections with anti-spoofing results
+            
+        Note:
+            - Applies 1.2x bbox expansion via increased_crop() for better context
+            - Converts BGR to RGB internally during preprocessing
         """
         if not face_detections:
             return []

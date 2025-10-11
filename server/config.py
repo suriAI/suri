@@ -99,14 +99,15 @@ except Exception as e:
     ]
 
 # Optimized ONNX Session Options for maximum performance
+# 🚀 OPTIMIZED: Thread configuration tuned for face detection workloads
 OPTIMIZED_SESSION_OPTIONS = {
     "enable_cpu_mem_arena": True,
     "enable_memory_pattern": True,
     "enable_profiling": False,
     "execution_mode": ort.ExecutionMode.ORT_SEQUENTIAL,  # Best for single-threaded inference
     "graph_optimization_level": ort.GraphOptimizationLevel.ORT_ENABLE_ALL,  # Maximum optimization
-    "inter_op_num_threads": 0,  # Use all available cores
-    "intra_op_num_threads": 0,  # Use all available cores
+    "inter_op_num_threads": 2,  # Reduced from 0 (all cores) to 2 to avoid thread contention
+    "intra_op_num_threads": 4,  # Reduced from 0 (all cores) to 4 for parallel ops within a node
     "log_severity_level": 3,    # Reduce logging overhead
 }
 
@@ -119,10 +120,9 @@ MODEL_CONFIGS = {
         "score_threshold": 0.4,
         "nms_threshold": 0.2,
         "top_k": 100,
-        "bbox_expansion": 0.15,
         "backend_id": 0,
         "target_id": 0,
-        "description": "YuNet face detection - No bbox expansion for precise anti-spoofing",
+        "description": "YuNet face detection",
         "version": "2023mar",
         "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
         "max_image_size": (1920, 1080),
@@ -184,11 +184,11 @@ MODEL_CONFIGS = {
     "deep_sort": {
         "name": "Deep SORT",
         "max_age": 30,  # Maximum frames to keep track alive without detection
-        "n_init": 3,  # Number of consecutive detections before track is confirmed
-        "max_iou_distance": 0.7,  # Maximum IOU distance for matching (1 - IOU threshold)
-        "max_cosine_distance": 0.3,  # Maximum cosine distance for appearance matching
-        "nn_budget": 100,  # Maximum size of feature gallery per track
-        "description": "Deep SORT tracker with appearance features for robust face tracking",
+        "n_init": 2,  # 🚀 OPTIMIZED: Reduced from 3 to 2 (faster track confirmation)
+        "max_iou_distance": 0.6,  # 🚀 OPTIMIZED: Reduced from 0.7 to 0.6 (stricter motion gating)
+        "max_cosine_distance": 0.25,  # 🚀 OPTIMIZED: Reduced from 0.3 to 0.25 (stricter appearance gating)
+        "nn_budget": 30,  # 🚀 OPTIMIZED: Reduced from 100 to 30 (faster matching, less memory)
+        "description": "Deep SORT tracker - OPTIMIZED: Faster matching with stricter gating",
         "version": "1.0.0",
         "enable_appearance_matching": True,  # Use EdgeFace embeddings for tracking
         "matching_weights": {
