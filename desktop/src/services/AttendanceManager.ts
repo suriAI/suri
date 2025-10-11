@@ -89,7 +89,8 @@ export class AttendanceManager {
   constructor() {
     this.httpClient = new HttpClient(API_BASE_URL);
     this.settings = this.getDefaultSettings();
-    this.loadSettings();
+    // Defer settings loading to avoid startup errors
+    this.loadSettingsWhenReady();
   }
 
   private getDefaultSettings(): AttendanceSettings {
@@ -104,25 +105,46 @@ export class AttendanceManager {
     };
   }
 
-  private async loadSettings(): Promise<void> {
-    // Retry logic: Wait for backend to be ready
-    const maxRetries = 10;
-    const retryDelay = 500; // 500ms between retries
+  /**
+   * Wait for backend to be ready before loading settings
+   * This prevents ERR_CONNECTION_REFUSED errors during startup
+   */
+  private async loadSettingsWhenReady(): Promise<void> {
+    // Wait for backend to be ready (check via backend_ready API)
+    const maxWaitTime = 10000; // 10 seconds max wait
+    const checkInterval = 300; // Check every 300ms
+    const startTime = Date.now();
     
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    while (Date.now() - startTime < maxWaitTime) {
       try {
-        this.settings = await this.httpClient.get<AttendanceSettings>(API_ENDPOINTS.settings);
-        console.log('[AttendanceManager] Settings loaded successfully');
-        return; // Success!
-      } catch (error) {
-        if (attempt < maxRetries) {
-          console.log(`[AttendanceManager] Backend not ready, retrying (${attempt}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-        } else {
-          console.error('[AttendanceManager] Failed to load settings after retries, using defaults:', error);
-          // Keep default settings if backend is not available after all retries
+        // Check if backend is ready via the proper API
+        if (window.electronAPI && 'backend_ready' in window.electronAPI) {
+          const ready = await window.electronAPI.backend_ready.isReady();
+          if (ready) {
+            // Backend is ready, now load settings
+            await this.loadSettings();
+            return;
+          }
         }
+        // Not ready yet, wait a bit
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+      } catch (error) {
+        // Ignore errors during startup
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
       }
+    }
+    
+    // Timeout - use default settings
+    console.warn('[AttendanceManager] Backend not ready after timeout, using default settings');
+  }
+
+  private async loadSettings(): Promise<void> {
+    try {
+      this.settings = await this.httpClient.get<AttendanceSettings>(API_ENDPOINTS.settings);
+      console.log('[AttendanceManager] Settings loaded successfully');
+    } catch (error) {
+      console.error('[AttendanceManager] Failed to load settings, using defaults:', error);
+      // Keep default settings if backend is not available
     }
   }
 

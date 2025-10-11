@@ -562,30 +562,62 @@ app.whenReady().then(async () => {
     })
 })
 
-// Handle app quit - ensure backend is stopped
+// Handle app quit - ensure backend is stopped properly
 let isQuitting = false;
+let backendStopped = false;
 
+async function cleanupBackend(): Promise<void> {
+    if (backendStopped) {
+        console.log('[Main] Backend already stopped, skipping cleanup');
+        return;
+    }
+    
+    backendStopped = true;
+    console.log('[Main] Stopping backend...');
+    
+    try {
+        await backendService.stop();
+        console.log('[Main] ✅ Backend stopped successfully');
+    } catch (error) {
+        console.error('[Main] ❌ Error stopping backend:', error);
+    }
+}
+
+// Handle window close - stop backend when all windows closed
+app.on('window-all-closed', async () => {
+    console.log('[Main] All windows closed');
+    
+    // Stop backend first
+    await cleanupBackend();
+    
+    // Then quit (except on macOS)
+    if (process.platform !== 'darwin') {
+        console.log('[Main] Quitting application...');
+        app.quit();
+    }
+})
+
+// Handle app quit - final cleanup (fallback)
 app.on('before-quit', async (event) => {
     if (!isQuitting) {
         event.preventDefault();
         isQuitting = true;
         
-        console.log('[Main] Cleaning up before quit...');
-        await backendService.stop();
-        console.log('[Main] Backend stopped, quitting app...');
+        console.log('[Main] Before quit event - ensuring cleanup...');
+        await cleanupBackend();
         
+        console.log('[Main] Cleanup complete, quitting now');
         app.quit();
     }
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', async () => {
-    console.log('[Main] All windows closed, stopping backend...');
-    await backendService.stop();
-    
-    if (process.platform !== 'darwin') {
-        app.quit();
+// Handle will-quit - absolute final cleanup (no preventDefault here!)
+app.on('will-quit', () => {
+    console.log('[Main] Will quit - forcing cleanup');
+    // Synchronous cleanup as last resort
+    if (!backendStopped && backendService) {
+        backendService.stop().catch(err => {
+            console.error('[Main] Final cleanup error:', err);
+        });
     }
 })
