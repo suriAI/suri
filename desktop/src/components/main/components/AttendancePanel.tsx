@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import type { AttendanceGroup, AttendanceMember, AttendanceRecord } from '../types';
 import { getGroupTypeIcon } from '../utils/overlayRenderer';
 
@@ -11,6 +12,9 @@ interface AttendancePanelProps {
   setShowGroupManagement: (show: boolean) => void;
 }
 
+type SortField = 'time' | 'name' | 'confidence';
+type SortOrder = 'asc' | 'desc';
+
 export function AttendancePanel({
   attendanceEnabled,
   attendanceGroups,
@@ -20,6 +24,66 @@ export function AttendancePanel({
   handleSelectGroup,
   setShowGroupManagement,
 }: AttendancePanelProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('time');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [displayLimit, setDisplayLimit] = useState(10);
+
+  // Filtered and sorted attendance records (memoized for performance)
+  const processedRecords = useMemo(() => {
+    let filtered = [...recentAttendance];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(record => {
+        const member = groupMembers.find(m => m.person_id === record.person_id);
+        const name = member?.name || record.person_id;
+        return name.toLowerCase().includes(query);
+      });
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'time':
+          comparison = a.timestamp.getTime() - b.timestamp.getTime();
+          break;
+        case 'name': {
+          const nameA = (groupMembers.find(m => m.person_id === a.person_id)?.name || a.person_id).toLowerCase();
+          const nameB = (groupMembers.find(m => m.person_id === b.person_id)?.name || b.person_id).toLowerCase();
+          comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'confidence':
+          comparison = a.confidence - b.confidence;
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [recentAttendance, groupMembers, searchQuery, sortField, sortOrder]);
+
+  // Visible records based on display limit
+  const visibleRecords = useMemo(() => {
+    return processedRecords.slice(0, displayLimit);
+  }, [processedRecords, displayLimit]);
+
+  const hasMore = processedRecords.length > displayLimit;
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder(field === 'time' ? 'desc' : 'asc');
+    }
+  };
+
   if (!attendanceEnabled) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -64,36 +128,106 @@ export function AttendancePanel({
         </div>
       )}
 
-      {/* Scrollable Content Section */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 custom-scroll">
-        {/* Recent Attendance */}
-        {recentAttendance.length > 0 && (
-          <div>
-            <div className="space-y-1">
-              {recentAttendance.slice(0, 10).map(record => {
-                const member = groupMembers.find(m => m.person_id === record.person_id);
-                return (
-                  <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded p-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">{member?.name || record.person_id}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${record.is_manual ? 'bg-orange-600/20 text-orange-300 border border-orange-500/30' : 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/30'}`}>
-                          {record.is_manual ? 'Manual' : 'Auto'}
-                        </span>
-                      </div>
-                      <span className="text-white/50">
-                        {record.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-white/40 text-xs">
-                        {(record.confidence * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Search and Controls */}
+      {recentAttendance.length > 0 && (
+        <div className="px-4 pb-2 flex-shrink-0 space-y-2">
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="🔍 Search by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white/[0.05] text-white text-xs border border-white/[0.1] rounded px-3 py-1.5 placeholder:text-white/30 focus:border-blue-500 focus:outline-none"
+          />
+
+          {/* Sort Controls - Compact */}
+          <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center space-x-1">
+              <span className="text-white/40">Sort:</span>
+              <button
+                onClick={() => toggleSort('time')}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  sortField === 'time'
+                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
+                    : 'bg-white/[0.05] text-white/50 border border-white/[0.1] hover:bg-white/[0.08]'
+                }`}
+              >
+                Time {sortField === 'time' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </button>
+              <button
+                onClick={() => toggleSort('name')}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  sortField === 'name'
+                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
+                    : 'bg-white/[0.05] text-white/50 border border-white/[0.1] hover:bg-white/[0.08]'
+                }`}
+              >
+                Name {sortField === 'name' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </button>
+              <button
+                onClick={() => toggleSort('confidence')}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  sortField === 'confidence'
+                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
+                    : 'bg-white/[0.05] text-white/50 border border-white/[0.1] hover:bg-white/[0.08]'
+                }`}
+              >
+                Score {sortField === 'confidence' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </button>
             </div>
+            <span className="text-white/30">
+              {processedRecords.length} {processedRecords.length === 1 ? 'log' : 'logs'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Scrollable Content Section */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1 min-h-0 custom-scroll">
+        {/* Recent Attendance */}
+        {visibleRecords.length > 0 ? (
+          <>
+            {visibleRecords.map(record => {
+              const member = groupMembers.find(m => m.person_id === record.person_id);
+              return (
+                <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded p-2 hover:bg-white/[0.04] transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">{member?.name || record.person_id}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${record.is_manual ? 'bg-orange-600/20 text-orange-300 border border-orange-500/30' : 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/30'}`}>
+                        {record.is_manual ? 'Manual' : 'Auto'}
+                      </span>
+                    </div>
+                    <span className="text-white/50">
+                      {record.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-white/40 text-xs">
+                      {(record.confidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Load More Button */}
+            {hasMore && (
+              <button
+                onClick={() => setDisplayLimit(prev => prev + 10)}
+                className="w-full mt-2 py-2 text-xs bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] rounded text-white/70 transition-colors"
+              >
+                Load More ({processedRecords.length - displayLimit} more)
+              </button>
+            )}
+          </>
+        ) : searchQuery ? (
+          <div className="text-white/50 text-sm text-center py-8">
+            No results for "{searchQuery}"
+          </div>
+        ) : (
+          <div className="text-white/50 text-sm text-center py-8">
+            No attendance records yet
           </div>
         )}
       </div>
@@ -114,4 +248,3 @@ export function AttendancePanel({
     </div>
   );
 }
-
