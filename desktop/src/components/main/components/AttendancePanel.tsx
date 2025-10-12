@@ -75,15 +75,6 @@ export function AttendancePanel({
 
   const hasMore = processedRecords.length > displayLimit;
 
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder(field === 'time' ? 'desc' : 'asc');
-    }
-  };
-
   if (!attendanceEnabled) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -130,54 +121,46 @@ export function AttendancePanel({
 
       {/* Search and Controls */}
       {recentAttendance.length > 0 && (
-        <div className="px-4 pb-2 flex-shrink-0 space-y-2">
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="🔍 Search by name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/[0.05] text-white text-xs border border-white/[0.1] rounded px-3 py-1.5 placeholder:text-white/30 focus:border-blue-500 focus:outline-none"
-          />
+        <div className="px-4 pb-2 flex-shrink-0">
+          {/* Search and Sort Controls - Side by Side */}
+          <div className="flex items-center gap-3 text-[10px]">
+            {/* Search - Left Side */}
+            <input
+              type="text"
+              placeholder="🔍 Search by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-white/[0.05] text-white text-xs border border-white/[0.1] rounded px-3 py-1.5 placeholder:text-white/30 focus:border-blue-500 focus:outline-none"
+            />
 
-          {/* Sort Controls - Compact */}
-          <div className="flex items-center justify-between text-[10px]">
-            <div className="flex items-center space-x-1">
-              <span className="text-white/40">Sort:</span>
-              <button
-                onClick={() => toggleSort('time')}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  sortField === 'time'
-                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
-                    : 'bg-white/[0.05] text-white/50 border border-white/[0.1] hover:bg-white/[0.08]'
-                }`}
-              >
-                Time {sortField === 'time' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </button>
-              <button
-                onClick={() => toggleSort('name')}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  sortField === 'name'
-                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
-                    : 'bg-white/[0.05] text-white/50 border border-white/[0.1] hover:bg-white/[0.08]'
-                }`}
-              >
-                Name {sortField === 'name' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </button>
-              <button
-                onClick={() => toggleSort('confidence')}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  sortField === 'confidence'
-                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
-                    : 'bg-white/[0.05] text-white/50 border border-white/[0.1] hover:bg-white/[0.08]'
-                }`}
-              >
-                Score {sortField === 'confidence' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </button>
+            {/* Sort Controls and Log Count - Right Side */}
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <select
+                  value={sortField}
+                  onChange={(e) => {
+                    const field = e.target.value as SortField;
+                    setSortField(field);
+                    // Set smart defaults based on field type
+                    if (field === 'time') {
+                      setSortOrder('desc'); // Newest first
+                    } else if (field === 'name') {
+                      setSortOrder('asc'); // A-Z
+                    } else if (field === 'confidence') {
+                      setSortOrder('desc'); // Highest first
+                    }
+                  }}
+                  className="bg-white/[0.05] text-white text-[10px] border border-white/[0.1] rounded px-2 py-0.5 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="time" className="bg-black text-white">Time (Newest)</option>
+                  <option value="name" className="bg-black text-white">Name (A-Z)</option>
+                  <option value="confidence" className="bg-black text-white">Score (Highest)</option>
+                </select>
+              </div>
+              <span className="text-white/30 text-[10px]">
+                {processedRecords.length} {processedRecords.length === 1 ? 'log' : 'logs'}
+              </span>
             </div>
-            <span className="text-white/30">
-              {processedRecords.length} {processedRecords.length === 1 ? 'log' : 'logs'}
-            </span>
           </div>
         </div>
       )}
