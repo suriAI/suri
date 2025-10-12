@@ -12,7 +12,7 @@ interface AttendancePanelProps {
   setShowGroupManagement: (show: boolean) => void;
 }
 
-type SortField = 'time' | 'name' | 'confidence';
+type SortField = 'time' | 'name';
 type SortOrder = 'asc' | 'desc';
 
 export function AttendancePanel({
@@ -57,9 +57,6 @@ export function AttendancePanel({
           comparison = nameA.localeCompare(nameB);
           break;
         }
-        case 'confidence':
-          comparison = a.confidence - b.confidence;
-          break;
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -146,15 +143,12 @@ export function AttendancePanel({
                       setSortOrder('desc'); // Newest first
                     } else if (field === 'name') {
                       setSortOrder('asc'); // A-Z
-                    } else if (field === 'confidence') {
-                      setSortOrder('desc'); // Highest first
                     }
                   }}
                   className="bg-white/[0.05] text-white text-[10px] border border-white/[0.1] rounded px-2 py-0.5 focus:border-blue-500 focus:outline-none"
                 >
                   <option value="time" className="bg-black text-white">Time (Newest)</option>
                   <option value="name" className="bg-black text-white">Name (A-Z)</option>
-                  <option value="confidence" className="bg-black text-white">Score (Highest)</option>
                 </select>
               </div>
               <span className="text-white/30 text-[10px]">
@@ -183,11 +177,6 @@ export function AttendancePanel({
                     </div>
                     <span className="text-white/50">
                       {record.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-white/40 text-xs">
-                      {(record.confidence * 100).toFixed(0)}%
                     </span>
                   </div>
                 </div>
