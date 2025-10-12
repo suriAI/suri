@@ -126,11 +126,6 @@ body {
 }
 
 @layer base {
-  button:hover {
-    background-color: var(--bg-hover);
-    border-color: var(--border-hover);
-    transform: translateY(-1px);
-  }
 
   button:active {
     transform: translateY(0);
