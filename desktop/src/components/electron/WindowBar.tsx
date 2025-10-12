@@ -52,32 +52,32 @@ export default function WindowBar() {
 
       {/* Ultra-minimal Window Controls */}
       <div 
-        className="flex items-center space-x-0.5"
+        className="flex items-center [webkit-app-region:no-drag]"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
           onClick={handleMinimize}
-          className="titlebar-btn w-12 h-11 flex items-center justify-center text-white/40 hover:!text-black hover:!bg-white/80 hover:!rounded-none transition-all duration-200"
+          className="titlebar-btn w-15 h-11 flex items-center justify-center text-white/40 hover:!text-black hover:!bg-white/80 hover:!rounded-none transition-all duration-200"
         >
-          <i className="fas fa-window-minimize text-[12px]"></i>
+          <i className="fas fa-window-minimize text-[12px] pb-1.5"></i>
         </button>
 
         <button
           onClick={handleMaximize}
-          className="titlebar-btn w-12 h-11 flex items-center justify-center text-white/40 hover:!text-black hover:!bg-white/80 hover:!rounded-none transition-all duration-200"
+          className="titlebar-btn w-15 h-11 flex items-center justify-center text-white/40 hover:!text-black hover:!bg-white/80 hover:!rounded-none transition-all duration-200"
         >
-          {isMaximized ? (
-            <i className="far fa-square text-[13px]"></i>
-          ) : (
-            <i className="far fa-square text-[13px]"></i>
-          )}
+            {isMaximized ? (
+              <i className="far fa-window-restore text-[13px]"></i>
+            ) : (
+              <i className="far fa-square text-[13px]"></i>
+            )}
         </button>
 
         <button
           onClick={handleClose}
-          className="titlebar-btn w-12 h-11 flex items-center justify-center text-white/40 hover:!text-black hover:!bg-red-500/90 hover:!rounded-none transition-all duration-200"
+          className="titlebar-btn w-15 h-11 flex items-center justify-center text-white/40 hover:!text-black hover:!bg-red-500/90 hover:!rounded-none transition-all duration-200"
         >
-          <i className="fas fa-times text-[16px]"></i>
+          <i className="fa fa-times text-[16px]"></i>
         </button>
       </div>
     </div>
