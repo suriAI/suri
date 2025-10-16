@@ -26,15 +26,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         detectFaces: (imageBase64: string, options?: { threshold?: number; max_faces?: number }) => {
             return ipcRenderer.invoke('backend:detect-faces', imageBase64, options)
         },
-        // Real-time detection via IPC (replaces WebSocket)
-        detectStream: (imageData: ArrayBuffer | string, options?: {
-            model_type?: string;
-            nms_threshold?: number;
-            enable_antispoofing?: boolean;
-            frame_timestamp?: number;
-        }) => {
-            return ipcRenderer.invoke('backend:detect-stream', imageData, options)
-        },
         // Face recognition APIs
         recognizeFace: (imageData: string, bbox: number[], groupId?: string) => {
             return ipcRenderer.invoke('backend:recognize-face', imageData, bbox, groupId)

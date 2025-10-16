@@ -10,6 +10,7 @@ import json
 import logging
 from typing import Dict, List, Optional, Union
 import uuid
+import time
 
 import cv2
 import numpy as np
@@ -812,53 +813,140 @@ async def get_face_stats():
         logger.error(f"Get stats error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {e}")
 
-@app.websocket("/ws/notifications/{client_id}")
-async def websocket_notifications_endpoint(websocket: WebSocket, client_id: str):
-    """
-    🌐 Lightweight WebSocket endpoint for real-time notifications (SaaS-ready)
-    
-    Purpose: Attendance events, system alerts, dashboard updates
-    NOT for: Model inference, detection streaming (use IPC → HTTP for that)
-    
-    Usage:
-    - Desktop App: Optional real-time notifications
-    - Web App (SaaS): Real-time attendance updates, alerts
-    """
-    await manager.connect(websocket, client_id)
-    logger.info(f"✅ Notification client connected: {client_id}")
+@app.websocket("/ws/detect/{client_id}")
+async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
+    await websocket.accept()
+    logger.info(f"WebSocket detection connected: {client_id}")
     
     try:
-        # Send welcome message
         await websocket.send_text(json.dumps({
             "type": "connection",
             "status": "connected",
             "client_id": client_id,
-            "message": "WebSocket notifications ready",
+            "timestamp": time.time()
+        }))
+        
+        while True:
+            try:
+                message_data = await websocket.receive()
+                
+                if "text" in message_data:
+                    message = json.loads(message_data["text"])
+                    
+                    if message.get("type") == "ping":
+                        await websocket.send_text(json.dumps({
+                            "type": "pong",
+                            "client_id": client_id,
+                            "timestamp": time.time()
+                        }))
+                        continue
+                    
+                    elif message.get("type") == "config":
+                        await websocket.send_text(json.dumps({
+                            "type": "config_ack",
+                            "success": True,
+                            "timestamp": time.time()
+                        }))
+                        continue
+                
+                elif "bytes" in message_data:
+                    start_time = time.time()
+                    frame_bytes = message_data["bytes"]
+                    
+                    nparr = np.frombuffer(frame_bytes, np.uint8)
+                    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    
+                    if image is None:
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": "Failed to decode frame",
+                            "timestamp": time.time()
+                        }))
+                        continue
+                    
+                    if not yunet_detector:
+                        raise HTTPException(status_code=500, detail="YuNet model not available")
+                    
+                    faces = yunet_detector.detect_faces(image)
+                    faces = await process_face_tracking(faces, image)
+                    faces = await process_antispoofing(faces, image, True)
+                    
+                    serialized_faces = []
+                    for face in faces:
+                        if 'bbox' in face and isinstance(face['bbox'], dict):
+                            bbox_orig = face.get('bbox_original', face['bbox'])
+                            face['bbox'] = [
+                                bbox_orig.get('x', 0), 
+                                bbox_orig.get('y', 0), 
+                                bbox_orig.get('width', 0), 
+                                bbox_orig.get('height', 0)
+                            ]
+                        
+                        if 'track_id' in face:
+                            track_id_value = face['track_id']
+                            if isinstance(track_id_value, (np.integer, np.int32, np.int64)):
+                                face['track_id'] = int(track_id_value)
+                        
+                        if 'embedding' in face:
+                            del face['embedding']
+                        
+                        serialized_faces.append(face)
+                    
+                    processing_time = time.time() - start_time
+                    
+                    await websocket.send_text(json.dumps({
+                        "type": "detection_response",
+                        "faces": serialized_faces,
+                        "model_used": "yunet",
+                        "processing_time": processing_time,
+                        "timestamp": time.time(),
+                        "success": True
+                    }))
+                    
+            except Exception as e:
+                logger.error(f"Detection processing error: {e}")
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": f"Detection failed: {str(e)}",
+                    "timestamp": time.time()
+                }))
+                    
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket detection disconnected: {client_id}")
+    except Exception as e:
+        logger.error(f"WebSocket detection error: {e}")
+
+@app.websocket("/ws/notifications/{client_id}")
+async def websocket_notifications_endpoint(websocket: WebSocket, client_id: str):
+    await manager.connect(websocket, client_id)
+    logger.info(f"Notification client connected: {client_id}")
+    
+    try:
+        await websocket.send_text(json.dumps({
+            "type": "connection",
+            "status": "connected",
+            "client_id": client_id,
             "timestamp": asyncio.get_event_loop().time()
         }))
         
-        # Keep connection alive and handle pings
         while True:
             message_data = await websocket.receive()
             
             if "text" in message_data:
                 message = json.loads(message_data["text"])
                 
-                # Handle ping/pong for connection health
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({
                         "type": "pong",
                         "client_id": client_id,
                         "timestamp": asyncio.get_event_loop().time()
                     }))
-                
-                # Ignore any other message types (this is notification-only endpoint)
                     
     except WebSocketDisconnect:
-        logger.info(f"📡 Notification client disconnected: {client_id}")
+        logger.info(f"Notification client disconnected: {client_id}")
         manager.disconnect(client_id)
     except Exception as e:
-        logger.error(f"❌ WebSocket notification error: {e}")
+        logger.error(f"WebSocket notification error: {e}")
         manager.disconnect(client_id)
 
 if __name__ == "__main__":

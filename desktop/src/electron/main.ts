@@ -48,7 +48,7 @@ async function startBackend(): Promise<void> {
 }
 
 // Face Recognition Pipeline IPC handlers
-// Removed legacy face-recognition IPC; detection/recognition handled in renderer via Web Workers
+// Detection handled via Binary WebSocket; recognition/registration via IPC
 
 // Backend Service IPC handlers for FastAPI integration
 ipcMain.handle('backend:check-availability', async () => {
@@ -80,71 +80,6 @@ ipcMain.handle('backend:detect-faces', async (_event, imageBase64: string, optio
         return await backendService.detectFaces(imageBase64, options);
     } catch (error) {
         throw new Error(`Face detection failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-});
-
-// Real-time detection with binary support (IPC replacement for WebSocket)
-ipcMain.handle('backend:detect-stream', async (_event, imageData: ArrayBuffer | string, options: {
-    model_type?: string;
-    nms_threshold?: number;
-    enable_antispoofing?: boolean;
-    frame_timestamp?: number;
-} = {}) => {
-    try {
-        const url = `${backendService.getUrl()}/detect`;
-        
-        let imageBase64: string;
-        if (imageData instanceof ArrayBuffer) {
-            // Convert ArrayBuffer to base64
-            const bytes = new Uint8Array(imageData);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            imageBase64 = Buffer.from(binary, 'binary').toString('base64');
-        } else {
-            imageBase64 = imageData;
-        }
-
-        const requestBody = {
-            image: imageBase64,
-            model_type: options.model_type || 'yunet',
-            confidence_threshold: 0.6,
-            nms_threshold: options.nms_threshold || 0.3,
-            enable_antispoofing: options.enable_antispoofing !== undefined ? options.enable_antispoofing : true
-        };
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-            signal: AbortSignal.timeout(30000)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        
-        return {
-            type: 'detection_response',
-            faces: result.faces || [],
-            model_used: result.model_used || 'yunet',
-            processing_time: result.processing_time || 0,
-            timestamp: Date.now(),
-            frame_timestamp: options.frame_timestamp || Date.now(),
-            success: result.success !== undefined ? result.success : true
-        };
-    } catch (error) {
-        console.error('Stream detection failed:', error);
-        return {
-            type: 'error',
-            message: error instanceof Error ? error.message : String(error),
-            timestamp: Date.now()
-        };
     }
 });
 

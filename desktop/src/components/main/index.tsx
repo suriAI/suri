@@ -978,8 +978,6 @@ export default function Main() {
       });
 
       // Note: Removed unused WebSocket event listeners (attendance_event, request_next_frame, pong)
-      // These were from old WebSocket streaming code - now using IPC → HTTP for detection
-
       // Status will be managed by polling the actual WebSocket state
       
     } catch (error) {
@@ -1006,17 +1004,9 @@ export default function Main() {
         return;
       }
       
-      // Add frame timestamp for synchronization
-      const frameTimestamp = Date.now();
-      
       // 🚀 NO BLOCKING - Send frames continuously at max rate
       // Backend drops old frames automatically if processing is slow
-      backendServiceRef.current.sendDetectionRequest(frameData, {
-        model_type: 'yunet',
-        nms_threshold: 0.3,
-        enable_antispoofing: true,
-        frame_timestamp: frameTimestamp
-      }).catch(error => {
+      backendServiceRef.current.sendDetectionRequest(frameData).catch(error => {
         console.error('❌ WebSocket detection request failed:', error);
         
         // Continue processing on error
@@ -1189,9 +1179,9 @@ export default function Main() {
               await initializeWebSocket();
               console.log('✅ WebSocket initialized, waiting for readiness...');
               
-              // CRITICAL: Set backend ready immediately for IPC mode since connection is instant
+              // CRITICAL: Set backend ready immediately since WebSocket is connected
               backendServiceReadyRef.current = true;
-              console.log('✅ Backend service marked as ready (IPC mode)');
+              console.log('✅ Backend service marked as ready (WebSocket connected)');
               
               // Wait for WebSocket to be fully ready before starting detection
               let attempts = 0;
@@ -1246,9 +1236,8 @@ export default function Main() {
           setDetectionEnabled(false);
         }
         // If websocketStatus is 'connecting', the useEffect will handle starting detection when connected
-        // But also set backend ready for IPC mode
         if (websocketStatus === 'connecting') {
-          console.log('🔌 WebSocket connecting, setting backend ready for IPC mode');
+          console.log('🔌 WebSocket connecting, waiting for connection...');
           backendServiceReadyRef.current = true;
           console.log('✅ Backend service marked as ready (connecting state)');
           

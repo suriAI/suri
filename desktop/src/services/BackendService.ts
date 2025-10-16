@@ -74,7 +74,11 @@ export class BackendService {
   private config: BackendConfig;
   private clientId: string;
   private messageHandlers: Map<string, (data: IPCMessage) => void> = new Map();
-  private isProcessing = false;
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectTimeout: number | null = null;
+  private pingInterval: number | null = null;
 
   constructor(config?: Partial<BackendConfig>) {
     this.config = {
@@ -84,8 +88,7 @@ export class BackendService {
       ...config
     };
     
-    this.clientId = `ipc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    console.log('[BackendService] IPC mode enabled - Fast processing, zero overhead');
+    this.clientId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**
@@ -241,121 +244,179 @@ export class BackendService {
     }
   }
 
-  /**
-   * 🔌 Initialize IPC connection (instant, no setup needed)
-   * 
-   * NOTE: Misleading name "connectWebSocket" for backward compatibility
-   * This is actually IPC → HTTP communication, NOT WebSocket!
-   * 
-   * Architecture:
-   * - Frontend → IPC → Electron → HTTP → Backend (for detection/recognition)
-   * - WebSocket only used for future SaaS notifications (not currently connected)
-   */
   async connectWebSocket(): Promise<void> {
-    console.log('[BackendService] 🔌 IPC connection ready (instant, no overhead)');
-    console.log('[BackendService] 📡 Detection: IPC → HTTP (NOT WebSocket)');
-    
-    // Send connection message to handlers
-    setTimeout(() => {
-      this.handleMessage({
-        type: 'connection',
-        status: 'connected',
-        client_id: this.clientId,
-        timestamp: Date.now()
-      });
-    }, 50);
+    return new Promise((resolve, reject) => {
+      try {
+        // Close existing connection if any
+        if (this.ws) {
+          this.ws.close();
+          this.ws = null;
+        }
+
+        const wsUrl = this.config.baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+        const url = `${wsUrl}/ws/detect/${this.clientId}`;
+        
+        this.ws = new WebSocket(url);
+        this.ws.binaryType = 'arraybuffer';
+        
+        this.ws.onopen = () => {
+          this.reconnectAttempts = 0;
+          this.startPingInterval();
+          resolve();
+        };
+        
+        this.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            this.handleMessage(data);
+          } catch (error) {
+            console.error('[BackendService] Failed to parse message:', error);
+          }
+        };
+        
+        this.ws.onclose = (event) => {
+          this.stopPingInterval();
+          
+          if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.scheduleReconnect();
+          } else {
+            this.handleMessage({
+              type: 'connection',
+              status: 'disconnected',
+              timestamp: Date.now()
+            });
+          }
+        };
+        
+        this.ws.onerror = (error) => {
+          console.error('[BackendService] WebSocket error:', error);
+          reject(error);
+        };
+        
+      } catch (error) {
+        console.error('[BackendService] Failed to create WebSocket:', error);
+        reject(error);
+      }
+    });
   }
 
-  /**
-   * Send detection request via IPC (fast, zero overhead)
-   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+    
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
+    
+    this.reconnectTimeout = window.setTimeout(() => {
+      this.connectWebSocket().catch(error => {
+        console.error('[BackendService] Reconnection failed:', error);
+      });
+    }, delay);
+  }
+
+  private startPingInterval(): void {
+    this.stopPingInterval();
+    
+    this.pingInterval = window.setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          type: 'ping',
+          client_id: this.clientId,
+          timestamp: Date.now()
+        }));
+      }
+    }, 30000);
+  }
+
+  private stopPingInterval(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
+
   async sendDetectionRequest(
-    imageData: ImageData | string | ArrayBuffer,
-    options: {
-      model_type?: string;
-      nms_threshold?: number;
-      enable_antispoofing?: boolean;
-      frame_timestamp?: number;
-    } = {}
+    imageData: ImageData | string | ArrayBuffer
   ): Promise<void> {
-    // Skip if already processing (prevent queue buildup)
-    if (this.isProcessing) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return;
     }
 
-    this.isProcessing = true;
-
     try {
-      let imageToSend: ArrayBuffer | string;
+      let binaryData: ArrayBuffer;
 
-      // Handle different image data types
       if (imageData instanceof ArrayBuffer) {
-        imageToSend = imageData;
+        binaryData = imageData;
       } else if (typeof imageData === 'string') {
-        imageToSend = imageData;
+        const base64Data = imageData.includes('base64,') ? imageData.split('base64,')[1] : imageData;
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        binaryData = bytes.buffer;
       } else {
-        // Convert ImageData to base64
-        imageToSend = await this.imageDataToBase64(imageData);
+        binaryData = await this.imageDataToJpegBinary(imageData);
       }
 
-      // Send via IPC
-      const result = await window.electronAPI.backend.detectStream(imageToSend, {
-        model_type: options.model_type || 'yunet',
-        nms_threshold: options.nms_threshold || 0.3,
-        enable_antispoofing: options.enable_antispoofing !== undefined ? options.enable_antispoofing : true,
-        frame_timestamp: options.frame_timestamp || Date.now()
-      });
-
-      // Trigger message handlers with result
-      this.handleMessage(result as IPCMessage);
+      this.ws.send(binaryData);
 
     } catch (error) {
-      console.error('[BackendService] IPC detection failed:', error);
-      
-      // Send error to handlers
       this.handleMessage({
         type: 'error',
         message: error instanceof Error ? error.message : String(error),
         timestamp: Date.now()
       });
-    } finally {
-      this.isProcessing = false;
     }
   }
 
-  /**
-   * Send ping (no-op for IPC, always connected)
-   */
-  ping(): void {
-    // IPC is always connected, no ping needed
+  private async imageDataToJpegBinary(imageData: ImageData): Promise<ArrayBuffer> {
+    if (!imageData || typeof imageData.width !== 'number' || typeof imageData.height !== 'number' || 
+        imageData.width <= 0 || imageData.height <= 0) {
+      throw new Error('Invalid ImageData');
+    }
+
+    const canvas = new OffscreenCanvas(imageData.width, imageData.height);
+    const ctx = canvas.getContext('2d')!;
+    ctx.putImageData(imageData, 0, 0);
+    
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+    return await blob.arrayBuffer();
   }
 
-  /**
-   * Register message handler for IPC responses
-   */
+  ping(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'ping',
+        client_id: this.clientId,
+        timestamp: Date.now()
+      }));
+    }
+  }
+
   onMessage(type: string, handler: (data: IPCMessage) => void): void {
     this.messageHandlers.set(type, handler);
   }
 
-  /**
-   * Remove message handler
-   */
   offMessage(type: string): void {
     this.messageHandlers.delete(type);
   }
 
-  /**
-   * Disconnect (lightweight cleanup for IPC restart)
-   * NOTE: We DON'T clear message handlers because they need to persist for restart
-   */
   disconnect(): void {
-    // For IPC mode, we keep handlers alive for instant reconnection
-    // No cleanup needed - handlers will be reused on next connect
+    this.stopPingInterval();
+    
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    
+    if (this.ws) {
+      this.ws.close(1000, 'Client disconnect');
+      this.ws = null;
+    }
   }
 
-  /**
-   * Get connection status
-   */
   getConnectionStatus(): {
     http: boolean;
     websocket: boolean;
@@ -363,25 +424,26 @@ export class BackendService {
   } {
     return {
       http: true,
-      websocket: true, // IPC is always "connected"
+      websocket: this.ws?.readyState === WebSocket.OPEN,
       clientId: this.clientId
     };
   }
 
-  /**
-   * Get connection status string
-   */
   getWebSocketStatus(): 'disconnected' | 'connecting' | 'connected' {
-    return 'connected'; // IPC is always connected
+    if (!this.ws) return 'disconnected';
+    
+    switch (this.ws.readyState) {
+      case WebSocket.CONNECTING:
+        return 'connecting';
+      case WebSocket.OPEN:
+        return 'connected';
+      default:
+        return 'disconnected';
+    }
   }
 
-  /**
-   * Check if ready for sending messages
-   * 
-   * NOTE: Misleading name "isWebSocketReady" - this is IPC, not WebSocket!
-   */
   isWebSocketReady(): boolean {
-    return true; // IPC is always ready (no connection setup required)
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   // Face Recognition Methods
@@ -595,3 +657,4 @@ export class BackendService {
 
 // Singleton instance for global use
 export const backendService = new BackendService();
+
