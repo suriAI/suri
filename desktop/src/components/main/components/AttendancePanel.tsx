@@ -145,29 +145,26 @@ export function AttendancePanel({
                       setSortOrder('asc'); // A-Z
                     }
                   }}
-                  className="bg-white/[0.05] text-white text-[10px] border border-white/[0.1] rounded px-2 py-0.5 focus:border-blue-500 focus:outline-none"
+                  className="bg-white/[0.05] text-white text-[10px] border border-white/[0.1] rounded px-2 focus:border-blue-500 focus:outline-none"
                 >
                   <option value="time" className="bg-black text-white">Time (Newest)</option>
                   <option value="name" className="bg-black text-white">Name (A-Z)</option>
                 </select>
               </div>
-              <span className="text-white/30 text-[10px]">
-                {processedRecords.length} {processedRecords.length === 1 ? 'log' : 'logs'}
-              </span>
             </div>
           </div>
         </div>
       )}
 
       {/* Scrollable Content Section */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1 min-h-0 custom-scroll">
+      <div className="flex-1 overflow-y-auto mx-4 mt-2 mb-4 min-h-0 rounded-md custom-scroll">
         {/* Recent Attendance */}
         {visibleRecords.length > 0 ? (
           <>
             {visibleRecords.map(record => {
               const member = groupMembers.find(m => m.person_id === record.person_id);
               return (
-                <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded p-2">
+                <div key={record.id} className="text-xs bg-white/[0.02] border border-white/[0.05] p-2">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium">{member?.name || record.person_id}</span>
