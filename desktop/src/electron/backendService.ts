@@ -133,6 +133,60 @@ export class BackendService {
   }
 
   /**
+   * Find Python executable path (works with or without virtual environment)
+   */
+  private async findPythonExecutable(): Promise<string> {
+    const possiblePaths = [
+      // Try virtual environment first (if it exists)
+      path.join(process.cwd(), '..', 'venv', 'Scripts', 'python.exe'),
+      path.join(process.cwd(), '..', 'venv', 'bin', 'python'),
+      path.join(process.cwd(), 'venv', 'Scripts', 'python.exe'),
+      path.join(process.cwd(), 'venv', 'bin', 'python'),
+      // Try system Python
+      'python',
+      'python3',
+      'python.exe',
+      // Try common Python installations
+      'C:\\Python39\\python.exe',
+      'C:\\Python310\\python.exe',
+      'C:\\Python311\\python.exe',
+      'C:\\Python312\\python.exe',
+      '/usr/bin/python3',
+      '/usr/local/bin/python3',
+      '/opt/homebrew/bin/python3'
+    ];
+
+    for (const pythonPath of possiblePaths) {
+      try {
+        // Check if the path exists and is executable
+        if (fs.existsSync(pythonPath)) {
+          // Test if it's actually Python by checking version
+          const result = await execAsync(`"${pythonPath}" --version`);
+          if (result.stdout.includes('Python')) {
+            console.log(`[BackendService] Found Python at: ${pythonPath}`);
+            return pythonPath;
+          }
+        } else if (!pythonPath.includes('\\') && !pythonPath.includes('/')) {
+          // For system commands like 'python' or 'python3', test directly
+          try {
+            const result = await execAsync(`${pythonPath} --version`);
+            if (result.stdout.includes('Python')) {
+              console.log(`[BackendService] Found Python command: ${pythonPath}`);
+              return pythonPath;
+            }
+          } catch {
+            // Continue to next option
+          }
+        }
+      } catch {
+        // Continue to next option
+      }
+    }
+
+    throw new Error('Python executable not found. Please ensure Python is installed and accessible.');
+  }
+
+  /**
    * Check if backend is responding to health checks
    */
   private async healthCheck(): Promise<boolean> {
@@ -183,8 +237,8 @@ export class BackendService {
       let args: string[];
 
       if (isDev()) {
-        // Development mode - use Python virtual environment
-        command = path.join(process.cwd(), '..', 'venv', 'Scripts', 'python.exe');
+        // Development mode - find Python executable (with or without venv)
+        command = await this.findPythonExecutable();
         args = [executablePath, '--port', this.config.port.toString(), '--host', this.config.host];
       } else {
         // Production mode - use PyInstaller executable
