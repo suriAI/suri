@@ -1,3 +1,5 @@
+#   Tested with Python 3.10.9
+
 # FastAPI and web server dependencies
 fastapi
 uvicorn[standard]
@@ -30,6 +32,9 @@ onnxruntime
 filterpy
 scipy
 lap
+
+# Attendance database dependencies
+ulid
 
 # Windows-specific dependencies for PyInstaller builds
 pywin32-ctypes
