@@ -34,7 +34,7 @@ export function ControlBar({
   onClassStartTimeChange,
 }: ControlBarProps) {
   return (
-    <div className="px-4 pt-3 pb-3">
+    <div>
       <div className="rounded-lg p-6 flex items-center justify-between min-h-[4rem]">
         <div className="flex items-center space-x-6">
           {/* Camera Selection */}
