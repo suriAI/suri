@@ -23,6 +23,17 @@ const formatTime = (value: Date | string): string => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const formatDate = (value: Date | string): string => {
+  const date = toDate(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month} ${day}, ${year}`;
+};
+
 export function Overview({ group, members }: OverviewProps) {
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [recentRecords, setRecentRecords] = useState<AttendanceRecord[]>([]);
@@ -80,7 +91,7 @@ export function Overview({ group, members }: OverviewProps) {
                   <div>
                     <div className="font-medium text-white text-sm">{member?.name ?? record.person_id}</div>
                     <div className="text-xs text-white/40">
-                      {toDate(record.timestamp).toLocaleDateString()} · {formatTime(record.timestamp)}
+                      {formatDate(record.timestamp)} · {formatTime(record.timestamp)}
                     </div>
                   </div>
                   <div className="text-xs text-white/40">{(record.confidence * 100).toFixed(0)}%</div>

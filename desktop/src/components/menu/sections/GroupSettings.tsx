@@ -29,6 +29,17 @@ const getGroupTypeIcon = (type: GroupType): string => {
   }
 };
 
+const formatDate = (value: Date | string): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month} ${day}, ${year}`;
+};
+
 const toDate = (value: Date | string): Date => (value instanceof Date ? value : new Date(value));
 
 export function GroupSettings({ 
@@ -97,7 +108,7 @@ export function GroupSettings({
           <div className="rounded-lg bg-white/5 p-3 border border-white/10">
             <div className="text-xs text-white/50 mb-1">Created</div>
             <div className="text-sm font-light text-white">
-              {groupCreatedAt ? groupCreatedAt.toLocaleDateString() : '—'}
+              {groupCreatedAt ? formatDate(groupCreatedAt) : '—'}
             </div>
           </div>
         </div>
