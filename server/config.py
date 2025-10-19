@@ -140,7 +140,7 @@ MODEL_CONFIGS = {
     },
     "antispoofing": {
         "model_path": WEIGHTS_DIR / "AntiSpoofing_print-replay_1.5_128.onnx",
-        "confidence_threshold": 0.58,
+        "confidence_threshold": 0.65,
         "bbox_inc": 1.5,
         "model_img_size": 128
     },
