@@ -19,56 +19,24 @@ export const getFaceColor = (
 export const drawBoundingBox = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) => {
   const width = x2 - x1;
   const height = y2 - y1;
-  const cornerRadius = 8; // Modern rounded corners
+  
+  // Ultra minimalist full box with sharp corners
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'square';
   
   ctx.beginPath();
-  ctx.roundRect(x1, y1, width, height, cornerRadius);
-  ctx.stroke();
-  
-  // Add subtle corner accents for modern look
-  const accentLength = 20;
-  const accentOffset = 4;
-  
-  ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  
-  // Top-left corner accent
-  ctx.beginPath();
-  ctx.moveTo(x1 + accentOffset, y1 + accentLength);
-  ctx.lineTo(x1 + accentOffset, y1 + accentOffset);
-  ctx.lineTo(x1 + accentLength, y1 + accentOffset);
-  ctx.stroke();
-  
-  // Top-right corner accent
-  ctx.beginPath();
-  ctx.moveTo(x2 - accentLength, y1 + accentOffset);
-  ctx.lineTo(x2 - accentOffset, y1 + accentOffset);
-  ctx.lineTo(x2 - accentOffset, y1 + accentLength);
-  ctx.stroke();
-  
-  // Bottom-left corner accent
-  ctx.beginPath();
-  ctx.moveTo(x1 + accentOffset, y2 - accentLength);
-  ctx.lineTo(x1 + accentOffset, y2 - accentOffset);
-  ctx.lineTo(x1 + accentLength, y2 - accentOffset);
-  ctx.stroke();
-  
-  // Bottom-right corner accent
-  ctx.beginPath();
-  ctx.moveTo(x2 - accentLength, y2 - accentOffset);
-  ctx.lineTo(x2 - accentOffset, y2 - accentOffset);
-  ctx.lineTo(x2 - accentOffset, y2 - accentLength);
+  ctx.rect(x1, y1, width, height);
   ctx.stroke();
 };
 
 export const setupCanvasContext = (ctx: CanvasRenderingContext2D, color: string) => {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 2;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 8;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.lineCap = 'square';
+  ctx.lineJoin = 'miter';
 };
 
 
@@ -161,23 +129,23 @@ export const drawOverlays = ({
     }
 
     const isRecognized = recognitionEnabled && recognitionResult?.person_id;
-    let label = "Unknown";
+    let label = "";
     let shouldShowLabel = false;
 
     if (isRecognized && recognitionResult && quickSettings.showRecognitionNames) {
       label = recognitionResult.name || recognitionResult.person_id || "Unknown";
       shouldShowLabel = true;
     } else if (antispoofing?.status === 'fake' && quickSettings.showAntiSpoofStatus) {
-      label = "⚠ SPOOF";
+      label = "SPOOF";
       shouldShowLabel = true;
     } else if (antispoofing?.status === 'uncertain' && quickSettings.showAntiSpoofStatus) {
-      label = "? UNCERTAIN";
+      label = "UNCERTAIN";
       shouldShowLabel = true;
     }
 
     if (shouldShowLabel) {
-      ctx.font = 'bold 16px "Courier New", monospace';
-      ctx.fillText(label, x1, y1 - 10);
+      ctx.font = '600 13px system-ui, -apple-system, sans-serif';
+      ctx.fillText(label, x1 + 4, y1 - 6);
     }
 
     if (isRecognized && recognitionResult?.person_id) {
@@ -204,13 +172,6 @@ export const drawOverlays = ({
         }
       }
     }
-
-    if (isRecognized && quickSettings.showRecognitionNames) {
-      ctx.font = 'bold 10px "Courier New", monospace';
-      ctx.fillStyle = "#00ff00";
-      ctx.fillText("RECOGNIZED", x1 + 10, y2 + 15);
-    }
-
 
     ctx.shadowBlur = 0;
   });

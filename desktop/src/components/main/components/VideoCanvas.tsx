@@ -39,30 +39,20 @@ export function VideoCanvas({
       />
 
       {quickSettings.showFPS && detectionFps > 0 && (
-        <div className="absolute top-4 left-4 glass-card px-2 py-1 pointer-events-none" style={{ zIndex: 20 }}>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-green-400 font-mono text-sm">{detectionFps.toFixed(1)} FPS</span>
-          </div>
+        <div className="absolute top-3 left-3 bg-black/60 px-2 py-1 rounded border border-white/10 pointer-events-none" style={{ zIndex: 20 }}>
+          <span className="text-green-400 font-mono text-xs font-semibold">{detectionFps.toFixed(1)} FPS</span>
         </div>
       )}
 
       {quickSettings.showDebugInfo && currentDetections && (
-        <div className="absolute top-4 right-4 glass-card px-2 py-1 pointer-events-none text-xs font-mono space-y-1" style={{ zIndex: 20 }}>
-          <div className="text-white/60">Time: <span className="text-white">{currentDetections.processing_time.toFixed(1)}ms</span></div>
-          <div className="text-white/60">Faces: <span className="text-white">{currentDetections.faces.length}</span></div>
-          <div className="text-white/60">WS: <span className={websocketStatus === 'connected' ? 'text-green-400' : 'text-red-400'}>{websocketStatus}</span></div>
-
-          {currentDetections.faces.map((face, index) => (
-            face.antispoofing && face.antispoofing.live_score !== undefined && face.antispoofing.spoof_score !== undefined && (
-              <div key={index} className="border-t border-white/10 pt-1 mt-1">
-                <div className="text-white/60">Face {index + 1}:</div>
-                <div className="text-green-400">Live: {(face.antispoofing.live_score * 100).toFixed(1)}%</div>
-                <div className="text-red-400">Spoof: {(face.antispoofing.spoof_score * 100).toFixed(1)}%</div>
-                <div className="text-white/60">Status: <span className={face.antispoofing.status === 'real' ? 'text-green-400' : face.antispoofing.status === 'uncertain' ? 'text-orange-400' : 'text-red-400'}>{face.antispoofing.status}</span></div>
-              </div>
-            )
-          ))}
+        <div className="absolute top-3 right-3 bg-black/60 px-2 py-1 rounded border border-white/10 pointer-events-none text-xs font-mono" style={{ zIndex: 20 }}>
+          <div className="flex items-center gap-3 text-white/70">
+            <span>{currentDetections.processing_time.toFixed(0)}ms</span>
+            <span>{currentDetections.faces.length}F</span>
+            <span className={websocketStatus === 'connected' ? 'text-green-400' : 'text-red-400'}>
+              {websocketStatus === 'connected' ? '●' : '○'}
+            </span>
+          </div>
         </div>
       )}
 

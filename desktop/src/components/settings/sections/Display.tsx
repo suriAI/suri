@@ -9,36 +9,36 @@ export function Display({ quickSettings, toggleQuickSetting }: DisplayProps) {
   const settingItems = [
     { 
       key: 'showFPS' as keyof QuickSettings, 
-      label: 'Show FPS Counter',
-      description: 'Display frames per second on the video feed'
+      label: 'FPS Counter',
+      description: 'Frame rate indicator'
     },
     { 
       key: 'showBoundingBoxes' as keyof QuickSettings, 
-      label: 'Show Bounding Boxes',
-      description: 'Draw detection boxes around detected faces'
+      label: 'Bounding Boxes',
+      description: 'Face detection outlines'
     },
     { 
       key: 'showAntiSpoofStatus' as keyof QuickSettings, 
-      label: 'Show Anti-Spoof Status',
-      description: 'Display anti-spoofing detection indicators'
+      label: 'Anti-Spoof',
+      description: 'Liveness detection status'
     },
     { 
       key: 'showRecognitionNames' as keyof QuickSettings, 
-      label: 'Show Recognition Names',
-      description: 'Display recognized person names on detection boxes'
+      label: 'Recognition Labels',
+      description: 'Identity name tags'
     },
     { 
       key: 'showDebugInfo' as keyof QuickSettings, 
-      label: 'Show Debug Information',
-      description: 'Display technical debugging information'
+      label: 'Debug Info',
+      description: 'Technical metrics'
     },
   ];
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-white/90">Video Overlay Settings</h3>
-        <p className="text-sm text-white/50">Configure what information is displayed on the camera feed</p>
+        <h3 className="text-sm font-semibold text-white/90">Overlay Configuration</h3>
+        <p className="text-sm text-white/50">Camera feed visual elements</p>
       </div>
 
       <div className="space-y-4">

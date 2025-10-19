@@ -22,17 +22,17 @@ export function Attendance({
       {/* Tracking Mode Section */}
       <div className="space-y-4">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-white/90">Attendance Tracking Mode</h3>
-          <p className="text-sm text-white/50">Choose between automatic or manual attendance logging</p>
+          <h3 className="text-sm font-semibold text-white/90">Tracking Mode</h3>
+          <p className="text-sm text-white/50">Attendance capture method</p>
         </div>
 
         <div className="flex items-center justify-between py-3 border-b border-white/5 gap-4">
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-white/90">Tracking Mode</div>
+            <div className="text-sm font-medium text-white/90">Capture Method</div>
             <div className="text-xs text-white/50 mt-0.5">
               {attendanceSettings.trackingMode === 'auto' 
-                ? 'Auto: Attendance logged automatically' 
-                : 'Manual: Click button to log attendance'}
+                ? 'Automatic detection' 
+                : 'Manual confirmation'}
             </div>
           </div>
           
@@ -60,16 +60,16 @@ export function Attendance({
       {/* Late Tracking Section */}
       <div className="space-y-4">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-white/90">Late Tracking</h3>
-          <p className="text-sm text-white/50">Automatically mark students as late based on arrival time</p>
+          <h3 className="text-sm font-semibold text-white/90">Late Detection</h3>
+          <p className="text-sm text-white/50">Time-based arrival status</p>
         </div>
 
         <div className="space-y-4">
           {/* Enable/Disable Toggle */}
           <div className="flex items-center justify-between py-3 border-b border-white/5 gap-4">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white/90">Enable Late Tracking</div>
-              <div className="text-xs text-white/50 mt-0.5">Track and mark late arrivals automatically</div>
+              <div className="text-sm font-medium text-white/90">Enable</div>
+              <div className="text-xs text-white/50 mt-0.5">Automatic late marking</div>
             </div>
             
             <button
@@ -90,8 +90,8 @@ export function Attendance({
             <>
               <div className="flex items-center justify-between py-3 border-b border-white/5 gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white/90">Class Start Time</div>
-                  <div className="text-xs text-white/50 mt-0.5">Set when your class begins</div>
+                  <div className="text-sm font-medium text-white/90">Start Time</div>
+                  <div className="text-xs text-white/50 mt-0.5">Session begins at</div>
                 </div>
                 
                 <input
@@ -106,9 +106,9 @@ export function Attendance({
               {/* Late Threshold */}
               <div className="flex items-center justify-between py-3 border-b border-white/5 gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white/90">Late Threshold</div>
+                  <div className="text-sm font-medium text-white/90">Threshold</div>
                   <div className="text-xs text-white/50 mt-0.5">
-                    Mark as late after {attendanceSettings.lateThresholdMinutes} min from start
+                    Grace period: {attendanceSettings.lateThresholdMinutes} min
                   </div>
                 </div>
                 
@@ -135,7 +135,7 @@ export function Attendance({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" strokeWidth={2}/>
                   </svg>
                   <div className="text-xs text-amber-200/80">
-                    Students arriving after {attendanceSettings.classStartTime} + {attendanceSettings.lateThresholdMinutes} minutes will be marked as late
+                    Late status applied after {attendanceSettings.classStartTime} +{attendanceSettings.lateThresholdMinutes}min
                   </div>
                 </div>
               </div>
