@@ -89,30 +89,24 @@ export function Reports({ group }: ReportsProps) {
       <div className="flex items-center justify-between gap-3 flex-shrink-0">
         <h2 className="text-lg font-semibold">Reports</h2>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs">
-            <span className="text-white/40">From</span>
+          <label className="flex items-center gap-2 text-xs">
+            <span className="text-white/50">From</span>
             <input
               type="date"
               value={reportStartDate}
               onChange={event => setReportStartDate(event.target.value)}
-              className="bg-transparent focus:outline-none w-28"
+              className="bg-transparent focus:outline-none w-36 text-white/90"
             />
           </label>
-          <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs">
-            <span className="text-white/40">To</span>
+          <label className="flex items-center gap-2 text-xs">
+            <span className="text-white/50">To</span>
             <input
               type="date"
               value={reportEndDate}
               onChange={event => setReportEndDate(event.target.value)}
-              className="bg-transparent focus:outline-none w-28"
+              className="bg-transparent focus:outline-none w-36 text-white/90"
             />
           </label>
-          <button
-            onClick={generateReport}
-            className="btn-secondary text-xs px-2 py-1"
-          >
-            Refresh
-          </button>
           <button
             onClick={exportReport}
             disabled={!report}
