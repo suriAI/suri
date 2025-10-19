@@ -202,7 +202,7 @@ export function AssistedCameraRegistration({ group, members, onRefresh, onClose 
           setTimeout(() => setCurrentIndex(prev => prev + 1), 1000);
         } else {
           // All done
-          setSuccessMessage(`✅ All ${totalMembers} members registered successfully!`);
+          setSuccessMessage(`All ${totalMembers} members registered successfully!`);
           if (onRefresh) {
             await onRefresh();
           }
@@ -397,7 +397,7 @@ export function AssistedCameraRegistration({ group, members, onRefresh, onClose 
                   onClick={() => setQueueStarted(true)}
                   className="w-full px-4 py-4 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/15 transition text-base font-medium"
                 >
-                  🎥 Start Queue ({memberQueue.length} members)
+                  Start Queue ({memberQueue.length} members)
                 </button>
               )}
             </div>
