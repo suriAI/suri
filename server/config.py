@@ -129,7 +129,7 @@ OPTIMIZED_SESSION_OPTIONS = {
 MODEL_CONFIGS = {
     "yunet": {
         "model_path": WEIGHTS_DIR / "face_detection_yunet_2023mar_int8bq.onnx",
-        "input_size": (640, 640),
+        "input_size": (320, 320),
         "score_threshold": 0.6,
         "nms_threshold": 0.3,
         "top_k": 100,
