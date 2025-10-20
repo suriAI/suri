@@ -1,10 +1,10 @@
 """
 Face detection models package
 
-Contains implementations of various face detection models including YuNet.
+Contains implementations of various face detection models.
 """
 
-from .yunet_detector import YuNet
-from .antispoof_detector import AntiSpoof
+from .detector import FaceDetector
+from .validator import LivenessValidator
 
-__all__ = ["YuNet", "AntiSpoof"]
+__all__ = ["FaceDetector", "LivenessValidator"]

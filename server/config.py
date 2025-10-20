@@ -127,27 +127,27 @@ OPTIMIZED_SESSION_OPTIONS = {
 
 # Model configurations - OPTIMIZED FOR MAXIMUM PERFORMANCE
 MODEL_CONFIGS = {
-    "yunet": {
-        "model_path": WEIGHTS_DIR / "face_detection_yunet_2023mar_int8bq.onnx",
+    "face_detector": {
+        "model_path": WEIGHTS_DIR / "detector_fast.onnx",
         "input_size": (640, 640),  # Optimized for better distant face detection
         "score_threshold": 0.6,
         "nms_threshold": 0.3,
         "top_k": 100,
-        "min_face_size": 80,  # Minimum face size for AntiSpoof compatibility (1.5_128.onnx model)
+        "min_face_size": 80,  # Minimum face size for liveness detection compatibility
         "backend_id": 0,
         "target_id": 0,
         "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
         "max_image_size": (1920, 1080)
     },
-    "antispoofing": {
-        "model_path": WEIGHTS_DIR / "AntiSpoofing_print-replay_1.5_128.onnx",
+    "liveness_detector": {
+        "model_path": WEIGHTS_DIR / "validator_standard.onnx",
         "confidence_threshold": 0.55,
         "bbox_inc": 1.5,
         "model_img_size": 128
     },
-    "edgeface": {
-        "model_path": WEIGHTS_DIR / "edgeface-recognition-xs.onnx",
-        "input_size": (112, 112),  # EdgeFace standard input size
+    "face_recognizer": {
+        "model_path": WEIGHTS_DIR / "recognizer_light.onnx",
+        "input_size": (112, 112),  # Face recognizer standard input size
         "similarity_threshold": 0.45,  # Reduced threshold for better movement tolerance
         "providers": OPTIMIZED_PROVIDERS,  # Use optimized providers
         "session_options": OPTIMIZED_SESSION_OPTIONS,
@@ -162,13 +162,13 @@ MODEL_CONFIGS = {
         "recognition_hysteresis_margin": 0.05,  # Reduced for less strict switching
         "min_consecutive_recognitions": 1,  # Reduced to 1 for immediate recognition
     },
-    "deep_sort": {
+    "face_tracker": {
         "max_age": 30,  # Maximum frames to keep track alive without detection
         "n_init": 2,  # 🚀 OPTIMIZED: Reduced from 3 to 2 (faster track confirmation)
         "max_iou_distance": 0.6,  # 🚀 OPTIMIZED: Reduced from 0.7 to 0.6 (stricter motion gating)
         "max_cosine_distance": 0.25,  # 🚀 OPTIMIZED: Reduced from 0.3 to 0.25 (stricter appearance gating)
         "nn_budget": 30,  # 🚀 OPTIMIZED: Reduced from 100 to 30 (faster matching, less memory)
-        "enable_appearance_matching": True,  # Use EdgeFace embeddings for tracking
+        "enable_appearance_matching": True,  # Use face recognizer embeddings for tracking
         "matching_weights": {
             "appearance": 0.7,  # 70% weight on appearance matching
             "motion": 0.3  # 30% weight on IOU/motion matching
@@ -285,7 +285,7 @@ def get_config() -> Dict[str, Any]:
     
     elif env == "testing":
         config["server"]["port"] = 8700
-        config["models"]["yunet"]["score_threshold"] = 0.5
+        config["models"]["face_detector"]["score_threshold"] = 0.5
     
     # Override with environment variables
     if os.getenv("SERVER_HOST"):
@@ -295,11 +295,11 @@ def get_config() -> Dict[str, Any]:
         config["server"]["port"] = int(os.getenv("SERVER_PORT"))
     
     if os.getenv("MODEL_PATH"):
-        config["models"]["yunet"]["model_path"] = Path(os.getenv("MODEL_PATH"))
+        config["models"]["face_detector"]["model_path"] = Path(os.getenv("MODEL_PATH"))
     
     return config
 
-# Performance Optimization Settings for Maximum YuNet and EdgeFace Performance
+# Performance Optimization Settings for Maximum Face Detection and Recognition Performance
 PERFORMANCE_CONFIG = {
     "enable_model_warmup": True,
     "warmup_iterations": 5,
@@ -367,9 +367,9 @@ config = get_config()
 # Export commonly used values
 HOST = config["server"]["host"]
 PORT = config["server"]["port"]
-YUNET_MODEL_PATH = config["models"]["yunet"]["model_path"]
-YUNET_CONFIG = config["models"]["yunet"]
-ANTISPOOFING_CONFIG = config["models"]["antispoofing"]
-EDGEFACE_MODEL_PATH = config["models"]["edgeface"]["model_path"]
-EDGEFACE_CONFIG = config["models"]["edgeface"]
-DEEP_SORT_CONFIG = config["models"]["deep_sort"]
+FACE_DETECTOR_MODEL_PATH = config["models"]["face_detector"]["model_path"]
+FACE_DETECTOR_CONFIG = config["models"]["face_detector"]
+LIVENESS_DETECTOR_CONFIG = config["models"]["liveness_detector"]
+FACE_RECOGNIZER_MODEL_PATH = config["models"]["face_recognizer"]["model_path"]
+FACE_RECOGNIZER_CONFIG = config["models"]["face_recognizer"]
+FACE_TRACKER_CONFIG = config["models"]["face_tracker"]

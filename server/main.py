@@ -1,6 +1,6 @@
 """
 FastAPI Backend for Face Detection Pipeline
-Supports YuNet, SCRFD, anti-spoof, and alignment models
+Supports face detection, liveness detection, and face recognition models
 """
 
 import asyncio
@@ -20,15 +20,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from models.yunet_detector import YuNet
-from models.antispoof_detector import AntiSpoof
-from models.edgeface_detector import EdgeFaceDetector
-from models.deep_sort_tracker import DeepSortFaceTracker
+from models.detector import FaceDetector
+from models.validator import LivenessValidator
+from models.recognizer import FaceRecognizer
+from models.tracker import FaceTracker
 from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
 from utils.attendance_database import AttendanceDatabaseManager
 from routes import attendance
-from config import YUNET_MODEL_PATH, YUNET_CONFIG, ANTISPOOFING_CONFIG, EDGEFACE_MODEL_PATH, EDGEFACE_CONFIG, MODEL_CONFIGS, CORS_CONFIG, DEEP_SORT_CONFIG, DATA_DIR
+from config import FACE_DETECTOR_MODEL_PATH, FACE_DETECTOR_CONFIG, LIVENESS_DETECTOR_CONFIG, FACE_RECOGNIZER_MODEL_PATH, FACE_RECOGNIZER_CONFIG, MODEL_CONFIGS, CORS_CONFIG, FACE_TRACKER_CONFIG, DATA_DIR
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI(
     title="Face Detection API",
-    description="High-performance async face detection pipeline with YuNet, SCRFD, anti-spoof, and alignment",
+    description="High-performance async face detection pipeline with face detection, liveness detection, and face recognition",
     version="1.0.0"
 )
 
@@ -54,9 +54,9 @@ app.add_middleware(
 # WebSocket manager is imported as 'manager' from utils.websocket_manager
 
 # Initialize models
-yunet_detector = None
-optimized_antispoofing_detector = None
-edgeface_detector = None
+face_detector = None
+liveness_detector = None
+face_recognizer = None
 face_tracker = None
 
 # Initialize attendance database
@@ -68,10 +68,10 @@ app.include_router(attendance.router)
 # Pydantic models for request/response
 class DetectionRequest(BaseModel):
     image: str  # Base64 encoded image
-    model_type: str = "yunet"
+    model_type: str = "face_detector"
     confidence_threshold: float = 0.6
     nms_threshold: float = 0.3
-    enable_antispoofing: bool = True
+    enable_liveness_detection: bool = True
 
 class DetectionResponse(BaseModel):
     success: bool
@@ -81,21 +81,21 @@ class DetectionResponse(BaseModel):
 
 class StreamingRequest(BaseModel):
     session_id: str
-    model_type: str = "yunet"
+    model_type: str = "face_detector"
     confidence_threshold: float = 0.6
     nms_threshold: float = 0.3
-    enable_antispoofing: bool = True
+    enable_liveness_detection: bool = True
 
 class FaceRecognitionRequest(BaseModel):
     image: str  # Base64 encoded image
     bbox: List[float]  # Face bounding box [x, y, width, height]
-    landmarks_5: Optional[List[List[float]]] = None  # Optional 5-point landmarks from YuNet (FAST!)
+    landmarks_5: Optional[List[List[float]]] = None  # Optional 5-point landmarks from face detector (FAST!)
 
 class FaceRegistrationRequest(BaseModel):
     person_id: str
     image: str  # Base64 encoded image
     bbox: List[float]  # Face bounding box [x, y, width, height]
-    landmarks_5: Optional[List[List[float]]] = None  # Optional 5-point landmarks from YuNet (FAST!)
+    landmarks_5: Optional[List[List[float]]] = None  # Optional 5-point landmarks from face detector (FAST!)
 
 class FaceRecognitionResponse(BaseModel):
     success: bool
@@ -124,52 +124,52 @@ class PersonUpdateRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize models on startup"""
-    global yunet_detector, optimized_antispoofing_detector, edgeface_detector, face_tracker, attendance_database
+    global face_detector, liveness_detector, face_recognizer, face_tracker, attendance_database
     try:
-        yunet_detector = YuNet(
-            model_path=str(YUNET_MODEL_PATH),
-            input_size=tuple(YUNET_CONFIG["input_size"]),
-            conf_threshold=YUNET_CONFIG["score_threshold"],
-            nms_threshold=YUNET_CONFIG["nms_threshold"],
-            top_k=YUNET_CONFIG["top_k"],
-            min_face_size=YUNET_CONFIG.get("min_face_size", 80)
+        face_detector = FaceDetector(
+            model_path=str(FACE_DETECTOR_MODEL_PATH),
+            input_size=tuple(FACE_DETECTOR_CONFIG["input_size"]),
+            conf_threshold=FACE_DETECTOR_CONFIG["score_threshold"],
+            nms_threshold=FACE_DETECTOR_CONFIG["nms_threshold"],
+            top_k=FACE_DETECTOR_CONFIG["top_k"],
+            min_face_size=FACE_DETECTOR_CONFIG.get("min_face_size", 80)
         )
         
-        optimized_antispoofing_detector = AntiSpoof(
-            model_path=str(ANTISPOOFING_CONFIG["model_path"]),
-            model_img_size=ANTISPOOFING_CONFIG["model_img_size"],
-            confidence_threshold=ANTISPOOFING_CONFIG["confidence_threshold"],
-            config=ANTISPOOFING_CONFIG
+        liveness_detector = LivenessValidator(
+            model_path=str(LIVENESS_DETECTOR_CONFIG["model_path"]),
+            model_img_size=LIVENESS_DETECTOR_CONFIG["model_img_size"],
+            confidence_threshold=LIVENESS_DETECTOR_CONFIG["confidence_threshold"],
+            config=LIVENESS_DETECTOR_CONFIG
         )
         
-        # Initialize EdgeFace detector (uses YuNet landmarks for alignment)
-        edgeface_detector = EdgeFaceDetector(
-            model_path=str(EDGEFACE_MODEL_PATH),
-            input_size=EDGEFACE_CONFIG["input_size"],
-            similarity_threshold=EDGEFACE_CONFIG["similarity_threshold"],
-            providers=EDGEFACE_CONFIG["providers"],
-            database_path=str(EDGEFACE_CONFIG["database_path"]),
-            session_options=EDGEFACE_CONFIG.get("session_options")
+        # Initialize face recognizer (uses face detector landmarks for alignment)
+        face_recognizer = FaceRecognizer(
+            model_path=str(FACE_RECOGNIZER_MODEL_PATH),
+            input_size=FACE_RECOGNIZER_CONFIG["input_size"],
+            similarity_threshold=FACE_RECOGNIZER_CONFIG["similarity_threshold"],
+            providers=FACE_RECOGNIZER_CONFIG["providers"],
+            database_path=str(FACE_RECOGNIZER_CONFIG["database_path"]),
+            session_options=FACE_RECOGNIZER_CONFIG.get("session_options")
         )
         
-        # Initialize Deep SORT face tracker (appearance + motion features)
-        # Initializing Deep SORT tracker with appearance features
-        face_tracker = DeepSortFaceTracker(
-            max_age=DEEP_SORT_CONFIG.get("max_age", 30),
-            n_init=DEEP_SORT_CONFIG.get("n_init", 3),
-            max_iou_distance=DEEP_SORT_CONFIG.get("max_iou_distance", 0.7),
-            max_cosine_distance=DEEP_SORT_CONFIG.get("max_cosine_distance", 0.3),
-            nn_budget=DEEP_SORT_CONFIG.get("nn_budget", 100)
+        # Initialize face tracker (appearance + motion features)
+        # Initializing face tracker with appearance features
+        face_tracker = FaceTracker(
+            max_age=FACE_TRACKER_CONFIG.get("max_age", 30),
+            n_init=FACE_TRACKER_CONFIG.get("n_init", 3),
+            max_iou_distance=FACE_TRACKER_CONFIG.get("max_iou_distance", 0.7),
+            max_cosine_distance=FACE_TRACKER_CONFIG.get("max_cosine_distance", 0.3),
+            nn_budget=FACE_TRACKER_CONFIG.get("nn_budget", 100)
         )
         # Deep SORT tracker initialized successfully
         
         # Initialize attendance database (auto-handles dev/prod paths)
         attendance_database = AttendanceDatabaseManager(str(DATA_DIR / "attendance.db"))
         
-        # Set the database instance and models in the attendance routes module
+        # Set global variables for attendance routes
         attendance.attendance_db = attendance_database
-        attendance.yunet_detector = yunet_detector
-        attendance.edgeface_detector = edgeface_detector
+        attendance.face_detector = face_detector
+        attendance.face_recognizer = face_recognizer
         
     except Exception as e:
         logger.error(f"Failed to initialize models: {e}")
@@ -181,16 +181,16 @@ async def shutdown_event():
     logger.info("🛑 Shutting down backend server...")
     
     # Cleanup models and resources
-    global yunet_detector, optimized_antispoofing_detector, edgeface_detector, face_tracker, attendance_database
+    global face_detector, liveness_detector, face_recognizer, face_tracker, attendance_database
     
     try:
         # Database connections use context managers - no explicit close needed
         logger.info("Releasing model references...")
         
         # Clear model references to free memory
-        yunet_detector = None
-        optimized_antispoofing_detector = None
-        edgeface_detector = None
+        face_detector = None
+        liveness_detector = None
+        face_recognizer = None
         face_tracker = None
         attendance_database = None
         
@@ -200,43 +200,43 @@ async def shutdown_event():
         logger.error(f"❌ Error during shutdown cleanup: {e}")
 
 # Helper function to eliminate code duplication
-async def process_antispoofing(faces: List[Dict], image: np.ndarray, enable: bool) -> List[Dict]:
-    """Helper to process anti-spoofing across all endpoints"""
-    if not (enable and faces and optimized_antispoofing_detector):
+async def process_liveness_detection(faces: List[Dict], image: np.ndarray, enable: bool) -> List[Dict]:
+    """Helper to process liveness detection across all endpoints"""
+    if not (enable and faces and liveness_detector):
         return faces
     
     try:
-        # DEBUG: Log input faces before anti-spoofing
-        logger.info(f"DEBUG process_antispoofing: Input {len(faces)} faces")
+        # DEBUG: Log input faces before liveness detection
+        logger.info(f"DEBUG process_liveness_detection: Input {len(faces)} faces")
         for i, face in enumerate(faces):
             bbox = face.get('bbox', {})
             conf = face.get('confidence', 0)
             logger.info(f"DEBUG Input face {i}: bbox={bbox}, confidence={conf}")
         
-        # Use simple anti-spoofing detector
-        faces_with_antispoofing = optimized_antispoofing_detector.detect_faces(image, faces)
+        # Use simple liveness detector
+        faces_with_liveness = liveness_detector.detect_faces(image, faces)
         
-        # DEBUG: Log anti-spoofing results
-        logger.info(f"DEBUG process_antispoofing: {len(faces_with_antispoofing)} faces processed")
-        for i, face in enumerate(faces_with_antispoofing):
-            if 'antispoofing' in face:
-                antispoof = face['antispoofing']
-                logger.info(f"DEBUG Face {i} result: is_real={antispoof['is_real']}, live_score={antispoof['live_score']:.3f}, spoof_score={antispoof['spoof_score']:.3f}, predicted_class={antispoof.get('predicted_class', 'N/A')}")
+        # DEBUG: Log liveness detection results
+        logger.info(f"DEBUG process_liveness_detection: {len(faces_with_liveness)} faces processed")
+        for i, face in enumerate(faces_with_liveness):
+            if 'liveness' in face:
+                liveness = face['liveness']
+                logger.info(f"DEBUG Face {i} result: is_real={liveness['is_real']}, live_score={liveness['live_score']:.3f}, spoof_score={liveness['spoof_score']:.3f}, predicted_class={liveness.get('predicted_class', 'N/A')}")
         
-        return faces_with_antispoofing
+        return faces_with_liveness
         
     except Exception as e:
-        logger.warning(f"Anti-spoofing failed: {e}")
+        logger.warning(f"Liveness detection failed: {e}")
         # Mark ALL faces as FAKE on error for security
         for face in faces:
-            face['antispoofing'] = {
+            face['liveness'] = {
                 'is_real': False,
                 'live_score': 0.0,
                 'spoof_score': 1.0,
                 'confidence': 0.0,
                 'status': 'error',
                 'label': 'Error',
-                'message': f'Anti-spoofing error: {str(e)}'
+                'message': f'Liveness detection error: {str(e)}'
             }
     
     return faces
@@ -248,7 +248,7 @@ async def process_face_tracking(faces: List[Dict], image: np.ndarray) -> List[Di
     - Uses motion-only tracking on other frames (FAST!)
     - Maintains accuracy while achieving 5x speed improvement
     """
-    if not (faces and face_tracker and edgeface_detector):
+    if not (faces and face_tracker and face_recognizer):
         return faces
     
     try:
@@ -267,7 +267,7 @@ async def process_face_tracking(faces: List[Dict], image: np.ndarray) -> List[Di
             # Full appearance + motion matching (slower but accurate)
             embeddings = await loop.run_in_executor(
                 None,
-                edgeface_detector.extract_embeddings_for_tracking,
+                face_recognizer.extract_embeddings_for_tracking,
                 image,
                 faces
             )
@@ -300,37 +300,29 @@ async def get_available_models():
     """Get information about available models"""
     models_info = {}
     
-    if yunet_detector:
-        models_info["yunet"] = {
+    if face_detector:
+        models_info["face_detector"] = {
             "available": True,
-            "info": yunet_detector.get_model_info()
+            "info": face_detector.get_model_info()
         }
     else:
-        models_info["yunet"] = {"available": False}
+        models_info["face_detector"] = {"available": False}
     
-    if optimized_antispoofing_detector:
-        models_info["antispoofing"] = {
+    if liveness_detector:
+        models_info["liveness_detector"] = {
             "available": True,
-            "info": optimized_antispoofing_detector.get_model_info()
+            "info": liveness_detector.get_model_info()
         }
     else:
-        models_info["antispoofing"] = {"available": False}
+        models_info["liveness_detector"] = {"available": False}
     
-    if optimized_antispoofing_detector:
-        models_info["optimized_antispoofing"] = {
+    if face_recognizer:
+        models_info["face_recognizer"] = {
             "available": True,
-            "info": optimized_antispoofing_detector.get_model_info()
+            "info": face_recognizer.get_model_info()
         }
     else:
-        models_info["optimized_antispoofing"] = {"available": False}
-    
-    if edgeface_detector:
-        models_info["edgeface"] = {
-            "available": True,
-            "info": edgeface_detector.get_model_info()
-        }
-    else:
-        models_info["edgeface"] = {"available": False}
+        models_info["face_recognizer"] = {"available": False}
     
     return {
         "models": models_info
@@ -340,17 +332,17 @@ class OptimizationRequest(BaseModel):
     cache_duration: float = 1.0
     clear_cache: bool = False
 
-@app.post("/optimize/antispoofing")
-async def configure_antispoofing_optimization(request: OptimizationRequest):
-    """Configure antispoofing optimization settings"""
-    if not optimized_antispoofing_detector:
-        raise HTTPException(status_code=500, detail="Optimized antispoofing detector not available")
+@app.post("/optimize/liveness")
+async def configure_liveness_optimization(request: OptimizationRequest):
+    """Configure liveness detection optimization settings"""
+    if not liveness_detector:
+        raise HTTPException(status_code=500, detail="Liveness detector not available")
     
     try:
         if request.clear_cache:
-            optimized_antispoofing_detector.clear_cache()
+            liveness_detector.clear_cache()
         
-        optimized_antispoofing_detector.cache_duration = request.cache_duration
+        liveness_detector.cache_duration = request.cache_duration
         
         return {
             "success": True,
@@ -363,17 +355,17 @@ async def configure_antispoofing_optimization(request: OptimizationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update settings: {e}")
 
-@app.post("/optimize/yunet")
-async def configure_yunet_optimization(request: dict):
-    """Configure YuNet optimization settings including minimum face size"""
+@app.post("/optimize/face_detector")
+async def configure_face_detector_optimization(request: dict):
+    """Configure face detector optimization settings including minimum face size"""
     try:
-        if yunet_detector:
+        if face_detector:
             if "min_face_size" in request:
                 min_size = int(request["min_face_size"])
-                yunet_detector.set_min_face_size(min_size)
+                face_detector.set_min_face_size(min_size)
                 return {
                     "success": True,
-                    "message": "YuNet settings updated successfully",
+                    "message": "Face detector settings updated successfully",
                     "new_settings": {
                         "min_face_size": min_size
                     }
@@ -381,9 +373,9 @@ async def configure_yunet_optimization(request: dict):
             else:
                 return {"success": False, "message": "min_face_size parameter required"}
         else:
-            return {"success": False, "message": "YuNet detector not available"}
+            return {"success": False, "message": "Face detector not available"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update YuNet settings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update face detector settings: {e}")
 
 @app.post("/detect", response_model=DetectionResponse)
 async def detect_faces(request: DetectionRequest):
@@ -397,19 +389,19 @@ async def detect_faces(request: DetectionRequest):
         # OPTIMIZATION: Keep BGR format throughout (OpenCV native format)
         image = decode_base64_image(request.image)  # Returns BGR
         
-        if request.model_type == "yunet":
-            if not yunet_detector:
-                raise HTTPException(status_code=500, detail="YuNet model not available")
+        if request.model_type == "face_detector":
+            if not face_detector:
+                raise HTTPException(status_code=500, detail="Face detector model not available")
             
-            yunet_detector.set_confidence_threshold(request.confidence_threshold)
-            yunet_detector.set_nms_threshold(request.nms_threshold)
+            face_detector.set_confidence_threshold(request.confidence_threshold)
+            face_detector.set_nms_threshold(request.nms_threshold)
             
-            faces = yunet_detector.detect_faces(image)
+            faces = face_detector.detect_faces(image)
             
             # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
             faces = await process_face_tracking(faces, image)
             
-            faces = await process_antispoofing(faces, image, request.enable_antispoofing)
+            faces = await process_liveness_detection(faces, image, request.enable_liveness_detection)
             
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported model type: {request.model_type}")
@@ -444,10 +436,10 @@ async def detect_faces(request: DetectionRequest):
 @app.post("/detect/upload")
 async def detect_faces_upload(
     file: UploadFile = File(...),
-    model_type: str = "yunet",
+    model_type: str = "face_detector",
     confidence_threshold: float = 0.6,
     nms_threshold: float = 0.3,
-    enable_antispoofing: bool = True
+    enable_liveness_detection: bool = True
 ):
     """
     Detect faces in an uploaded image file
@@ -467,19 +459,19 @@ async def detect_faces_upload(
         # OPTIMIZATION: Keep BGR format (no conversion needed)
         image = image_bgr
         
-        if model_type == "yunet":
-            if not yunet_detector:
-                raise HTTPException(status_code=500, detail="YuNet model not available")
+        if model_type == "face_detector":
+            if not face_detector:
+                raise HTTPException(status_code=500, detail="Face detector model not available")
             
-            yunet_detector.set_confidence_threshold(confidence_threshold)
-            yunet_detector.set_nms_threshold(nms_threshold)
+            face_detector.set_confidence_threshold(confidence_threshold)
+            face_detector.set_nms_threshold(nms_threshold)
             
-            faces = yunet_detector.detect_faces(image)
+            faces = face_detector.detect_faces(image)
             
             # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
             faces = await process_face_tracking(faces, image)
             
-            faces = await process_antispoofing(faces, image, enable_antispoofing)
+            faces = await process_liveness_detection(faces, image, enable_liveness_detection)
             
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported model type: {model_type}")
@@ -516,19 +508,19 @@ async def detect_faces_upload(
 @app.post("/face/recognize", response_model=FaceRecognitionResponse)
 async def recognize_face(request: FaceRecognitionRequest):
     """
-    Recognize a face using EdgeFace model with antispoofing validation
+    Recognize a face using face recognizer with liveness detection validation
     """
     import time
     start_time = time.time()
     
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
         # OPTIMIZATION: Keep BGR format (no conversion needed)
         image = decode_base64_image(request.image)
         
-        if optimized_antispoofing_detector:
+        if liveness_detector:
             temp_face = {
                 'bbox': {
                     'x': request.bbox[0],
@@ -540,12 +532,12 @@ async def recognize_face(request: FaceRecognitionRequest):
                 'track_id': -1
             }
             
-            antispoofing_results = await optimized_antispoofing_detector.detect_faces_async(image, [temp_face])
+            liveness_results = await liveness_detector.detect_faces_async(image, [temp_face])
             
-            if antispoofing_results and len(antispoofing_results) > 0:
-                antispoofing_data = antispoofing_results[0].get('antispoofing', {})
-                is_real = antispoofing_data.get('is_real', False)
-                status = antispoofing_data.get('status', 'unknown')
+            if liveness_results and len(liveness_results) > 0:
+                liveness_data = liveness_results[0].get('liveness', {})
+                is_real = liveness_data.get('is_real', False)
+                status = liveness_data.get('status', 'unknown')
                 
                 # Block recognition for spoofed faces
                 if not is_real or status == 'fake':
@@ -571,11 +563,11 @@ async def recognize_face(request: FaceRecognitionRequest):
                         error=f"Recognition blocked: face status {status}"
                     )
         
-        # Use YuNet landmarks for recognition (FAST!)
-        result = await edgeface_detector.recognize_face_async(
+        # Use face detector landmarks for recognition (FAST!)
+        result = await face_recognizer.recognize_face_async(
             image, 
             request.bbox,
-            request.landmarks_5  # Pass YuNet landmarks if available
+            request.landmarks_5  # Pass face detector landmarks if available
         )
         
         processing_time = time.time() - start_time
@@ -602,19 +594,19 @@ async def recognize_face(request: FaceRecognitionRequest):
 @app.post("/face/register", response_model=FaceRegistrationResponse)
 async def register_person(request: FaceRegistrationRequest):
     """
-    Register a new person in the face database with antispoofing validation
+    Register a new person in the face database with liveness detection validation
     """
     import time
     start_time = time.time()
     
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
         # OPTIMIZATION: Keep BGR format (no conversion needed)
         image = decode_base64_image(request.image)
         
-        if optimized_antispoofing_detector:
+        if liveness_detector:
             temp_face = {
                 'bbox': {
                     'x': request.bbox[0],
@@ -626,12 +618,12 @@ async def register_person(request: FaceRegistrationRequest):
                 'track_id': -1
             }
             
-            antispoofing_results = await optimized_antispoofing_detector.detect_faces_async(image, [temp_face])
+            liveness_results = await liveness_detector.detect_faces_async(image, [temp_face])
             
-            if antispoofing_results and len(antispoofing_results) > 0:
-                antispoofing_data = antispoofing_results[0].get('antispoofing', {})
-                is_real = antispoofing_data.get('is_real', False)
-                status = antispoofing_data.get('status', 'unknown')
+            if liveness_results and len(liveness_results) > 0:
+                liveness_data = liveness_results[0].get('liveness', {})
+                is_real = liveness_data.get('is_real', False)
+                status = liveness_data.get('status', 'unknown')
                 
                 # Block registration for spoofed faces
                 if not is_real or status == 'fake':
@@ -657,11 +649,11 @@ async def register_person(request: FaceRegistrationRequest):
                         error=f"Registration blocked: face status {status}"
                     )
         
-        result = await edgeface_detector.register_person_async(
+        result = await face_recognizer.register_person_async(
             request.person_id, 
             image, 
             request.bbox,
-            request.landmarks_5  # Pass YuNet landmarks if available
+            request.landmarks_5  # Pass face detector landmarks if available
         )
         
         processing_time = time.time() - start_time
@@ -691,10 +683,10 @@ async def remove_person(person_id: str):
     Remove a person from the face database
     """
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
-        result = edgeface_detector.remove_person(person_id)
+        result = face_recognizer.remove_person(person_id)
         
         if result["success"]:
             return {
@@ -717,8 +709,8 @@ async def update_person(request: PersonUpdateRequest):
     Update a person's ID in the face database
     """
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
         # Validate input
         if not request.old_person_id.strip() or not request.new_person_id.strip():
@@ -727,8 +719,8 @@ async def update_person(request: PersonUpdateRequest):
         if request.old_person_id.strip() == request.new_person_id.strip():
             raise HTTPException(status_code=400, detail="Old and new person IDs must be different")
         
-        # Update person ID using EdgeFaceDetector method
-        result = edgeface_detector.update_person_id(
+        # Update person ID using face recognizer method
+        result = face_recognizer.update_person_id(
             request.old_person_id.strip(), 
             request.new_person_id.strip()
         )
@@ -750,11 +742,11 @@ async def get_all_persons():
     Get list of all registered persons
     """
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
-        persons = edgeface_detector.get_all_persons()
-        stats = edgeface_detector.get_stats()
+        persons = face_recognizer.get_all_persons()
+        stats = face_recognizer.get_stats()
         
         return {
             "success": True,
@@ -773,13 +765,13 @@ async def set_similarity_threshold(request: SimilarityThresholdRequest):
     Set similarity threshold for face recognition
     """
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
         if not (0.0 <= request.threshold <= 1.0):
             raise HTTPException(status_code=400, detail="Threshold must be between 0.0 and 1.0")
         
-        edgeface_detector.set_similarity_threshold(request.threshold)
+        face_recognizer.set_similarity_threshold(request.threshold)
         
         return {
             "success": True,
@@ -799,10 +791,10 @@ async def clear_database():
     Clear all persons from the face database
     """
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
-        result = edgeface_detector.clear_database()
+        result = face_recognizer.clear_database()
         
         if result["success"]:
             return {
@@ -825,10 +817,10 @@ async def get_face_stats():
     Get face recognition statistics and configuration
     """
     try:
-        if not edgeface_detector:
-            raise HTTPException(status_code=500, detail="EdgeFace detector not available")
+        if not face_recognizer:
+            raise HTTPException(status_code=500, detail="Face recognizer not available")
         
-        stats = edgeface_detector.get_stats()
+        stats = face_recognizer.get_stats()
         
         # Return stats directly in the format expected by the Settings component
         return stats
@@ -888,12 +880,12 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                         }))
                         continue
                     
-                    if not yunet_detector:
-                        raise HTTPException(status_code=500, detail="YuNet model not available")
+                    if not face_detector:
+                        raise HTTPException(status_code=500, detail="Face detector model not available")
                     
-                    faces = yunet_detector.detect_faces(image)
+                    faces = face_detector.detect_faces(image)
                     faces = await process_face_tracking(faces, image)
-                    faces = await process_antispoofing(faces, image, True)
+                    faces = await process_liveness_detection(faces, image, True)
                     
                     serialized_faces = []
                     for face in faces:
@@ -921,7 +913,7 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                     await websocket.send_text(json.dumps({
                         "type": "detection_response",
                         "faces": serialized_faces,
-                        "model_used": "yunet",
+                        "model_used": "face_detector",
                         "processing_time": processing_time,
                         "timestamp": time.time(),
                         "success": True

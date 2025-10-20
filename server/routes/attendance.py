@@ -41,8 +41,8 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 attendance_db: Optional[AttendanceDatabaseManager] = None
 
 # Face detection/recognition models (will be initialized in main.py)
-yunet_detector = None
-edgeface_detector = None
+face_detector = None
+face_recognizer = None
 
 
 def get_attendance_db() -> AttendanceDatabaseManager:
@@ -870,11 +870,11 @@ async def get_group_persons(
         members = db.get_group_members(group_id)
         
         # For each member, get their face recognition data if available
-        if not edgeface_detector:
+        if not face_recognizer:
             return [{"person_id": member["person_id"], "name": member["name"], "has_face_data": False} for member in members]
         
         persons_with_face_data = []
-        all_persons = edgeface_detector.get_all_persons()
+        all_persons = face_recognizer.get_all_persons()
         
         for member in members:
             has_face_data = member["person_id"] in all_persons
@@ -909,7 +909,7 @@ async def register_face_for_group_person(
         # Import required modules
         from utils.image_utils import decode_base64_image
         
-        if not edgeface_detector:
+        if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognition system not available")
         
         # Get attendance database
@@ -944,10 +944,10 @@ async def register_face_for_group_person(
             raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
         
         # Anti-duplicate check: verify this person isn't already registered
-        existing_persons = edgeface_detector.get_all_persons()
+        existing_persons = face_recognizer.get_all_persons()
         
         # Register the face with enhanced validation
-        result = await edgeface_detector.register_person_async(
+        result = await face_recognizer.register_person_async(
             person_id,
             image,
             bbox
@@ -979,7 +979,7 @@ async def remove_face_data_for_group_person(
 ):
     """Remove face data for a specific person in a group"""
     try:
-        if not edgeface_detector:
+        if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognition system not available")
         
         # Verify group exists
@@ -996,7 +996,7 @@ async def remove_face_data_for_group_person(
             raise HTTPException(status_code=400, detail="Member does not belong to this group")
         
         # Remove face data
-        result = edgeface_detector.remove_person(person_id)
+        result = face_recognizer.remove_person(person_id)
         
         if result["success"]:
             return {
@@ -1220,10 +1220,10 @@ async def bulk_detect_faces(
         # Import inside function
         from utils.image_utils import decode_base64_image
         
-        logger.info(f"[BULK-DETECT] YuNet detector available: {yunet_detector is not None}")
+        logger.info(f"[BULK-DETECT] Face detector available: {face_detector is not None}")
         
-        if not yunet_detector:
-            logger.error("[BULK-DETECT] yunet_detector is None")
+        if not face_detector:
+            logger.error("[BULK-DETECT] face_detector is None")
             raise HTTPException(status_code=500, detail="Face detection system not available")
         
         # Get attendance database
@@ -1262,7 +1262,7 @@ async def bulk_detect_faces(
                 image = decode_base64_image(image_base64)
                 
                 # Detect faces
-                detections = yunet_detector.detect_faces(image)
+                detections = face_detector.detect_faces(image)
                 
                 if not detections or len(detections) == 0:
                     results.append({
@@ -1334,7 +1334,7 @@ async def bulk_register_faces(
     try:
         from utils.image_utils import decode_base64_image
         
-        if not edgeface_detector:
+        if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognition system not available")
         
         # Get attendance database
@@ -1436,7 +1436,7 @@ async def bulk_register_faces(
                 quality_warning = None
                 
                 # Register the face
-                result = await edgeface_detector.register_person_async(
+                result = await face_recognizer.register_person_async(
                     person_id,
                     image,
                     bbox

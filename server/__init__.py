@@ -1,7 +1,7 @@
 """
 Face Detection Backend API
 
-A high-performance async Python server for face detection using YuNet and other models.
+A high-performance async Python server for face detection using various models.
 Provides FastAPI endpoints with WebSocket support for real-time streaming.
 """
 

@@ -20,7 +20,7 @@ class YuNet:
         self.conf_threshold = conf_threshold
         self.nms_threshold = nms_threshold
         self.top_k = top_k
-        self.min_face_size = min_face_size  # Minimum face size for AntiSpoof compatibility
+        self.min_face_size = min_face_size  # Minimum face size for liveness detection compatibility
         self.detector = None
         
         if model_path and os.path.isfile(model_path):
@@ -37,9 +37,9 @@ class YuNet:
                 self.nms_threshold,
                 self.top_k
             )
-            # YuNet detector initialized
+            # Face detector initialized
         except Exception as e:
-            logger.error(f"Error initializing YuNet detector: {e}")
+            logger.error(f"Error initializing face detector: {e}")
             self.detector = None
     
     def detect_faces(self, image: np.ndarray) -> List[dict]:
@@ -58,12 +58,12 @@ class YuNet:
         
         # Early exit for invalid images
         if image is None or image.size == 0:
-            logger.warning("Invalid image provided to YuNet detector")
+            logger.warning("Invalid image provided to face detector")
             return []
     
         orig_height, orig_width = image.shape[:2]
         
-        # OPTIMIZATION: No color conversion - YuNet expects BGR natively
+        # OPTIMIZATION: No color conversion - face detector expects BGR natively
         resized_img = cv2.resize(image, self.input_size)
         
         _, faces = self.detector.detect(resized_img)
@@ -74,7 +74,7 @@ class YuNet:
         # Convert detections to our format
         detections = []
         for face in faces:
-            # YuNet official format: [x, y, w, h, landmarks..., confidence]
+            # Face detector official format: [x, y, w, h, landmarks..., confidence]
             # Extract bbox
             x, y, w, h = face[:4]
             
@@ -112,11 +112,11 @@ class YuNet:
                     landmarks_5[:, 0] *= scale_x  # Scale X coordinates
                     landmarks_5[:, 1] *= scale_y  # Scale Y coordinates
                 
-                # 🎯 ANTI-SPOOF SIZE FILTER: Ensure face meets minimum size for AntiSpoof model
-                # AntiSpoof model (1.5_128.onnx) was trained with 1.5x expanded bboxes resized to 128x128
+                # 🎯 LIVENESS DETECTION SIZE FILTER: Ensure face meets minimum size for liveness detection
+                # Liveness detection model was trained with 1.5x expanded bboxes resized to 128x128
                 # Minimum face size of 80px ensures adequate texture density after 1.5x expansion
                 if face_width_orig < self.min_face_size or face_height_orig < self.min_face_size:
-                    # Face too small for AntiSpoof - skipping
+                    # Face too small for liveness detection - skipping
                     continue
                 
                 # 🚀 OPTIMIZATION: Remove bbox expansion here
@@ -182,14 +182,14 @@ class YuNet:
         self.set_score_threshold(threshold)
 
     def set_min_face_size(self, min_size: int):
-        """Set minimum face size for AntiSpoof compatibility"""
+        """Set minimum face size for liveness detection compatibility"""
         if min_size < 32:
-            logger.warning(f"Very small minimum face size ({min_size}px) may impact AntiSpoof accuracy")
+            logger.warning(f"Very small minimum face size ({min_size}px) may impact liveness detection accuracy")
         elif min_size > 200:
             logger.warning(f"Large minimum face size ({min_size}px) may reject too many valid faces")
         
         self.min_face_size = min_size
-        # Minimum face size updated for AntiSpoof compatibility
+        # Minimum face size updated for liveness detection compatibility
 
     def get_model_info(self):
         """Get model information"""
@@ -200,6 +200,6 @@ class YuNet:
             "nms_threshold": self.nms_threshold,
             "top_k": self.top_k,
             "min_face_size": self.min_face_size,
-            "antispoof_compatible": True,
-            "size_filter_description": f"Faces smaller than {self.min_face_size}px are filtered for AntiSpoof model compatibility"
+            "liveness_detection_compatible": True,
+            "size_filter_description": f"Faces smaller than {self.min_face_size}px are filtered for liveness detection model compatibility"
         }

@@ -1,6 +1,6 @@
 """
-EdgeFace Recognition Model Implementation
-Based on EdgeFace research paper and optimized for production deployment
+Face Recognition Model Implementation
+Optimized for production deployment
 """
 
 import asyncio
@@ -17,9 +17,9 @@ from utils.database_manager import FaceDatabaseManager
 
 logger = logging.getLogger(__name__)
 
-class EdgeFaceDetector:
+class face recognizerDetector:
     """
-    EdgeFace recognition model wrapper with async support and database management
+    Face recognition model wrapper with async support and database management
     """
     
     def __init__(
@@ -32,11 +32,11 @@ class EdgeFaceDetector:
         session_options: Optional[Dict[str, Any]] = None
     ):
         """
-        Initialize EdgeFace detector
+        Initialize face recognizer
         
         Args:
             model_path: Path to the ONNX model file
-            input_size: Input size (width, height) - EdgeFace uses 112x112
+            input_size: Input size (width, height) - face recognizer uses 112x112
             similarity_threshold: Similarity threshold for recognition
             providers: ONNX runtime providers
             database_path: Path to face database JSON file
@@ -49,7 +49,7 @@ class EdgeFaceDetector:
         self.database_path = database_path
         self.session_options = session_options
         
-        # Model specifications (matching EdgeFace research paper)
+        # Model specifications
         self.INPUT_MEAN = 127.5
         self.INPUT_STD = 127.5
         self.EMBEDDING_DIM = 512
@@ -101,18 +101,18 @@ class EdgeFaceDetector:
             output_info = self.session.get_outputs()[0]
             
         except Exception as e:
-            logger.error(f"Failed to initialize EdgeFace model: {e}")
+            logger.error(f"Failed to initialize face recognizer model: {e}")
             raise
     
     
     def _align_face(self, image: np.ndarray, bbox: List[float], landmarks_5: List) -> np.ndarray:
         """
-        Align face using YuNet 5-point landmarks
+        Align face using face detector 5-point landmarks
         
         Args:
             image: Input image
             bbox: Face bounding box [x, y, width, height]
-            landmarks_5: 5-point landmarks from YuNet [[x1,y1], [x2,y2], ...]
+            landmarks_5: 5-point landmarks from face detector [[x1,y1], [x2,y2], ...]
             
         Returns:
             Aligned face crop (112x112)
@@ -121,7 +121,7 @@ class EdgeFaceDetector:
             RuntimeError: If landmarks not provided or alignment fails
         """
         if landmarks_5 is None or len(landmarks_5) != 5:
-            raise RuntimeError("YuNet landmarks required (5 points)")
+            raise RuntimeError("face detector landmarks required (5 points)")
         
         landmarks = np.array(landmarks_5, dtype=np.float32)
         aligned_face = self._create_aligned_face(image, landmarks)
@@ -139,7 +139,7 @@ class EdgeFaceDetector:
             Aligned face crop (112x112)
         """
         try:
-            # Define reference points for 112x112 face alignment (standard EdgeFace)
+            # Define reference points for 112x112 face alignment (standard face recognizer)
             reference_points = np.array([
                 [38.2946, 51.6963],    # left eye
                 [73.5318, 51.5014],    # right eye  
@@ -192,7 +192,7 @@ class EdgeFaceDetector:
 
     def _preprocess_image(self, aligned_face: np.ndarray) -> np.ndarray:
         """
-        Preprocess aligned face for EdgeFace model
+        Preprocess aligned face for face recognizer model
         
         Args:
             aligned_face: Aligned face image (112x112)
@@ -204,7 +204,7 @@ class EdgeFaceDetector:
             # Convert BGR to RGB
             rgb_image = cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB)
             
-            # Normalize to [-1, 1] range (EdgeFace preprocessing)
+            # Normalize to [-1, 1] range (face recognizer preprocessing)
             normalized = (rgb_image.astype(np.float32) - self.INPUT_MEAN) / self.INPUT_STD
             
             # Transpose to CHW format and add batch dimension
@@ -219,18 +219,18 @@ class EdgeFaceDetector:
     
     def _extract_embedding(self, image: np.ndarray, bbox: List[float], landmarks_5: List) -> np.ndarray:
         """
-        Extract face embedding from image using YuNet landmarks
+        Extract face embedding from image using face detector landmarks
         
         Args:
             image: Input image
             bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from YuNet (REQUIRED)
+            landmarks_5: 5-point landmarks from face detector (REQUIRED)
             
         Returns:
             Normalized face embedding (512-dim)
         """
         try:
-            # Align face using YuNet landmarks
+            # Align face using face detector landmarks
             aligned_face = self._align_face(image, bbox, landmarks_5)
             
             # Preprocess for model
@@ -276,9 +276,9 @@ class EdgeFaceDetector:
             for i, face_data in enumerate(face_data_list):
                 try:
                     bbox = face_data.get('bbox')
-                    landmarks_5 = face_data.get('landmarks_5')  # Get YuNet landmarks if available
+                    landmarks_5 = face_data.get('landmarks_5')  # Get face detector landmarks if available
                     
-                    # Align face (YuNet landmarks preferred)
+                    # Align face (face detector landmarks preferred)
                     aligned_face = self._align_face(image, bbox, landmarks_5)
                     aligned_faces.append(aligned_face)
                     valid_indices.append(i)
@@ -325,7 +325,7 @@ class EdgeFaceDetector:
             for face_data in face_data_list:
                 try:
                     bbox = face_data.get('bbox')
-                    landmarks_5 = face_data.get('landmarks_5')  # Get YuNet landmarks if available
+                    landmarks_5 = face_data.get('landmarks_5')  # Get face detector landmarks if available
                     emb = self._extract_embedding(image, bbox, landmarks_5)
                     embeddings.append(emb)
                 except:
@@ -382,12 +382,12 @@ class EdgeFaceDetector:
     
     def recognize_face(self, image: np.ndarray, bbox: List[float], landmarks_5: List) -> Dict:
         """
-        Recognize face in image using YuNet landmarks
+        Recognize face in image using face detector landmarks
         
         Args:
             image: Input image as numpy array (BGR format)
             bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from YuNet (REQUIRED)
+            landmarks_5: 5-point landmarks from face detector (REQUIRED)
             
         Returns:
             Recognition result with person_id and similarity
@@ -418,12 +418,12 @@ class EdgeFaceDetector:
     
     async def recognize_face_async(self, image: np.ndarray, bbox: List[float], landmarks_5: List) -> Dict:
         """
-        Recognize face in image using YuNet landmarks (asynchronous)
+        Recognize face in image using face detector landmarks (asynchronous)
         
         Args:
             image: Input image as numpy array (BGR format)
             bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from YuNet (REQUIRED)
+            landmarks_5: 5-point landmarks from face detector (REQUIRED)
             
         Returns:
             Recognition result with person_id and similarity
@@ -499,7 +499,7 @@ class EdgeFaceDetector:
                     'bbox': bbox_list
                 }
                 
-                # Include YuNet landmarks if available (FAST PATH!)
+                # Include face detector landmarks if available (FAST PATH!)
                 if 'landmarks_5' in face:
                     face_data['landmarks_5'] = face['landmarks_5']
                 
@@ -598,13 +598,13 @@ class EdgeFaceDetector:
     
     def register_person(self, person_id: str, image: np.ndarray, bbox: List[float], landmarks_5: List) -> Dict:
         """
-        Register a new person in the database using YuNet landmarks
+        Register a new person in the database using face detector landmarks
         
         Args:
             person_id: Unique identifier for the person
             image: Input image
             bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from YuNet (REQUIRED)
+            landmarks_5: 5-point landmarks from face detector (REQUIRED)
             
         Returns:
             Registration result
@@ -640,7 +640,7 @@ class EdgeFaceDetector:
             }
     
     async def register_person_async(self, person_id: str, image: np.ndarray, bbox: List[float], landmarks_5: List) -> Dict:
-        """Register person asynchronously using YuNet landmarks"""
+        """Register person asynchronously using face detector landmarks"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.register_person, person_id, image, bbox, landmarks_5)
     
