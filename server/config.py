@@ -130,7 +130,7 @@ MODEL_CONFIGS = {
     "face_detector": {
         "model_path": WEIGHTS_DIR / "detector_fast.onnx",
         "input_size": (640, 640),  # Optimized for better distant face detection
-        "score_threshold": 0.9,
+        "score_threshold": 0.6,
         "nms_threshold": 0.3,
         "top_k": 100,
         "min_face_size": 80,  # Minimum face size for liveness detection compatibility
