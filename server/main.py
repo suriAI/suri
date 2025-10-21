@@ -563,10 +563,10 @@ async def recognize_face(request: FaceRecognitionRequest):
                         error=f"Recognition blocked: face status {status}"
                     )
         
-        # Use landmarks from frontend (YuNet detection)
+        # Use landmarks from frontend (face detection)
         landmarks_5 = request.landmarks_5
         if landmarks_5 is None:
-            raise HTTPException(status_code=400, detail="Landmarks required from frontend YuNet detection")
+            raise HTTPException(status_code=400, detail="Landmarks required from frontend face detection")
         
         result = await face_recognizer.recognize_face_async(
             image, 
@@ -653,10 +653,10 @@ async def register_person(request: FaceRegistrationRequest):
                         error=f"Registration blocked: face status {status}"
                     )
         
-        # Use landmarks from frontend (YuNet detection)
+        # Use landmarks from frontend (face detection)
         landmarks_5 = request.landmarks_5
         if landmarks_5 is None:
-            raise HTTPException(status_code=400, detail="Landmarks required from frontend YuNet detection")
+            raise HTTPException(status_code=400, detail="Landmarks required from frontend face detection")
         
         result = await face_recognizer.register_person_async(
             request.person_id, 

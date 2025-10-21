@@ -946,10 +946,10 @@ async def register_face_for_group_person(
         # Anti-duplicate check: verify this person isn't already registered
         existing_persons = face_recognizer.get_all_persons()
         
-        # Use landmarks from frontend (YuNet detection)
+        # Use landmarks from frontend (face detection)
         landmarks_5 = request.get('landmarks_5')
         if landmarks_5 is None:
-            raise HTTPException(status_code=400, detail="Landmarks required from frontend YuNet detection")
+            raise HTTPException(status_code=400, detail="Landmarks required from frontend face detection")
         
         # Register the face with enhanced validation
         result = await face_recognizer.register_person_async(
@@ -1441,10 +1441,10 @@ async def bulk_register_faces(
                 quality_result = {"is_acceptable": True, "quality_score": 0.8}
                 quality_warning = None
                 
-                # Use landmarks from frontend (YuNet detection)
-                landmarks_5 = face_data.get('landmarks_5')
+                # Use landmarks from frontend (face detection)
+                landmarks_5 = reg_data.get('landmarks_5')
                 if landmarks_5 is None:
-                    raise HTTPException(status_code=400, detail="Landmarks required from frontend YuNet detection")
+                    raise HTTPException(status_code=400, detail="Landmarks required from frontend face detection")
                 
                 # Register the face
                 result = await face_recognizer.register_person_async(
