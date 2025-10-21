@@ -231,7 +231,7 @@ export const drawOverlays = ({
     let shouldShowLabel = false;
 
     if (isRecognized && recognitionResult && quickSettings.showRecognitionNames) {
-      label = recognitionResult.name || recognitionResult.person_id || "Unknown";
+      label = recognitionResult.name || recognitionResult.person_id;
       shouldShowLabel = true;
     } else if (liveness?.status === 'fake' && quickSettings.showAntiSpoofStatus) {
       label = "SPOOF";

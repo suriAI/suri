@@ -44,9 +44,8 @@ export function DetectionPanel({
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
                   <div className="font-medium text-sm">
-                    {isRecognized && recognitionResult?.person_id ?
-                      (recognitionResult.name || recognitionResult.person_id) :
-                      `Unknown`
+                    {isRecognized && recognitionResult?.person_id &&
+                      (recognitionResult.name || recognitionResult.person_id)
                     }
                   </div>
                   {isRecognized && recognitionResult?.similarity && (
@@ -54,8 +53,8 @@ export function DetectionPanel({
                       {(recognitionResult.similarity * 100).toFixed(0)}%
                     </div>
                   )}
-                  {trackedFace && (
-                    <div className={`w-1.5 h-1.5 rounded-full ${trackedFace.isLocked ? 'bg-cyan-400' : 'bg-orange-400'}`} title={trackedFace.isLocked ? 'Locked' : 'Active'}></div>
+                  {trackedFace && trackedFace.isLocked && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" title="Locked"></div>
                   )}
                 </div>
               </div>
