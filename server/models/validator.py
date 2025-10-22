@@ -341,6 +341,12 @@ class LivenessValidator:
         
         results = []
         for i, detection in enumerate(face_detections):
+            # Skip liveness processing if face already has liveness status (e.g., from size filter)
+            if 'liveness' in detection and detection['liveness'].get('status') == 'insufficient_quality':
+                # Keep existing liveness status from detector (small face filter)
+                results.append(detection)
+                continue
+            
             if i < len(valid_detections):
                 valid_idx = valid_detections.index(detection)
                 prediction = predictions[valid_idx]

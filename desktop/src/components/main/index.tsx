@@ -18,7 +18,7 @@ import { Sidebar } from './components/Sidebar';
 import { GroupManagementModal } from './components/GroupManagementModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 
-const NON_LOGGING_ANTISPOOF_STATUSES = new Set<'real' | 'fake' | 'uncertain' | 'error'>(['fake', 'uncertain', 'error']);
+const NON_LOGGING_ANTISPOOF_STATUSES = new Set<'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality'>(['fake', 'uncertain', 'error', 'insufficient_quality']);
 
 export default function Main() {
   const videoRef = useRef<HTMLVideoElement>(null);

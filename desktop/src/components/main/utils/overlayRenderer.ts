@@ -239,6 +239,9 @@ export const drawOverlays = ({
     } else if (liveness?.status === 'uncertain' && quickSettings.showAntiSpoofStatus) {
       label = "UNCERTAIN";
       shouldShowLabel = true;
+    } else if (liveness?.status === 'insufficient_quality' && quickSettings.showAntiSpoofStatus) {
+      label = "TOO SMALL";
+      shouldShowLabel = true;
     }
 
     if (shouldShowLabel) {

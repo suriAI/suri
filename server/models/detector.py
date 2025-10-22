@@ -114,9 +114,7 @@ class FaceDetector:
                 # 🎯 LIVENESS DETECTION SIZE FILTER: Ensure face meets minimum size for liveness detection
                 # Liveness detection model was trained with 1.5x expanded bboxes resized to 128x128
                 # Minimum face size of 80px ensures adequate texture density after 1.5x expansion
-                if face_width_orig < self.min_face_size or face_height_orig < self.min_face_size:
-                    # Face too small for liveness detection - skipping
-                    continue
+                is_face_too_small = face_width_orig < self.min_face_size or face_height_orig < self.min_face_size
                 
                 # 🚀 OPTIMIZATION: Remove bbox expansion here
                 # Anti-spoofing already handles bbox expansion with its bbox_inc parameter (1.2)
@@ -143,6 +141,18 @@ class FaceDetector:
                     },
                     'confidence': normalized_conf
                 }
+                
+                # Add liveness status for small faces
+                if is_face_too_small:
+                    detection['liveness'] = {
+                        'is_real': False,
+                        'status': 'insufficient_quality',
+                        'decision_reason': f'Face too small ({face_width_orig}x{face_height_orig}px) for reliable liveness detection (minimum: {self.min_face_size}px)',
+                        'quality_check_failed': True,
+                        'live_score': 0.0,
+                        'spoof_score': 1.0,
+                        'confidence': 0.0
+                    }
                 
                 # Add landmarks if available
                 if landmarks_5 is not None:

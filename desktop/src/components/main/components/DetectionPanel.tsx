@@ -66,6 +66,7 @@ export function DetectionPanel({
                     face.liveness.status === 'fake' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 
                     face.liveness.status === 'uncertain' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 
                     face.liveness.status === 'error' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' : 
+                    face.liveness.status === 'insufficient_quality' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' :
                     'bg-white/5 border-white/10 text-white/60'
                   }`}>
                     <div className="flex items-center gap-2">
@@ -73,7 +74,8 @@ export function DetectionPanel({
                         {face.liveness.status === 'real' ? 'LIVE' :
                          face.liveness.status === 'fake' ? 'SPOOF' :
                          face.liveness.status === 'uncertain' ? 'UNCERTAIN' :
-                         face.liveness.status === 'error' ? 'ERROR' : 'UNKNOWN'}
+                         face.liveness.status === 'error' ? 'ERROR' :
+                         face.liveness.status === 'insufficient_quality' ? 'TOO SMALL' : 'UNKNOWN'}
                       </span>
                       {((face.liveness.live_score !== undefined && face.liveness.live_score !== null) ||
                         (face.liveness.spoof_score !== undefined && face.liveness.spoof_score !== null)) && (

@@ -19,7 +19,7 @@ export interface DetectionResult {
       confidence: number;
       live_score?: number;
       spoof_score?: number;
-      status: 'real' | 'fake' | 'uncertain' | 'error';
+      status: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
       label?: string;
       message?: string;
     };
@@ -38,7 +38,7 @@ export interface WebSocketFaceData {
     confidence?: number;
     live_score?: number;
     spoof_score?: number;
-    status?: 'real' | 'fake' | 'uncertain' | 'error';
+    status?: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
     label?: string;
     message?: string;
   };
