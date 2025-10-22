@@ -101,7 +101,7 @@ export function MobileDrawer({
         </div>
 
         {/* Navigation */}
-        <nav className="py-4 px-4 overflow-y-auto" style={{ height: 'calc(100vh - 4rem)' }}>
+        <nav className="py-4 px-4 overflow-y-auto h-[calc(100vh-4rem)]">
           <ul className="space-y-2">
             {SECTIONS.map((section) => {
               const isActive = activeSection === section.id;
