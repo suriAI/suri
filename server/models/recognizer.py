@@ -791,6 +791,5 @@ class FaceRecognizer:
             "similarity_threshold": self.similarity_threshold,
             "providers": self.providers,
             "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
-            "requires_landmarks": True,
             "landmark_count": 5
         }

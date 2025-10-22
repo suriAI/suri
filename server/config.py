@@ -154,13 +154,6 @@ MODEL_CONFIGS = {
         "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
         "embedding_dimension": 512,  # Face embedding dimension
         "database_path": DATA_DIR / "face_database.db",  # SQLite database storage (auto-handles dev/prod)
-        "requires_landmarks": True,
-        "batch_size": 4,  # Enable small batch processing
-        "enable_face_alignment": True,
-        "enable_temporal_smoothing": True,  # Enable temporal smoothing for recognition
-        "recognition_smoothing_factor": 0.3,  # Reduced for faster response and better stability
-        "recognition_hysteresis_margin": 0.05,  # Reduced for less strict switching
-        "min_consecutive_recognitions": 1,  # Reduced to 1 for immediate recognition
     },
     "face_tracker": {
         "max_age": 30,  # Maximum frames to keep track alive without detection
