@@ -306,7 +306,8 @@ class DeepSort:
         n_init: int = 3,
         max_iou_distance: float = 0.7,
         max_cosine_distance: float = 0.3,
-        nn_budget: int = 100
+        nn_budget: int = 100,
+        matching_weights: Dict[str, float] = None
     ):
         """
         Initialize Deep SORT tracker
@@ -317,11 +318,18 @@ class DeepSort:
             max_iou_distance: Maximum IOU distance for matching (1 - IOU)
             max_cosine_distance: Maximum cosine distance for appearance matching
             nn_budget: Maximum size of appearance feature gallery per track
+            matching_weights: Weights for appearance vs motion matching
         """
         self.max_age = max_age
         self.n_init = n_init
         self.max_iou_distance = max_iou_distance
         self.max_cosine_distance = max_cosine_distance
+        
+        # Set matching weights with defaults
+        if matching_weights is None:
+            matching_weights = {"appearance": 0.7, "motion": 0.3}
+        self.appearance_weight = matching_weights.get("appearance", 0.7)
+        self.motion_weight = matching_weights.get("motion", 0.3)
         self.nn_budget = nn_budget
         
         self.tracks: List[Track] = []
@@ -473,9 +481,9 @@ class DeepSort:
         iou_matrix = iou_batch(det_bboxes, track_bboxes)
         iou_cost = 1.0 - iou_matrix
         
-        # Combined cost: 70% appearance + 30% motion
+        # Combined cost: configurable appearance + motion weights
         if features is not None:
-            cost_matrix = 0.7 * appearance_cost + 0.3 * iou_cost
+            cost_matrix = self.appearance_weight * appearance_cost + self.motion_weight * iou_cost
         else:
             # Fallback to IOU only if no features
             cost_matrix = iou_cost
@@ -653,7 +661,8 @@ class FaceTracker:
         n_init: int = 3,
         max_iou_distance: float = 0.7,
         max_cosine_distance: float = 0.3,
-        nn_budget: int = 100
+        nn_budget: int = 100,
+        matching_weights: Dict[str, float] = None
     ):
         """
         Initialize Deep SORT face tracker
@@ -664,15 +673,23 @@ class FaceTracker:
             max_iou_distance: Maximum IOU distance (1 - IOU threshold)
             max_cosine_distance: Maximum cosine distance for appearance
             nn_budget: Maximum size of feature gallery per track
+            matching_weights: Weights for appearance vs motion matching
         """
         self.tracker = DeepSort(
             max_age=max_age,
             n_init=n_init,
             max_iou_distance=max_iou_distance,
             max_cosine_distance=max_cosine_distance,
-            nn_budget=nn_budget
+            nn_budget=nn_budget,
+            matching_weights=matching_weights
         )
         self.max_iou_distance = max_iou_distance
+        
+        # Set matching weights with defaults
+        if matching_weights is None:
+            matching_weights = {"appearance": 0.7, "motion": 0.3}
+        self.appearance_weight = matching_weights.get("appearance", 0.7)
+        self.motion_weight = matching_weights.get("motion", 0.3)
     
     def update(
         self,

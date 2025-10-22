@@ -154,12 +154,14 @@ async def startup_event():
         
         # Initialize face tracker (appearance + motion features)
         # Initializing face tracker with appearance features
+        matching_weights = FACE_TRACKER_CONFIG.get("matching_weights", {"appearance": 0.7, "motion": 0.3})
         face_tracker = FaceTracker(
             max_age=FACE_TRACKER_CONFIG.get("max_age", 30),
             n_init=FACE_TRACKER_CONFIG.get("n_init", 3),
             max_iou_distance=FACE_TRACKER_CONFIG.get("max_iou_distance", 0.7),
             max_cosine_distance=FACE_TRACKER_CONFIG.get("max_cosine_distance", 0.3),
-            nn_budget=FACE_TRACKER_CONFIG.get("nn_budget", 100)
+            nn_budget=FACE_TRACKER_CONFIG.get("nn_budget", 100),
+            matching_weights=matching_weights
         )
         # Deep SORT tracker initialized successfully
         

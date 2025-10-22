@@ -161,7 +161,6 @@ MODEL_CONFIGS = {
         "max_iou_distance": 0.6,  # 🚀 OPTIMIZED: Reduced from 0.7 to 0.6 (stricter motion gating)
         "max_cosine_distance": 0.25,  # 🚀 OPTIMIZED: Reduced from 0.3 to 0.25 (stricter appearance gating)
         "nn_budget": 30,  # 🚀 OPTIMIZED: Reduced from 100 to 30 (faster matching, less memory)
-        "enable_appearance_matching": True,  # Use face recognizer embeddings for tracking
         "matching_weights": {
             "appearance": 0.7,  # 70% weight on appearance matching
             "motion": 0.3  # 30% weight on IOU/motion matching
