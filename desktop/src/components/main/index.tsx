@@ -148,6 +148,9 @@ export default function Main() {
     lastUpdateTime: Date.now()
   });
 
+  // Frame counter for skipping frames
+  const frameCounterRef = useRef(0);
+
   // Settings view state
   const [showSettings, setShowSettings] = useState(false);
   const [quickSettings, setQuickSettings] = useState<QuickSettings>({
@@ -949,13 +952,23 @@ export default function Main() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recognitionEnabled, performFaceRecognition]);
 
-  // Process current frame directly without queue (async for Binary ArrayBuffer)
+  // Process current frame with frame skipping for better performance
   const processCurrentFrame = useCallback(async () => {
-    // 🚀 PERFORMANCE FIX: Remove isProcessingRef blocking for maximum throughput
-    // Backend will handle frame dropping if overloaded
     if (!backendServiceRef.current?.isWebSocketReady() || 
         !detectionEnabledRef.current ||
         !isStreamingRef.current) {
+      return;
+    }
+
+    // Increment frame counter
+    frameCounterRef.current++;
+
+    // Skip every 2nd frame
+    if (frameCounterRef.current % 2 !== 0) {
+      // Schedule next frame processing
+      if (detectionEnabledRef.current && isStreamingRef.current) {
+        requestAnimationFrame(() => processCurrentFrame());
+      }
       return;
     }
 
@@ -965,8 +978,7 @@ export default function Main() {
         return;
       }
       
-      // 🚀 NO BLOCKING - Send frames continuously at max rate
-      // Backend drops old frames automatically if processing is slow
+      // Send frame to backend
       backendServiceRef.current.sendDetectionRequest(frameData).catch(error => {
         console.error('❌ WebSocket detection request failed:', error);
         

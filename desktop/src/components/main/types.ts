@@ -82,7 +82,7 @@ export interface TrackedFace {
   occlusionCount: number;
   angleConsistency: number;
   cooldownRemaining?: number;
-  livenessStatus?: 'real' | 'fake' | 'uncertain' | 'error';
+  livenessStatus?: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
 }
 
 export interface CooldownInfo {
