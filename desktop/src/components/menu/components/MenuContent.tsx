@@ -38,7 +38,7 @@ export function MenuContent({
   if (!selectedGroup) {
     return (
       <div className="h-full px-6 py-6">
-        <EmptyState onCreateGroup={onCreateGroup} hasGroups={groups.length > 0} />
+        <EmptyState onCreateGroup={onCreateGroup} hasGroups={(groups?.length ?? 0) > 0} />
       </div>
     );
   }

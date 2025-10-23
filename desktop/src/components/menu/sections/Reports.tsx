@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { attendanceManager } from '../../../services/AttendanceManager.js';
 import type {
   AttendanceGroup,
-  AttendanceReport
+  AttendanceReport,
+  AttendanceSession,
+  AttendanceMember
 } from '../../../types/recognition.js';
 
 interface ReportsProps {
@@ -17,6 +19,45 @@ export function Reports({ group }: ReportsProps) {
   const [reportEndDate, setReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Advanced, offline-first editable reports (field picker, filters, grouping, saved views)
+  type ColumnKey = 'name' | 'person_id' | 'date' | 'status' | 'is_late' | 'late_minutes' | 'total_hours' | 'notes';
+  const allColumns: Array<{ key: ColumnKey; label: string; align?: 'left' | 'center' }> = [
+    { key: 'name', label: 'Name', align: 'left' },
+    { key: 'person_id', label: 'Person ID', align: 'left' },
+    { key: 'date', label: 'Date', align: 'left' },
+    { key: 'status', label: 'Status', align: 'center' },
+    { key: 'is_late', label: 'Late', align: 'center' },
+    { key: 'late_minutes', label: 'Late (min)', align: 'center' },
+    { key: 'total_hours', label: 'Hours', align: 'center' },
+    { key: 'notes', label: 'Notes', align: 'left' }
+  ];
+
+  type GroupByKey = 'none' | 'person' | 'date';
+
+  interface SavedViewConfig {
+    name: string;
+    columns: ColumnKey[];
+    groupBy: GroupByKey;
+    statusFilter: Array<'present' | 'absent' | 'late' | 'checked_out'>;
+    search: string;
+  }
+
+  const defaultColumns: ColumnKey[] = ['name', 'date', 'status', 'total_hours', 'is_late'];
+  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(defaultColumns);
+  const [groupBy, setGroupBy] = useState<GroupByKey>('none');
+  const [statusFilter, setStatusFilter] = useState<Array<'present' | 'absent' | 'late' | 'checked_out'>>([]);
+  const [search, setSearch] = useState<string>('');
+
+  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
+  const [members, setMembers] = useState<AttendanceMember[]>([]);
+
+  // Saved views in localStorage (per group)
+  const storageKey = `suri_report_views_${group.id}`;
+  const [views, setViews] = useState<SavedViewConfig[]>([]);
+  const [activeViewIndex, setActiveViewIndex] = useState<number | null>(null);
+  const defaultViewNameKey = `suri_report_default_view_name_${group.id}`;
+  const [defaultViewName, setDefaultViewName] = useState<string | null>(null);
 
   const generateReport = useCallback(async () => {
     const startDate = new Date(reportStartDate);
@@ -37,6 +78,17 @@ export function Reports({ group }: ReportsProps) {
       setError(null);
       const generatedReport = await attendanceManager.generateReport(group.id, startDate, endDate);
       setReport(generatedReport);
+      // Also load raw sessions and members for editable table
+      const [loadedSessions, loadedMembers] = await Promise.all([
+        attendanceManager.getSessions({
+          group_id: group.id,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0]
+        }),
+        attendanceManager.getGroupMembers(group.id)
+      ]);
+      setSessions(loadedSessions);
+      setMembers(loadedMembers);
     } catch (err) {
       console.error('Error generating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate report');
@@ -45,44 +97,187 @@ export function Reports({ group }: ReportsProps) {
     }
   }, [group.id, reportStartDate, reportEndDate]);
 
-  const exportReport = useCallback(() => {
-    if (!report) return;
-
-    try {
-      const csvContent = [
-        ['Name', 'Total Days', 'Present Days', 'Absent Days', 'Late Days', 'Total Hours', 'Average Hours', 'Attendance Rate'],
-        ...report.members.map(member => [
-          member.name,
-          member.total_days.toString(),
-          member.present_days.toString(),
-          member.absent_days.toString(),
-          member.late_days.toString(),
-          member.total_hours.toString(),
-          member.average_hours.toString(),
-          `${member.attendance_rate}%`
-        ])
-      ]
-        .map(row => row.map(cell => `"${cell}"`).join(','))
-        .join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `attendance-report-${group.name}-${reportStartDate}-to-${reportEndDate}.csv`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Error exporting report:', err);
-      setError(err instanceof Error ? err.message : 'Failed to export report');
-    }
-  }, [report, group.name, reportStartDate, reportEndDate]);
+  // Removed separate summary export to avoid confusion; main export is current view CSV below
 
   useEffect(() => {
     generateReport();
   }, [generateReport]);
+
+  
+
+  // Load saved views on mount or group change
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed: SavedViewConfig[] = raw ? JSON.parse(raw) : [];
+      setViews(parsed);
+      const storedDefaultName = localStorage.getItem(defaultViewNameKey);
+      setDefaultViewName(storedDefaultName);
+      if (parsed.length > 0) {
+        // Pick default view if stored, else first
+        let indexToUse = 0;
+        if (storedDefaultName) {
+          const foundIdx = parsed.findIndex(v => v.name === storedDefaultName);
+          if (foundIdx >= 0) indexToUse = foundIdx;
+        }
+        setActiveViewIndex(indexToUse);
+        const v = parsed[indexToUse];
+        setVisibleColumns(v.columns);
+        setGroupBy(v.groupBy);
+        setStatusFilter(v.statusFilter);
+        setSearch(v.search);
+      } else {
+        setActiveViewIndex(null);
+        setVisibleColumns(defaultColumns);
+        setGroupBy('none');
+        setStatusFilter([]);
+        setSearch('');
+      }
+    } catch {
+      // ignore
+      setViews([]);
+      setActiveViewIndex(null);
+    }
+  }, [storageKey]);
+
+  const saveViewsToStorage = (next: SavedViewConfig[]) => {
+    setViews(next);
+    localStorage.setItem(storageKey, JSON.stringify(next));
+  };
+
+  // Helpers to determine if current config differs from the selected view (or base defaults)
+  const arraysEqualUnordered = (a: unknown[], b: unknown[]) => {
+    if (a.length !== b.length) return false;
+    const as = [...a].sort();
+    const bs = [...b].sort();
+    return as.every((v, i) => v === bs[i]);
+  };
+
+  const isDirty = useMemo(() => {
+    const current: SavedViewConfig = {
+      name: '',
+      columns: visibleColumns,
+      groupBy,
+      statusFilter,
+      search
+    };
+    if (activeViewIndex !== null && views[activeViewIndex]) {
+      const v = views[activeViewIndex];
+      return (
+        !arraysEqualUnordered(current.columns, v.columns) ||
+        current.groupBy !== v.groupBy ||
+        !arraysEqualUnordered(current.statusFilter, v.statusFilter) ||
+        current.search !== v.search
+      );
+    }
+    // Compare to base defaults when no saved view is selected
+    return (
+      !arraysEqualUnordered(current.columns, defaultColumns) ||
+      current.groupBy !== 'none' ||
+      current.statusFilter.length !== 0 ||
+      current.search !== ''
+    );
+  }, [visibleColumns, groupBy, statusFilter, search, activeViewIndex, views]);
+
+  // Default view is now auto-set on selection; no explicit setter needed
+
+  const handleSave = () => {
+    const cfg: SavedViewConfig = {
+      name: activeViewIndex !== null && views[activeViewIndex] ? views[activeViewIndex].name : 'Default',
+      columns: visibleColumns,
+      groupBy,
+      statusFilter,
+      search
+    };
+    if (activeViewIndex !== null && views[activeViewIndex]) {
+      const next = views.slice();
+      next[activeViewIndex] = cfg;
+      saveViewsToStorage(next);
+    } else {
+      const next = [...views, { ...cfg, name: cfg.name || `View ${views.length + 1}` }];
+      saveViewsToStorage(next);
+      setActiveViewIndex(next.length - 1);
+    }
+  };
+
+  const handleSaveAs = () => {
+    // Auto-generate a unique name: View 1, View 2, ...
+    const existingNames = new Set(views.map(v => v.name));
+    let counter = views.length + 1;
+    let generated = `View ${counter}`;
+    while (existingNames.has(generated)) {
+      counter += 1;
+      generated = `View ${counter}`;
+    }
+    const cfg: SavedViewConfig = { name: generated, columns: visibleColumns, groupBy, statusFilter, search };
+    const next = [...views, cfg];
+    saveViewsToStorage(next);
+    setActiveViewIndex(next.length - 1);
+  };
+
+  const handleDeleteView = () => {
+    if (activeViewIndex === null) return;
+    const name = views[activeViewIndex]?.name || '';
+    if (!confirm(`Delete view "${name}"?`)) return;
+    const next = views.filter((_, idx) => idx !== activeViewIndex);
+    saveViewsToStorage(next);
+    setActiveViewIndex(next.length ? 0 : null);
+  };
+
+  // Build table rows from sessions + members
+  const personMap = useMemo(() => {
+    const m = new Map<string, AttendanceMember>();
+    for (const mem of members) m.set(mem.person_id, mem);
+    return m;
+  }, [members]);
+
+  const filteredRows = useMemo(() => {
+    const rows = sessions.map(s => ({
+      person_id: s.person_id,
+      name: personMap.get(s.person_id)?.name || s.person_id,
+      date: s.date,
+      status: s.status,
+      is_late: s.is_late,
+      late_minutes: s.late_minutes ?? 0,
+      total_hours: s.total_hours ?? 0,
+      notes: s.notes || ''
+    }));
+
+    const start = new Date(reportStartDate);
+    const end = new Date(reportEndDate);
+
+    return rows.filter(r => {
+      const d = new Date(r.date + 'T00:00:00');
+      if (d < start || d > end) return false;
+      if (statusFilter.length && !statusFilter.includes(r.status)) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const hay = `${r.name} ${r.person_id} ${r.status} ${r.notes}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [sessions, personMap, reportStartDate, reportEndDate, statusFilter, search]);
+
+  const groupedRows = useMemo(() => {
+    if (groupBy === 'none') return { '__all__': filteredRows } as Record<string, typeof filteredRows>;
+    const groups: Record<string, typeof filteredRows> = {};
+    for (const r of filteredRows) {
+      const key = groupBy === 'person' ? `${r.name}` : r.date;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    }
+    return groups;
+  }, [filteredRows, groupBy]);
+
+  // Days tracked (unique session dates in the range); falls back to report summary when available
+  const daysTracked = useMemo(() => {
+    if (report?.summary?.total_working_days !== undefined) {
+      return report.summary.total_working_days;
+    }
+    const uniqueDates = new Set(filteredRows.map(r => r.date));
+    return uniqueDates.size;
+  }, [report, filteredRows]);
 
   return (
     <section className="h-full flex flex-col overflow-hidden space-y-4">
@@ -107,93 +302,238 @@ export function Reports({ group }: ReportsProps) {
               className="bg-transparent focus:outline-none w-36 text-white/90"
             />
           </label>
+          {/* Dynamic Days Tracked indicator */}
+          {!loading && (
+            <div className="text-xs text-white/60 ml-2 whitespace-nowrap">
+              Days tracked: <span className="text-white/90 font-semibold">{daysTracked}</span>
+            </div>
+          )}
           <button
-            onClick={exportReport}
-            disabled={!report}
+              onClick={() => {
+                try {
+                  const cols = allColumns.filter(c => visibleColumns.includes(c.key));
+                  const header = cols.map(c => c.label);
+                  const rows: string[][] = [];
+                  Object.values(groupedRows).forEach(groupArr => {
+                    groupArr.forEach(r => {
+                      const row = cols.map(c => {
+                        const v = (r as any)[c.key];
+                        if (typeof v === 'boolean') return v ? 'true' : 'false';
+                        if (typeof v === 'number') return String(v);
+                        return v ?? '';
+                      });
+                      rows.push(row);
+                    });
+                  });
+
+                  const csvContent = [header, ...rows]
+                    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                    .join('\n');
+
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement('a');
+                  anchor.href = url;
+                  anchor.download = `attendance-view-${group.name}-${reportStartDate}-to-${reportEndDate}.csv`;
+                  document.body.appendChild(anchor);
+                  anchor.click();
+                  document.body.removeChild(anchor);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error('Error exporting view:', err);
+                  setError(err instanceof Error ? err.message : 'Failed to export view');
+                }
+              }}
             className="btn-success text-xs px-2 py-1 disabled:opacity-50"
+            >
+              Export CSV (current view)
+            </button>
+          <button
+            onClick={() => window.print()}
+            className="text-xs px-2 py-1 border border-white/20 rounded hover:bg-white/10"
           >
-            Export
+            Print
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scroll overflow-x-hidden min-h-0 pr-2">
+      <div className="flex-1 overflow-hidden min-h-0 pr-2">
         {error && (
-          <div className="px-4 py-2 bg-red-600/20 border border-red-500/40 text-red-200 rounded-lg text-sm mb-4">
+          <div className="px-4 py-2 bg-red-600/20 border border-red-500/40 text-red-200 rounded-lg text-sm mb-2">
             {error}
           </div>
         )}
 
-        {loading && (
+        {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="flex flex-col items-center gap-3">
               <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
               <span className="text-sm text-white/60">Generating report...</span>
             </div>
           </div>
-        )}
+        ) : (
+          <div className="h-full flex flex-col">
+          {/* Editable data view */}
+          <div className="rounded-xl border border-white/10 bg-white/5 h-full flex flex-col">
+            {/* Controls */}
+            <div className="p-3 border-b border-white/10 grid grid-cols-1 lg:grid-cols-3 gap-3 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-white/50">Saved view</span>
+                <select
+                  className="bg-transparent text-xs border border-white/20 rounded px-2 py-1"
+                  style={{ colorScheme: 'dark' }}
+                  value={activeViewIndex ?? ''}
+                  onChange={e => {
+                    const idx = e.target.value === '' ? null : Number(e.target.value);
+                    setActiveViewIndex(idx);
+                    if (idx !== null) {
+                      const v = views[idx];
+                      if (v) {
+                        setVisibleColumns(v.columns);
+                        setGroupBy(v.groupBy);
+                        setStatusFilter(v.statusFilter);
+                        setSearch(v.search);
+                        // Auto-set default to the selected view
+                        setDefaultViewName(v.name);
+                        localStorage.setItem(defaultViewNameKey, v.name);
+                      }
+                    } else {
+                      // Unsaved view selected, clear default mark
+                      setDefaultViewName(null);
+                      localStorage.removeItem(defaultViewNameKey);
+                    }
+                  }}
+                >
+                  <option className="bg-black text-white" value="">(unsaved)</option>
+                  {views.map((v, i) => (
+                    <option className="bg-black text-white" key={v.name + i} value={i}>{defaultViewName === v.name ? '★ ' : ''}{v.name}</option>
+                  ))}
+                </select>
+                <button
+                  className="text-xs px-2 py-1 border border-white/20 rounded hover:bg-white/10 disabled:opacity-50"
+                  onClick={handleSave}
+                  disabled={activeViewIndex === null}
+                >
+                  Save
+                </button>
+                <button className="text-xs px-2 py-1 border border-white/20 rounded hover:bg-white/10" onClick={handleSaveAs}>Save as new</button>
+                <button className="text-xs px-2 py-1 border border-white/20 rounded hover:bg-white/10 disabled:opacity-50" onClick={handleDeleteView} disabled={activeViewIndex === null}>Delete</button>
+                {isDirty && (
+                  <span className="text-[10px] text-amber-300 ml-1">Unsaved changes</span>
+                )}
+            </div>
 
-        {!loading && report && (
-          <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent p-4">
-              <p className="text-xs text-blue-100/60 uppercase tracking-wider">Days Tracked</p>
-              <div className="text-2xl font-semibold text-blue-200 mt-1">{report.summary.total_working_days}</div>
-              <p className="text-[10px] text-blue-100/40 mt-1">attendance taken</p>
-            </div>
-            <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent p-4">
-              <p className="text-xs text-emerald-100/60 uppercase tracking-wider">Avg Attendance</p>
-              <div className="text-2xl font-semibold text-emerald-200 mt-1">{report.summary.average_attendance_rate}%</div>
-              <p className="text-[10px] text-emerald-100/40 mt-1">across all members</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Most Punctual</p>
-                  <span className="text-xs text-emerald-200 font-medium">{report.summary.most_punctual}</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/50">Group by</span>
+                  <select
+                    className="bg-transparent text-xs border border-white/20 rounded px-2 py-1"
+                    style={{ colorScheme: 'dark' }}
+                    value={groupBy}
+                    onChange={e => setGroupBy(e.target.value as GroupByKey)}
+                  >
+                    <option className="bg-black text-white" value="none">None</option>
+                    <option className="bg-black text-white" value="person">Person</option>
+                    <option className="bg-black text-white" value="date">Date</option>
+                  </select>
                 </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[10px] text-white/50 uppercase tracking-wider">Most Absent</p>
-                  <span className="text-xs text-rose-200 font-medium">{report.summary.most_absent}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/50">Status</span>
+                  {(['present','absent','late','checked_out'] as const).map(st => {
+                    const active = statusFilter.includes(st);
+                    return (
+                      <label key={st} className="text-[11px] flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => {
+                            setStatusFilter(prev => prev.includes(st) ? prev.filter(x => x !== st) : [...prev, st]);
+                          }}
+                        />
+                        <span>{st}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
+
+              <div className="flex items-center justify-end gap-3 flex-wrap">
+                {allColumns.map(c => (
+                  <label key={c.key} className="text-[11px] flex items-center gap-1 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.includes(c.key)}
+                      onChange={e => {
+                        setVisibleColumns(prev => e.target.checked ? Array.from(new Set([...prev, c.key])) : prev.filter(k => k !== c.key));
+                      }}
+                    />
+                    <span>{c.label}</span>
+                  </label>
+                ))}
+                <input
+                  className="ml-auto bg-transparent text-xs border border-white/20 rounded px-2 py-1"
+                  placeholder="Search name/id/notes"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead className="bg-white/10 text-xs uppercase tracking-[0.2em] text-white/40">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Name</th>
-                    <th className="px-4 py-3 text-center">Present</th>
-                    <th className="px-4 py-3 text-center">Absent</th>
-                    <th className="px-4 py-3 text-center">Late</th>
-                    <th className="px-4 py-3 text-center">Attendance %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.members.map((member, index) => (
-                    <tr key={member.person_id} className={index % 2 === 0 ? 'bg-white/5' : ''}>
-                      <td className="px-4 py-3 text-sm font-medium text-white">{member.name}</td>
-                      <td className="px-4 py-3 text-sm text-center text-emerald-200">{member.present_days}</td>
-                      <td className="px-4 py-3 text-sm text-center text-rose-200">{member.absent_days}</td>
-                      <td className="px-4 py-3 text-sm text-center text-amber-200">{member.late_days}</td>
-                      <td className="px-4 py-3 text-sm text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          member.attendance_rate >= 90
-                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
-                            : member.attendance_rate >= 75
-                              ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
-                              : 'bg-rose-500/20 text-rose-200 border border-rose-400/40'
-                        }`}>
-                          {member.attendance_rate}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Table */}
+            <div className="flex-1 overflow-auto custom-scroll min-h-0">
+              {Object.entries(groupedRows).map(([gkey, rows], gi) => (
+                <div key={gkey + gi} className="border-b border-white/10">
+                  {groupBy !== 'none' && (
+                    <div className="px-4 py-2 text-xs text-white/60 bg-white/5">{groupBy === 'person' ? 'Person' : 'Date'}: <span className="text-white/80 font-medium">{gkey}</span> • Rows: {rows.length}</div>
+                  )}
+                  <table className="w-full border-collapse">
+                    <thead className="bg-black text-xs uppercase tracking-[0.2em] text-white sticky top-0 z-10">
+                      <tr>
+                        {allColumns.filter(c => visibleColumns.includes(c.key)).map(col => (
+                          <th key={col.key} className={`px-4 py-3 ${col.align === 'center' ? 'text-center' : 'text-left'}`}>{col.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, index) => (
+                        <tr key={`${r.person_id}-${r.date}-${index}`} className={index % 2 === 0 ? 'bg-white/5' : ''}>
+                          {visibleColumns.includes('name') && (
+                            <td className="px-4 py-3 text-sm font-medium text-white">{r.name}</td>
+                          )}
+                          {visibleColumns.includes('person_id') && (
+                            <td className="px-4 py-3 text-sm text-white/80">{r.person_id}</td>
+                          )}
+                          {visibleColumns.includes('date') && (
+                            <td className="px-4 py-3 text-sm text-white/80">{r.date}</td>
+                          )}
+                          {visibleColumns.includes('status') && (
+                            <td className="px-4 py-3 text-sm text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                                r.status === 'present' ? 'bg-emerald-500/15 text-emerald-200 border-emerald-400/30' :
+                                r.status === 'late' ? 'bg-amber-500/15 text-amber-200 border-amber-400/30' :
+                                r.status === 'checked_out' ? 'bg-sky-500/15 text-sky-200 border-sky-400/30' :
+                                'bg-rose-500/15 text-rose-200 border-rose-400/30'
+                              }`}>{r.status}</span>
+                            </td>
+                          )}
+                          {visibleColumns.includes('is_late') && (
+                            <td className="px-4 py-3 text-sm text-center">{r.is_late ? 'Yes' : 'No'}</td>
+                          )}
+                          {visibleColumns.includes('late_minutes') && (
+                            <td className="px-4 py-3 text-sm text-center">{r.late_minutes}</td>
+                          )}
+                          {visibleColumns.includes('total_hours') && (
+                            <td className="px-4 py-3 text-sm text-center">{(r.total_hours ?? 0).toFixed(2)}</td>
+                          )}
+                          {visibleColumns.includes('notes') && (
+                            <td className="px-4 py-3 text-sm text-white/80">{r.notes}</td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
             </div>
           </div>
           </div>
