@@ -27,7 +27,7 @@ export function ControlBar({
                   value={selectedCamera}
                   onChange={(e) => setSelectedCamera(e.target.value)}
                   disabled={isStreaming || cameraDevices.length <= 1}
-                  className="bg-white/[0.05] text-white text-base border border-white/[0.1] rounded-lg px-4 py-3 pr-10 focus:border-white/20 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full transition-all duration-300 ease-in-out hover:bg-white/[0.08] appearance-none cursor-pointer"
+                  className="bg-white/[0.05] text-white text-md border border-white/[0.1] rounded-lg px-4 py-3 pr-10 focus:border-white/20 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed w-full transition-all duration-300 ease-in-out hover:bg-white/[0.08] appearance-none cursor-pointer"
                   style={{ colorScheme: 'dark' }}
                 >
                   {cameraDevices.map((device, index) => (
@@ -56,7 +56,7 @@ export function ControlBar({
         {/* Start/Stop Button */}
         <button
           onClick={isStreaming ? stopCamera : startCamera}
-          className={`px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 ease-in-out ${
+          className={`px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 ease-in-out ${
             isStreaming ? 'btn-error' : 'btn-success'
           }`}
         >
