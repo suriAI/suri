@@ -27,3 +27,6 @@ pyinstaller
 
 # Windows-specific dependencies for PyInstaller builds
 pywin32-ctypes
+
+# Multipart dependencies
+python-multipart
