@@ -2,7 +2,7 @@
 
 # FastAPI and web server dependencies
 fastapi
-uvicorn
+uvicorn[standard]
 
 # Computer vision and image processing
 opencv-python
