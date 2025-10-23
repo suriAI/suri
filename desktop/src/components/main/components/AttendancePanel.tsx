@@ -87,45 +87,58 @@ export function AttendancePanel({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Fixed Header Section - Active Group Selection */}
-      {attendanceGroups.length > 0 && (
+      {attendanceGroups.length > 0 ? (
         <div className="p-4 pb-2 flex-shrink-0">
-          <div className="relative">
-            <select
-              value={currentGroup?.id || ''}
-              onChange={(e) => {
-                if (e.target.value === 'create-new') {
-                  setShowGroupManagement(true);
-                  return;
-                }
-                const group = attendanceGroups.find(g => g.id === e.target.value);
-                if (group) handleSelectGroup(group);
-              }}
-              className="w-full bg-white/[0.05] text-white text-sm border border-white/[0.1] rounded px-3 py-2 pr-8 focus:border-blue-500 focus:outline-none appearance-none cursor-pointer"
-              style={{ colorScheme: 'dark' }}
-            >
-              <option value="create-new" className="bg-black text-white">
-                Create New Group
-              </option>
-
-              {attendanceGroups.map(group => (
-                <option key={group.id} value={group.id} className="bg-black text-white">
-                  {group.name}
-                </option>
-              ))}
-            </select>
-            {/* Custom dropdown arrow */}
-            <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-              <svg
-                className="w-3 h-3 text-white/50 transition-colors duration-200"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <select
+                value={currentGroup?.id || ''}
+                onChange={(e) => {
+                  const group = attendanceGroups.find(g => g.id === e.target.value);
+                  if (group) handleSelectGroup(group);
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 pr-8 text-xs text-white focus:outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
+                style={{ colorScheme: 'dark' }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-              </svg>
+                {attendanceGroups.map(group => (
+                  <option key={group.id} value={group.id} className="bg-black text-white">
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+              {/* Custom dropdown arrow */}
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg
+                  className="w-3 h-3 text-white/50 transition-colors duration-200"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
+            <button
+              onClick={() => setShowGroupManagement(true)}
+              className="btn-success text-xs px-2 py-1 flex-shrink-0"
+              title="Create New Group"
+            >
+              +
+            </button>
           </div>
+        </div>
+      ) : (
+        <div className="p-4 text-center flex-shrink-0">
+          <div className="text-white/50 text-sm mb-3">
+            No groups created yet
+          </div>
+          <button
+            onClick={() => setShowGroupManagement(true)}
+            className="btn-success text-xs px-2 py-1"
+          >
+            New Group
+          </button>
         </div>
       )}
 
@@ -209,24 +222,10 @@ export function AttendancePanel({
           </div>
         ) : (
           <div className="text-white/50 text-sm text-center py-8">
-            No attendance records yet
+            No records found
           </div>
         )}
       </div>
-
-      {/* No data states - Outside scroll area */}
-      {attendanceGroups.length === 0 && (
-        <div className="p-4 text-white/50 text-sm text-center flex-shrink-0">
-          No groups created yet. <br /> Click "Create Group" to create one.
-
-          <button
-            onClick={() => setShowGroupManagement(true)}
-            className="btn-primary text-sm w-full px-3 py-2"
-          >
-            Create Group
-          </button>
-        </div>
-      )}
     </div>
   );
 }

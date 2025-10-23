@@ -41,11 +41,17 @@ export function useMenuData(): UseMenuDataReturn {
 
       // Preserve existing selection if it still exists
       const existingSelection = selectedGroupRef.current;
-      const resolved = existingSelection
-        ? allGroups.find(group => group.id === existingSelection.id) ?? allGroups[0]
-        : allGroups[0];
-
-      setSelectedGroup(resolved);
+      if (existingSelection) {
+        const stillExists = allGroups.find(group => group.id === existingSelection.id);
+        if (stillExists) {
+          setSelectedGroup(stillExists);
+        } else {
+          // Group was deleted, clear selection
+          setSelectedGroup(null);
+          setMembers([]);
+        }
+      }
+      // Don't auto-select first group - let user explicitly select
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load groups');
     } finally {

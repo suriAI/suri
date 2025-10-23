@@ -10,6 +10,7 @@ import { EmptyState } from '../shared/EmptyState';
 
 interface MenuContentProps {
   selectedGroup: AttendanceGroup | null;
+  groups: AttendanceGroup[];
   members: AttendanceMember[];
   activeSection: MenuSection;
   onMembersChange: () => void;
@@ -23,6 +24,7 @@ interface MenuContentProps {
 
 export function MenuContent({
   selectedGroup,
+  groups,
   members,
   activeSection,
   onMembersChange,
@@ -36,7 +38,7 @@ export function MenuContent({
   if (!selectedGroup) {
     return (
       <div className="h-full px-6 py-6">
-        <EmptyState onCreateGroup={onCreateGroup} />
+        <EmptyState onCreateGroup={onCreateGroup} hasGroups={groups.length > 0} />
       </div>
     );
   }
