@@ -28,7 +28,6 @@
               "src/types/**/*", 
               "src/components/**/*", 
               "src/services/**/*",
-              "electron/**/*"
-            
+              "src/electron/**/*"
             ]
 }
