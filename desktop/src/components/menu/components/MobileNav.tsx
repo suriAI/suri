@@ -31,7 +31,7 @@ export function MobileNav({ activeSection, onSectionChange, selectedGroup, onClo
   };
 
   return (
-    <nav className="py-4 px-4 overflow-y-auto h-[calc(100vh-4rem)]">
+    <nav className="px-4 pt-3 pb-4 overflow-y-auto custom-scroll h-full">
       <ul className="space-y-2">
         {SECTIONS.map((section) => {
           const isActive = activeSection === section.id;

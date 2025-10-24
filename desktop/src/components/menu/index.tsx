@@ -25,7 +25,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
     selectedGroup,
     groups,
     members,
-    loading,
     error,
     setSelectedGroup,
     setError,
@@ -100,9 +99,28 @@ export function Menu({ onBack, initialSection }: MenuProps) {
   };
 
   return (
-    <div className="pt-9 pb-5 h-screen bg-black text-white flex overflow-hidden">
+    <div className="pt-12 lg:pt-9 pb-5 h-screen bg-black text-white flex overflow-hidden">
       {/* Error Banner */}
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+
+      {/* Mobile Top Bar */}
+      <div className="fixed inset-x-0 top-9 lg:hidden z-30">
+        <div className="h-12 px-3 flex items-center justify-between bg-white/[0.02] border-b border-white/[0.08] backdrop-blur-sm">
+          <button
+            onClick={() => setIsMobileDrawerOpen(true)}
+            className="px-3 py-1.5 rounded-md text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Open menu"
+            title="Open menu"
+          >
+            Menu
+          </button>
+          <div className="flex-1 min-w-0 text-right">
+            <div className="text-xs text-white/50 truncate">
+              {selectedGroup ? selectedGroup.name : 'No group selected'}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Desktop Sidebar - Hidden on mobile */}
       <div className="hidden lg:block">
@@ -111,7 +129,6 @@ export function Menu({ onBack, initialSection }: MenuProps) {
           onSectionChange={setActiveSection}
           selectedGroup={selectedGroup}
           groups={groups}
-          loading={loading}
           onGroupChange={setSelectedGroup}
           onCreateGroup={openCreateGroup}
           onBack={onBack}
@@ -127,6 +144,9 @@ export function Menu({ onBack, initialSection }: MenuProps) {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         selectedGroup={selectedGroup}
+        groups={groups}
+        onGroupChange={setSelectedGroup}
+        onCreateGroup={openCreateGroup}
       />
 
       {/* Main Content Area */}

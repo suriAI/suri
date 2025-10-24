@@ -31,7 +31,7 @@ export function MenuSidebar({
   return (
     <aside
       className={`
-        flex flex-col border-r border-white/10 bg-black
+        flex flex-col border-r border-white/[0.08] bg-white/[0.02]
         transition-all duration-300 ease-in-out flex-shrink-0
         ${isCollapsed ? 'w-16' : 'w-64'} h-full relative
       `}
@@ -39,14 +39,20 @@ export function MenuSidebar({
       {/* Collapse Button - Center of Right Border */}
       <button
         onClick={onToggleCollapse}
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-8 h-8 bg-black/90 backdrop-blur-sm border border-white/10 rounded-full hover:bg-white/10 hover:border-white/20 transition-all duration-200 flex items-center justify-center z-10 group"
+        className="border-none absolute right-3 top-1/2 -translate-y-1/2 translate-x-1/2 flex items-center justify-center z-10 group focus:outline-none"
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
-        <div className="relative w-4 h-4">
-          <div className={`absolute top-1/2 left-1/2 w-3 h-0.5 bg-white/70 group-hover:bg-white transition-all duration-200 ${isCollapsed ? 'rotate-45 -translate-x-1/2 -translate-y-1/2' : '-rotate-45 -translate-x-1/2 -translate-y-1/2'}`}></div>
-          <div className={`absolute top-1/2 left-1/2 w-3 h-0.5 bg-white/70 group-hover:bg-white transition-all duration-200 ${isCollapsed ? '-rotate-45 -translate-x-1/2 -translate-y-1/2' : 'rotate-45 -translate-x-1/2 -translate-y-1/2'}`}></div>
-        </div>
+        <svg
+          className={`w-5 h-5 text-white/70 group-hover:text-white transition-all duration-200 drop-shadow ${isCollapsed ? 'rotate-180 translate-x-[1px]' : 'rotate-0 -translate-x-[1px]'}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
       </button>
       {/* Sidebar Header */}
       <MenuHeader
@@ -66,7 +72,7 @@ export function MenuSidebar({
       />
 
       {/* Close Button at Bottom */}
-      <div className="px-4 py-3 border-t border-white/10 mt-auto">
+      <div className="px-4 py-3 border-t border-white/[0.08] mt-auto">
         <button
           onClick={onBack}
           className="w-full px-3 py-2 rounded-md text-sm font-medium text-white/60 hover:bg-white/5 hover:text-white/80 transition-all text-center"
