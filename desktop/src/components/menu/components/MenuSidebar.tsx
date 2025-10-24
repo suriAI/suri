@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import type { MenuSection } from '../types';
 import type { AttendanceGroup } from '../../../types/recognition';
 import { MenuHeader } from './MenuHeader';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { backendService } from '../../services/BackendService';
 import { attendanceManager } from '../../services/AttendanceManager';
 import { Display } from './sections/Display';
