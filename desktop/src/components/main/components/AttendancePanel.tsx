@@ -188,7 +188,7 @@ export function AttendancePanel({
             {visibleRecords.map(record => {
               const member = groupMembers.find(m => m.person_id === record.person_id);
               return (
-                <div key={record.id} className="text-xs bg-white/[0.02] border border-r-0 border-white/[0.05] p-2">
+                <div key={record.id} className="text-xs bg-white/[0.02] border-b border-white/[0.05] p-2">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium">{member?.name || record.person_id}</span>
