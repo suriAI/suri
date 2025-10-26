@@ -7,16 +7,12 @@ from enum import Enum
 class AttendanceStatus(str, Enum):
     PRESENT = "present"
     ABSENT = "absent"
-    LATE = "late"
-    CHECKED_OUT = "checked_out"
 
 
 # Group Models
 class GroupSettings(BaseModel):
-    auto_checkout_hours: Optional[int] = 8
     late_threshold_minutes: Optional[int] = 15
     late_threshold_enabled: bool = False  # OFF by default
-    require_checkout: bool = False
     class_start_time: Optional[str] = "08:00"  # HH:MM format
 
 
@@ -126,20 +122,14 @@ class AttendanceEventResponse(BaseModel):
 
 # Settings Models
 class AttendanceSettingsUpdate(BaseModel):
-    auto_checkout_enabled: Optional[bool] = None
-    auto_checkout_hours: Optional[int] = Field(None, ge=1, le=24)
     late_threshold_minutes: Optional[int] = Field(None, ge=0, le=120)
-    require_manual_checkout: Optional[bool] = None
     enable_location_tracking: Optional[bool] = None
     confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
     attendance_cooldown_seconds: Optional[int] = Field(None, ge=1, le=300)
 
 
 class AttendanceSettingsResponse(BaseModel):
-    auto_checkout_enabled: bool
-    auto_checkout_hours: int
     late_threshold_minutes: int
-    require_manual_checkout: bool
     enable_location_tracking: bool
     confidence_threshold: float
     attendance_cooldown_seconds: int

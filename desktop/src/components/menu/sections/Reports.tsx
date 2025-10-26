@@ -41,14 +41,14 @@ export function Reports({ group }: ReportsProps) {
     name: string;
     columns: ColumnKey[];
     groupBy: GroupByKey;
-    statusFilter: Array<'present' | 'absent' | 'checked_out'>;
+    statusFilter: Array<'present' | 'absent'>;
     search: string;
   }
 
   const defaultColumns: ColumnKey[] = ['name', 'date', 'check_in_time', 'status', 'is_late'];
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(defaultColumns);
   const [groupBy, setGroupBy] = useState<GroupByKey>('none');
-  const [statusFilter, setStatusFilter] = useState<Array<'present' | 'absent' | 'checked_out'>>([]);
+  const [statusFilter, setStatusFilter] = useState<Array<'present' | 'absent'>>([]);
   const [search, setSearch] = useState<string>('');
 
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -457,7 +457,7 @@ export function Reports({ group }: ReportsProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-white/50">Status</span>
-                  {(['present','absent','checked_out'] as const).map(st => {
+                  {(['present','absent'] as const).map(st => {
                     const active = statusFilter.includes(st);
                     return (
                       <label key={st} className="text-[11px] flex items-center gap-1">
@@ -531,7 +531,6 @@ export function Reports({ group }: ReportsProps) {
                               <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${
                                 r.status === 'present' && r.is_late ? 'bg-amber-500/15 text-amber-200 border-amber-400/30' :
                                 r.status === 'present' ? 'bg-emerald-500/15 text-emerald-200 border-emerald-400/30' :
-                                r.status === 'checked_out' ? 'bg-sky-500/15 text-sky-200 border-sky-400/30' :
                                 'bg-rose-500/15 text-rose-200 border-rose-400/30'
                               }`}>
                                 {r.status === 'present' && r.is_late ? `late (${r.late_minutes}m)` : r.status}

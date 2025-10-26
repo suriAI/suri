@@ -85,11 +85,9 @@ export function Members({ group, members, onMembersChange, onEdit, onAdd }: Memb
                 ? `Late (${session.late_minutes ?? 0}m)`
                 : session?.status === 'present'
                   ? 'Present'
-                  : session?.status === 'checked_out'
-                    ? 'Checked out'
-                    : session?.status === 'absent'
-                      ? 'Absent'
-                      : 'No record';
+                  : session?.status === 'absent'
+                    ? 'Absent'
+                    : 'No record';
 
             const statusClass = isLoadingSessions
               ? 'bg-white/5 text-white/30 border border-white/10'
@@ -97,9 +95,7 @@ export function Members({ group, members, onMembersChange, onEdit, onAdd }: Memb
                 ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
                 : session?.status === 'present'
                   ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
-                  : session?.status === 'checked_out'
-                    ? 'bg-white/10 text-white/70 border border-white/20'
-                    : 'bg-rose-500/20 text-rose-200 border border-rose-400/40';
+                  : 'bg-rose-500/20 text-rose-200 border border-rose-400/40';
 
             return (
               <div key={member.person_id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">

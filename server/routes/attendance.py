@@ -1225,7 +1225,7 @@ def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
         if session:
             status = session.get("status", "absent")
             
-            if status in ["present", "checked_out"]:
+            if status == "present":
                 present_today += 1
                 if session.get("is_late"):
                     late_today += 1

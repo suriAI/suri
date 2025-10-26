@@ -120,7 +120,7 @@ export interface DetectionWithRecognitionResult {
  * Attendance System Types and Interfaces
  */
 
-export type AttendanceStatus = 'present' | 'absent' | 'checked_out';
+export type AttendanceStatus = 'present' | 'absent';
 
 export interface AttendanceGroup {
   id: string;
@@ -129,10 +129,8 @@ export interface AttendanceGroup {
   created_at: Date;
   is_active: boolean;
   settings: {
-    auto_checkout_hours?: number;
     late_threshold_minutes?: number;
     late_threshold_enabled?: boolean;
-    require_checkout: boolean;
     class_start_time?: string; // HH:MM format (e.g., "08:00")
   };
 }
@@ -209,10 +207,7 @@ export interface AttendanceReport {
 }
 
 export interface AttendanceSettings {
-  auto_checkout_enabled: boolean;
-  auto_checkout_hours: number;
   late_threshold_minutes: number;
-  require_manual_checkout: boolean;
   enable_location_tracking: boolean;
   attendance_cooldown_seconds: number; // Cooldown period to prevent duplicate attendance logging
 }

@@ -43,9 +43,8 @@ class AttendanceDatabaseManager:
                         description TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         is_active BOOLEAN DEFAULT 1,
-                        auto_checkout_hours INTEGER,
                         late_threshold_minutes INTEGER,
-                        require_checkout BOOLEAN DEFAULT 0,
+                        late_threshold_enabled BOOLEAN DEFAULT 0,
                         class_start_time TEXT DEFAULT '08:00'
                     )
                 """)
@@ -103,10 +102,7 @@ class AttendanceDatabaseManager:
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS attendance_settings (
                         id INTEGER PRIMARY KEY CHECK (id = 1),
-                        auto_checkout_enabled BOOLEAN DEFAULT 1,
-                        auto_checkout_hours INTEGER DEFAULT 8,
                         late_threshold_minutes INTEGER DEFAULT 15,
-                        require_manual_checkout BOOLEAN DEFAULT 0,
                         enable_location_tracking BOOLEAN DEFAULT 0,
                         confidence_threshold REAL DEFAULT 0.7,
                         attendance_cooldown_seconds INTEGER DEFAULT 10,
@@ -131,6 +127,13 @@ class AttendanceDatabaseManager:
                 # Migration: Add check_in_time column to attendance_sessions if it doesn't exist
                 try:
                     cursor.execute("ALTER TABLE attendance_sessions ADD COLUMN check_in_time TIMESTAMP")
+                except sqlite3.OperationalError:
+                    # Column already exists, ignore the error
+                    pass
+                
+                # Migration: Add late_threshold_enabled column if it doesn't exist
+                try:
+                    cursor.execute("ALTER TABLE attendance_groups ADD COLUMN late_threshold_enabled BOOLEAN DEFAULT 0")
                 except sqlite3.OperationalError:
                     # Column already exists, ignore the error
                     pass
@@ -184,16 +187,14 @@ class AttendanceDatabaseManager:
                     
                     cursor.execute("""
                         INSERT INTO attendance_groups 
-                        (id, name, description, auto_checkout_hours, 
-                         late_threshold_minutes, require_checkout)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        (id, name, description, late_threshold_minutes, late_threshold_enabled)
+                        VALUES (?, ?, ?, ?, ?)
                     """, (
                         group_data['id'],
                         group_data['name'],
                         group_data.get('description'),
-                        group_data.get('settings', {}).get('auto_checkout_hours'),
                         group_data.get('settings', {}).get('late_threshold_minutes'),
-                        group_data.get('settings', {}).get('require_checkout', False)
+                        group_data.get('settings', {}).get('late_threshold_enabled', False)
                     ))
                     
                     conn.commit()
@@ -220,9 +221,8 @@ class AttendanceDatabaseManager:
                 for row in cursor.fetchall():
                     group = dict(row)
                     group['settings'] = {
-                        'auto_checkout_hours': group.pop('auto_checkout_hours'),
-                        'late_threshold_minutes': group.pop('late_threshold_minutes'),
-                        'require_checkout': bool(group.pop('require_checkout')),
+                        'late_threshold_minutes': group.pop('late_threshold_minutes', 15),
+                        'late_threshold_enabled': bool(group.pop('late_threshold_enabled', False)),
                         'class_start_time': group.pop('class_start_time', '08:00')
                     }
                     groups.append(group)
@@ -245,9 +245,8 @@ class AttendanceDatabaseManager:
                 if row:
                     group = dict(row)
                     group['settings'] = {
-                        'auto_checkout_hours': group.pop('auto_checkout_hours'),
-                        'late_threshold_minutes': group.pop('late_threshold_minutes'),
-                        'require_checkout': bool(group.pop('require_checkout')),
+                        'late_threshold_minutes': group.pop('late_threshold_minutes', 15),
+                        'late_threshold_enabled': bool(group.pop('late_threshold_enabled', False)),
                         'class_start_time': group.pop('class_start_time', '08:00')
                     }
                     return group
@@ -615,10 +614,7 @@ class AttendanceDatabaseManager:
                 
                 # Return default settings if none found
                 return {
-                    'auto_checkout_enabled': True,
-                    'auto_checkout_hours': 8,
                     'late_threshold_minutes': 15,
-                    'require_manual_checkout': False,
                     'enable_location_tracking': False,
                     'confidence_threshold': 0.7,
                     'attendance_cooldown_seconds': 10
