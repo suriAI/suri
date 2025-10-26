@@ -714,7 +714,7 @@ async def process_attendance_event(
             "date": today_str,
             "check_in_time": timestamp.isoformat(),  # Convert to string for SQLite
             "total_hours": None,
-            "status": "present",  # Status is always "present" if they checked in, "late" is tracked separately
+            "status": "present",  # Status is always "present" if they checked in, "late" is tracked separately via is_late field
             "is_late": is_late,
             "late_minutes": late_minutes if is_late else None,
             "notes": None
@@ -842,7 +842,7 @@ async def get_group_stats(
         if sessions:
             # Check if any session is missing check_in_time (indicates old data)
             for session in sessions:
-                if session.get('status') in ['present', 'late'] and not session.get('check_in_time'):
+                if session.get('status') == 'present' and not session.get('check_in_time'):
                     needs_recompute = True
                     break
         
@@ -1197,7 +1197,7 @@ def _compute_sessions_from_records(
             "date": target_date,
             "check_in_time": timestamp,  # Store the actual check-in timestamp
             "total_hours": None,  # Could be calculated if we track check-out
-            "status": "present",  # Status is always "present" if they checked in, "late" is tracked separately
+            "status": "present",  # Status is always "present" if they checked in, "late" is tracked separately via is_late field
             "is_late": is_late,
             "late_minutes": late_minutes if is_late else None,
             "notes": None
@@ -1225,7 +1225,7 @@ def _calculate_group_stats(members: List[dict], sessions: List[dict]) -> dict:
         if session:
             status = session.get("status", "absent")
             
-            if status in ["present", "late", "checked_out"]:
+            if status in ["present", "checked_out"]:
                 present_today += 1
                 if session.get("is_late"):
                     late_today += 1

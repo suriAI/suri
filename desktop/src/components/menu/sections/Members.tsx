@@ -81,10 +81,10 @@ export function Members({ group, members, onMembersChange, onEdit, onAdd }: Memb
             // While loading, show loading state
             const statusLabel = isLoadingSessions
               ? '...'
-              : session?.status === 'present'
-                ? 'Present'
-                : session?.status === 'late'
-                  ? `Late (${session.late_minutes ?? 0}m)`
+              : session?.status === 'present' && session?.is_late
+                ? `Late (${session.late_minutes ?? 0}m)`
+                : session?.status === 'present'
+                  ? 'Present'
                   : session?.status === 'checked_out'
                     ? 'Checked out'
                     : session?.status === 'absent'
@@ -93,10 +93,10 @@ export function Members({ group, members, onMembersChange, onEdit, onAdd }: Memb
 
             const statusClass = isLoadingSessions
               ? 'bg-white/5 text-white/30 border border-white/10'
-              : session?.status === 'present'
-                ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
-                : session?.status === 'late'
-                  ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
+              : session?.status === 'present' && session?.is_late
+                ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
+                : session?.status === 'present'
+                  ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
                   : session?.status === 'checked_out'
                     ? 'bg-white/10 text-white/70 border border-white/20'
                     : 'bg-rose-500/20 text-rose-200 border border-rose-400/40';

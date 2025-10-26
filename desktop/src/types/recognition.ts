@@ -120,7 +120,7 @@ export interface DetectionWithRecognitionResult {
  * Attendance System Types and Interfaces
  */
 
-export type AttendanceStatus = 'present' | 'absent' | 'late' | 'checked_out';
+export type AttendanceStatus = 'present' | 'absent' | 'checked_out';
 
 export interface AttendanceGroup {
   id: string;
