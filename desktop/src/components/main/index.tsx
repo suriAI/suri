@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useDeferredValue, startTransi
 import { BackendService } from '../../services/BackendService';
 import { Settings, type QuickSettings } from '../settings';
 import { attendanceManager } from '../../services/AttendanceManager';
-import { Menu, type MenuSection } from '../menu';
+import type { GroupSection } from '../group';
 import type { 
   FaceRecognitionResponse,
   AttendanceGroup,
@@ -10,7 +10,7 @@ import type {
   AttendanceRecord
 } from '../../types/recognition';
 import { drawOverlays } from './utils/overlayRenderer';
-import type { DetectionResult, DashboardTab, WebSocketFaceData, WebSocketDetectionResponse, WebSocketConnectionMessage, WebSocketErrorMessage, CooldownInfo, TrackedFace } from './types';
+import type { DetectionResult, WebSocketFaceData, WebSocketDetectionResponse, WebSocketConnectionMessage, WebSocketErrorMessage, CooldownInfo, TrackedFace } from './types';
 import { ControlBar } from './components/ControlBar';
 import { VideoCanvas } from './components/VideoCanvas';
 import { Sidebar } from './components/Sidebar';
@@ -187,7 +187,6 @@ export default function Main() {
   // Anti-spoofing settings
 
   // Command hub state
-  const [menuInitialSection, setMenuInitialSection] = useState<MenuSection>('overview');
   const [currentRecognitionResults, setCurrentRecognitionResults] = useState<Map<number, ExtendedFaceRecognitionResponse>>(new Map());
 
   // ACCURATE FPS tracking with rolling average
@@ -202,6 +201,8 @@ export default function Main() {
 
   // Settings view state
   const [showSettings, setShowSettings] = useState(false);
+  const [isSettingsFullScreen, setIsSettingsFullScreen] = useState(false);
+  const [groupInitialSection, setGroupInitialSection] = useState<GroupSection | undefined>(undefined);
   const [quickSettings, setQuickSettings] = useState<QuickSettings>({
     cameraMirrored: true,
     showFPS: false,
@@ -422,12 +423,6 @@ export default function Main() {
   }, [attendanceCooldowns, attendanceCooldownSeconds, persistentCooldowns]);
 
 
-  const [showMenuPanel, setShowMenuPanel] = useState(false);
-
-  const openMenuPanel = useCallback((section: DashboardTab) => {
-    setMenuInitialSection(section);
-    setShowMenuPanel(true);
-  }, []);
 
   // OPTIMIZED: Capture frame as Binary ArrayBuffer (30% faster than Base64)
   const captureFrame = useCallback((): Promise<ArrayBuffer | null> => {
@@ -2023,7 +2018,6 @@ export default function Main() {
               groupMembers={groupMembers}
               handleSelectGroup={handleSelectGroup}
               setShowGroupManagement={setShowGroupManagement}
-          openMenuPanel={openMenuPanel}
           setShowSettings={setShowSettings}
             />
            </div>
@@ -2046,25 +2040,17 @@ export default function Main() {
   
 
 
-          {/* Command Menu Panel */}
-          {showMenuPanel && (
-            <div className="fixed inset-0 z-50">
-              <Menu
-                onBack={() => {
-                  setShowMenuPanel(false);
-                  loadAttendanceData(); // Refresh data when menu closes
-                }}
-                initialSection={menuInitialSection}
-                initialGroup={currentGroup}
-                onGroupsChanged={loadAttendanceData}
-              />
-            </div>
-          )}
-  
-          {/* Settings Modal */}
+          {/* Settings Modal (with integrated Menu) */}
           {showSettings && (
             <Settings 
-              onBack={() => setShowSettings(false)} 
+              onBack={() => {
+                setShowSettings(false);
+                setIsSettingsFullScreen(false);
+                setGroupInitialSection(undefined);
+                loadAttendanceData(); // Refresh data when closing
+              }}
+              isFullScreen={isSettingsFullScreen}
+              onToggleFullScreen={() => setIsSettingsFullScreen(prev => !prev)} 
               isModal={true}
               quickSettings={quickSettings}
               onQuickSettingsChange={setQuickSettings}
@@ -2111,6 +2097,10 @@ export default function Main() {
                 }
               }}
               isStreaming={isStreaming}
+              initialGroupSection={groupInitialSection}
+              currentGroup={currentGroup}
+              onGroupSelect={handleSelectGroup}
+              onGroupsChanged={loadAttendanceData}
             />
           )}
   

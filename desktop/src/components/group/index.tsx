@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 
 // Types
-export type { MenuSection } from './types';
-import type { MenuProps } from './types';
+export type { GroupSection } from './types';
+import type { GroupPanelProps } from './types';
 
 // Custom Hooks
-import { useMenuData } from './hooks/useMenuData';
-import { useMenuModals } from './hooks/useMenuModals';
+import { useGroupData } from './hooks/useGroupData';
+import { useGroupModals } from './hooks/useGroupModals';
 
 // Components
-import { MenuSidebar } from './components/MenuSidebar';
+import { GroupSidebar } from './components/GroupSidebar';
 import { MobileDrawer } from './components/MobileDrawer';
 import { ErrorBanner } from './components/ErrorBanner';
-import { MenuContent } from './components/MenuContent';
-import { MenuModals } from './components/MenuModals';
+import { GroupContent } from './components/GroupContent';
+import { GroupModals } from './components/GroupModals';
 
-export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, isEmbedded = false }: MenuProps) {
+export function GroupPanel({ onBack, initialSection, initialGroup, onGroupsChanged, isEmbedded = false }: GroupPanelProps) {
   const [activeSection, setActiveSection] = useState(initialSection ?? 'overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -32,7 +32,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
     fetchGroupDetails,
     deleteGroup,
     exportData,
-  } = useMenuData(initialGroup);
+  } = useGroupData(initialGroup);
 
   const {
     showAddMemberModal,
@@ -48,7 +48,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
     closeEditMember,
     closeCreateGroup,
     closeEditGroup,
-  } = useMenuModals();
+  } = useGroupModals();
 
   // Handlers
   const handleDeleteGroup = async () => {
@@ -92,7 +92,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
 
   // Restore sidebar state from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('suri_menu_sidebar_collapsed');
+    const saved = localStorage.getItem('suri_group_sidebar_collapsed');
     if (saved !== null) {
       setIsSidebarCollapsed(saved === 'true');
     }
@@ -102,7 +102,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed(prev => {
       const newValue = !prev;
-      localStorage.setItem('suri_menu_sidebar_collapsed', String(newValue));
+      localStorage.setItem('suri_group_sidebar_collapsed', String(newValue));
       return newValue;
     });
   };
@@ -116,7 +116,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
 
         {/* Main Content Area - Full width when embedded */}
         <div className="h-full overflow-hidden bg-[#0f0f0f]">
-          <MenuContent
+          <GroupContent
             selectedGroup={selectedGroup}
             groups={groups}
             members={members}
@@ -132,7 +132,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
         </div>
 
         {/* Modals */}
-        <MenuModals
+        <GroupModals
           selectedGroup={selectedGroup}
           showAddMemberModal={showAddMemberModal}
           showEditMemberModal={showEditMemberModal}
@@ -177,7 +177,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
 
       {/* Desktop Sidebar - Hidden on mobile */}
       <div className="hidden lg:block">
-        <MenuSidebar
+        <GroupSidebar
           activeSection={activeSection}
           onSectionChange={setActiveSection}
           selectedGroup={selectedGroup}
@@ -204,7 +204,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden bg-black">
-        <MenuContent
+        <GroupContent
           selectedGroup={selectedGroup}
           groups={groups}
           members={members}
@@ -220,7 +220,7 @@ export function Menu({ onBack, initialSection, initialGroup, onGroupsChanged, is
       </main>
 
       {/* Modals */}
-      <MenuModals
+      <GroupModals
         selectedGroup={selectedGroup}
         showAddMemberModal={showAddMemberModal}
         showEditMemberModal={showEditMemberModal}

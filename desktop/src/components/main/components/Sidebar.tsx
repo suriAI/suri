@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react';
-import type { AttendanceGroup, AttendanceMember, AttendanceRecord, DetectionResult, TrackedFace, CooldownInfo, DashboardTab } from '../types';
+import type { AttendanceGroup, AttendanceMember, AttendanceRecord, DetectionResult, TrackedFace, CooldownInfo } from '../types';
 import type { ExtendedFaceRecognitionResponse } from '../index';
 import { AttendancePanel } from './AttendancePanel';
 import { CooldownList } from './CooldownList';
@@ -26,8 +26,7 @@ interface SidebarProps {
   handleSelectGroup: (group: AttendanceGroup) => void;
   setShowGroupManagement: (show: boolean) => void;
   
-  // Menu props
-  openMenuPanel: (section: DashboardTab) => void;
+  // Settings
   setShowSettings: (show: boolean) => void;
 }
 
@@ -50,7 +49,6 @@ export const Sidebar = memo(function Sidebar({
   groupMembers,
   handleSelectGroup,
   setShowGroupManagement,
-  openMenuPanel,
   setShowSettings,
 }: SidebarProps) {
   // Persistent state from localStorage
@@ -137,14 +135,6 @@ export const Sidebar = memo(function Sidebar({
         toggleSidebar();
       }
       
-      // Ctrl/Cmd + M to open menu
-      if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
-        e.preventDefault();
-        if (!isCollapsed) {
-          openMenuPanel('overview');
-        }
-      }
-      
       // Ctrl/Cmd + , to open settings (industry standard)
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
@@ -154,7 +144,7 @@ export const Sidebar = memo(function Sidebar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar, isCollapsed, openMenuPanel, setShowSettings]);
+  }, [toggleSidebar, setShowSettings]);
 
   const currentWidth = isCollapsed ? MIN_WIDTH : sidebarWidth;
 
@@ -181,32 +171,19 @@ export const Sidebar = memo(function Sidebar({
           </div>
         )}
 
-        {/* Header - Icon-Based Design (Industry Standard) */}
+        {/* Header - Minimal Design */}
         <div className={`px-3 py-2.5 border-b border-white/[0.08] transition-opacity duration-200 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {/* Menu Button */}
-              <button
-                onClick={() => openMenuPanel('overview')}
-                className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
-                title="Open Menu (Ctrl+M)"
-                disabled={isCollapsed}
-                aria-label="Open Menu"
-              >
-                <i className="fa-solid fa-bars text-white/70 group-hover:text-white text-base transition-colors"></i>
-              </button>
-
-              {/* Settings Button */}
-              <button
-                onClick={() => setShowSettings(true)}
-                className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
-                title="Settings (Ctrl+,)"
-                disabled={isCollapsed}
-                aria-label="Open Settings"
-              >
-                <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
-              </button>
-            </div>
+            {/* Settings Button */}
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
+              title="Settings (Ctrl+,)"
+              disabled={isCollapsed}
+              aria-label="Open Settings"
+            >
+              <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
+            </button>
 
             {/* Collapse Button - Top Right (Industry Standard) */}
             <button
@@ -251,7 +228,6 @@ export const Sidebar = memo(function Sidebar({
             groupMembers={groupMembers}
             handleSelectGroup={handleSelectGroup}
             setShowGroupManagement={setShowGroupManagement}
-            openMenuPanel={(section) => openMenuPanel(section as DashboardTab)}
           />
         </div>
 
@@ -270,16 +246,6 @@ export const Sidebar = memo(function Sidebar({
 
             {/* Visual Separator */}
             <div className="w-8 h-px bg-white/[0.06] my-1"></div>
-
-            {/* Menu Icon */}
-            <button
-              onClick={() => openMenuPanel('overview')}
-              className="flex items-center justify-center w-11 h-11 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
-              title="Menu (Ctrl+M)"
-              aria-label="Open Menu"
-            >
-              <i className="fa-solid fa-bars text-white/70 group-hover:text-white text-base transition-colors"></i>
-            </button>
 
             {/* Settings Icon */}
             <button

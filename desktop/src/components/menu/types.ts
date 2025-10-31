@@ -7,5 +7,6 @@ export interface MenuProps {
   initialSection?: MenuSection;
   initialGroup?: AttendanceGroup | null; // Pre-select this group when Menu opens
   onGroupsChanged?: () => void; // Callback when groups are created/deleted
+  isEmbedded?: boolean; // Whether Menu is embedded in Settings or standalone
 }
 

@@ -10,7 +10,6 @@ interface AttendancePanelProps {
   groupMembers: AttendanceMember[];
   handleSelectGroup: (group: AttendanceGroup) => void;
   setShowGroupManagement: (show: boolean) => void;
-  openMenuPanel: (section: string) => void;
 }
 
 type SortField = 'time' | 'name';
@@ -49,7 +48,6 @@ export const AttendancePanel = memo(function AttendancePanel({
   groupMembers,
   handleSelectGroup,
   setShowGroupManagement,
-  openMenuPanel,
 }: AttendancePanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('time');
@@ -268,13 +266,6 @@ export const AttendancePanel = memo(function AttendancePanel({
             <div className="text-white/40 text-xs text-center">
               <div className="mb-1">No members in this group yet</div>
             </div>
-            <button
-              onClick={() => openMenuPanel('members')}
-              className="btn-success text-xs px-4 py-2 flex items-center gap-2"
-            >
-              <i className="fa-solid fa-user-plus"></i>
-              <span>Add Members</span>
-            </button>
           </div>
         ) : (
           <div className="text-white/50 text-xs text-center py-8">
