@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { createDisplayNameMap } from '../../../utils/displayNameUtils.js';
+import { Dropdown } from '../../shared/Dropdown';
 import type { AttendanceGroup, AttendanceMember, AttendanceRecord } from '../types';
 
 interface AttendancePanelProps {
@@ -145,34 +146,26 @@ export const AttendancePanel = memo(function AttendancePanel({
       {attendanceGroups.length > 0 ? (
         <div className="p-2 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <select
-                value={currentGroup?.id || ''}
-                onChange={(e) => {
-                  const group = attendanceGroups.find(g => g.id === e.target.value);
-                  if (group) handleSelectGroup(group);
+            <div className="flex-1">
+              <Dropdown
+                options={attendanceGroups.map(group => ({
+                  value: group.id,
+                  label: group.name,
+                }))}
+                value={currentGroup?.id ?? null}
+                onChange={(groupId) => {
+                  if (groupId) {
+                    const group = attendanceGroups.find(g => g.id === groupId);
+                    if (group) handleSelectGroup(group);
+                  }
                 }}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 pr-8 text-xs text-white focus:outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
-                style={{ colorScheme: 'dark' }}
-              >
-                {attendanceGroups.map(group => (
-                  <option key={group.id} value={group.id} className="bg-black text-white">
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-              {/* Custom dropdown arrow */}
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-3 h-3 text-white/50 transition-colors duration-200"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
+                placeholder="Select group…"
+                emptyMessage="No groups available"
+                maxHeight={256}
+                buttonClassName="text-xs py-1.5"
+                allowClear={false}
+                showPlaceholderOption={false}
+              />
             </div>
             <button
               onClick={() => setShowGroupManagement(true)}

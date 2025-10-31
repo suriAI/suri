@@ -5,6 +5,7 @@ import { Display } from './sections/Display';
 import { Database } from './sections/Database';
 import { Attendance } from './sections/Attendance';
 import { GroupPanel, type GroupSection } from '../group';
+import { Dropdown } from '../shared/Dropdown';
 import type { QuickSettings, AttendanceSettings, SettingsOverview } from './types';
 import type { AttendanceGroup } from '../../types/recognition';
 
@@ -66,6 +67,7 @@ export const Settings: React.FC<SettingsProps> = ({
   useEffect(() => {
     loadSystemData();
   }, []);
+
 
   const loadSystemData = async () => {
     setIsLoading(true);
@@ -141,31 +143,28 @@ export const Settings: React.FC<SettingsProps> = ({
         {/* Group Selector - Top Context Switcher (Discord/Slack Pattern) */}
         <div className="px-3 py-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <select
-                value={currentGroup?.id ?? ''}
-                onChange={(event) => {
-                  const group = groups.find((g) => g.id === event.target.value) ?? null;
-                  if (group && onGroupSelect) {
-                    onGroupSelect(group);
+            <div className="flex-1">
+              <Dropdown
+                options={groups.map(group => ({
+                  value: group.id,
+                  label: group.name,
+                }))}
+                value={currentGroup?.id ?? null}
+                onChange={(groupId) => {
+                  if (groupId && onGroupSelect) {
+                    const group = groups.find(g => g.id === groupId);
+                    if (group) {
+                      onGroupSelect(group);
+                    }
+                  } else if (!groupId && onGroupSelect) {
+                    window.dispatchEvent(new CustomEvent('selectGroup', { detail: { group: null } }));
                   }
                 }}
-                className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 pr-8 text-sm text-white focus:outline-none focus:border-white/20 transition-all cursor-pointer appearance-none"
-                style={{ colorScheme: 'dark' }}
-              >
-                <option value="" className="bg-black text-white">
-                  Select group…
-                </option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id} className="bg-black text-white">
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-              {/* Custom dropdown arrow */}
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
-                <i className="fa-solid fa-chevron-down text-white/50 text-xs"></i>
-              </div>
+                placeholder="Select group…"
+                emptyMessage="No groups available"
+                maxHeight={256}
+                allowClear={true}
+              />
             </div>
             {/* Create Group Button - Opens Group section with create modal */}
             <button
