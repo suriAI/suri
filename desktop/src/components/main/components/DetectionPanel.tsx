@@ -9,8 +9,6 @@ interface DetectionPanelProps {
   currentRecognitionResults: Map<number, ExtendedFaceRecognitionResponse>;
   recognitionEnabled: boolean;
   trackedFaces: Map<string, TrackedFace>;
-  trackingMode: 'auto' | 'manual';
-  handleManualLog: (personId: string, name: string, confidence: number) => void;
   groupMembers: AttendanceMember[];
 }
 
@@ -22,8 +20,6 @@ const DetectionCard = memo(({
   isRecognized,
   displayName,
   trackedFace,
-  trackingMode,
-  handleManualLog
 }: {
   face: DetectionResult['faces'][0];
   index: number;
@@ -31,8 +27,6 @@ const DetectionCard = memo(({
   isRecognized: boolean;
   displayName: string;
   trackedFace: TrackedFace | undefined;
-  trackingMode: 'auto' | 'manual';
-  handleManualLog: (personId: string, name: string, confidence: number) => void;
 }) => {
   return (
     <div key={index} className={`glass-card rounded-lg p-3 ${trackedFace?.isLocked ? 'border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-transparent' : ''}`}>
@@ -46,9 +40,6 @@ const DetectionCard = memo(({
               <div className="text-xs text-green-400/80 font-mono">
                 {(recognitionResult.similarity * 100).toFixed(0)}%
               </div>
-            )}
-            {trackedFace && trackedFace.isLocked && (
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" title="Locked"></div>
             )}
           </div>
         </div>
@@ -83,18 +74,6 @@ const DetectionCard = memo(({
               </div>
             </div>
           )}
-          {trackingMode === 'manual' && isRecognized && recognitionResult?.person_id && (
-            <button
-              onClick={() => handleManualLog(
-                recognitionResult.person_id!,
-                displayName,
-                face.confidence
-              )}
-              className="btn-warning text-xs mt-2 w-full px-2 py-1 font-medium"
-            >
-              LOG
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -108,8 +87,6 @@ export function DetectionPanel({
   currentRecognitionResults,
   recognitionEnabled,
   trackedFaces,
-  trackingMode,
-  handleManualLog,
   groupMembers,
 }: DetectionPanelProps) {
   // Create display name map for members
@@ -123,43 +100,41 @@ export function DetectionPanel({
     [trackedFaces]
   );
 
-  if (!currentDetections?.faces?.length) {
-    return (
-      <div className="text-white/40 text-xs text-center flex items-center justify-center h-full">
-        NO DETECTION
-      </div>
-    );
-  }
+  const hasDetections = currentDetections?.faces?.length ?? 0;
 
   return (
     <>
-      {currentDetections.faces.map((face, index) => {
-        const trackId = face.track_id!;
-        const recognitionResult = currentRecognitionResults.get(trackId);
-        const isRecognized = recognitionEnabled && !!recognitionResult?.person_id;
-        const displayName = recognitionResult?.person_id 
-          ? displayNameMap.get(recognitionResult.person_id) || 'Unknown'
-          : '';
+      {!hasDetections ? (
+        <div className="text-white/40 text-xs text-center flex items-center justify-center h-full">
+          NO DETECTION
+        </div>
+      ) : (
+        currentDetections?.faces?.map((face, index) => {
+            const trackId = face.track_id!;
+            const recognitionResult = currentRecognitionResults.get(trackId);
+            const isRecognized = recognitionEnabled && !!recognitionResult?.person_id;
+            const displayName = recognitionResult?.person_id 
+              ? displayNameMap.get(recognitionResult.person_id) || 'Unknown'
+              : '';
 
-        const trackedFace = trackedFacesArray.find(track =>
-          track.personId === recognitionResult?.person_id ||
-          (Math.abs(track.bbox.x - face.bbox.x) < 30 && Math.abs(track.bbox.y - face.bbox.y) < 30)
-        );
+            const trackedFace = trackedFacesArray.find(track =>
+              track.personId === recognitionResult?.person_id ||
+              (Math.abs(track.bbox.x - face.bbox.x) < 30 && Math.abs(track.bbox.y - face.bbox.y) < 30)
+            );
 
-        return (
-          <DetectionCard
-            key={trackId}
-            face={face}
-            index={index}
-            recognitionResult={recognitionResult}
-            isRecognized={isRecognized}
-            displayName={displayName}
-            trackedFace={trackedFace}
-            trackingMode={trackingMode}
-            handleManualLog={handleManualLog}
-          />
-        );
-      })}
+            return (
+              <DetectionCard
+                key={trackId}
+                face={face}
+                index={index}
+                recognitionResult={recognitionResult}
+                isRecognized={isRecognized}
+                displayName={displayName}
+                trackedFace={trackedFace}
+              />
+            );
+          })
+        )}
     </>
   );
 }

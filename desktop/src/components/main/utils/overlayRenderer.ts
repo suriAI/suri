@@ -202,7 +202,7 @@ export const drawOverlays = ({
   if (!isFinite(scaleX) || !isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) return;
 
   currentDetections.faces.forEach((face) => {
-    const { bbox, liveness, landmarks_5 } = face;
+    const { bbox, landmarks_5 } = face;
 
     if (!bbox || !isFinite(bbox.x) || !isFinite(bbox.y) || !isFinite(bbox.width) || !isFinite(bbox.height)) return;
 

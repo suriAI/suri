@@ -1,4 +1,4 @@
-import type { AttendanceGroup } from '../types/recognition';
+import type { AttendanceGroup } from '../../types/recognition';
 
 export type MenuSection = 'overview' | 'members' | 'reports' | 'registration' | 'settings';
 

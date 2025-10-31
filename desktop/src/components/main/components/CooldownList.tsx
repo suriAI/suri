@@ -17,7 +17,7 @@ const CooldownItem = memo(({
 }) => (
   <div className="flex items-center justify-between bg-red-900/20 border border-red-500/30 rounded px-2 py-1">
     <span className="text-xs text-red-300">{cooldownInfo.memberName || cooldownInfo.personId}</span>
-    <span className="text-xs text-red-300 font-mono">📝 {remainingCooldown}s</span>
+    <span className="text-xs text-red-300 font-mono">{remainingCooldown}s</span>
   </div>
 ));
 

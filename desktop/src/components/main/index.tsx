@@ -883,7 +883,7 @@ export default function Main() {
       console.error('❌ Face recognition processing failed:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame]);
+  }, [captureFrame, trackingMode, attendanceCooldownSeconds]);
 
   // Initialize WebSocket connection
   const initializeWebSocket = useCallback(async () => {
@@ -1985,6 +1985,14 @@ export default function Main() {
               quickSettings={quickSettings}
               detectionFps={detectionFps}
               isVideoLoading={isVideoLoading}
+              trackingMode={trackingMode}
+              currentDetections={currentDetections}
+              currentRecognitionResults={currentRecognitionResults}
+              recognitionEnabled={recognitionEnabled}
+              groupMembers={groupMembers}
+              handleManualLog={handleManualLog}
+              getVideoRect={getVideoRect}
+              calculateScaleFactors={calculateScaleFactors}
             />
           </div>
 
@@ -2006,7 +2014,6 @@ export default function Main() {
           recognitionEnabled={recognitionEnabled}
           trackedFaces={trackedFaces}
           trackingMode={trackingMode}
-          handleManualLog={handleManualLog}
           persistentCooldowns={persistentCooldowns}
           attendanceCooldownSeconds={attendanceCooldownSeconds}
               attendanceEnabled={attendanceEnabled}
