@@ -31,7 +31,7 @@ interface SidebarProps {
   enableSpoofDetection: boolean;
 }
 
-const MIN_WIDTH = 64; // Collapsed width (icon only)
+const MIN_WIDTH = 50; // Collapsed width (icon only)
 const MIN_EXPANDED_WIDTH = 240; // Minimum width when expanded (prevents resizing too small)
 const MAX_WIDTH = 480; // Maximum expanded width
 const DEFAULT_WIDTH = 320; // Default expanded width
