@@ -31,6 +31,7 @@ interface SidebarProps {
 }
 
 const MIN_WIDTH = 64; // Collapsed width (icon only)
+const MIN_EXPANDED_WIDTH = 240; // Minimum width when expanded (prevents resizing too small)
 const MAX_WIDTH = 480; // Maximum expanded width
 const DEFAULT_WIDTH = 320; // Default expanded width
 
@@ -59,13 +60,16 @@ export const Sidebar = memo(function Sidebar({
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('suri_sidebar_width');
-    return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
+    const width = saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
+    // Ensure saved width respects minimum expanded width
+    return Math.max(MIN_EXPANDED_WIDTH, Math.min(MAX_WIDTH, width));
   });
 
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const resizeStartX = useRef(0);
   const resizeStartWidth = useRef(0);
+  const originalTransition = useRef<string>('');
 
   // Save state to localStorage
   useEffect(() => {
@@ -89,25 +93,62 @@ export const Sidebar = memo(function Sidebar({
     setIsResizing(true);
     resizeStartX.current = e.clientX;
     resizeStartWidth.current = sidebarWidth;
+    
+    // Disable transitions for smooth, real-time resizing
+    if (sidebarRef.current) {
+      // Store original transition value
+      originalTransition.current = sidebarRef.current.style.transition || '';
+      sidebarRef.current.style.transition = 'none';
+    }
   }, [isCollapsed, sidebarWidth]);
 
   // Handle resize move
   const handleResizeMove = useCallback((e: MouseEvent) => {
-    if (!isResizing) return;
+    if (!isResizing || !sidebarRef.current) return;
 
     const delta = resizeStartX.current - e.clientX; // Right-to-left sidebar
-    const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, resizeStartWidth.current + delta));
+    // Use MIN_EXPANDED_WIDTH when resizing (sidebar is expanded during resize)
+    const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_EXPANDED_WIDTH, resizeStartWidth.current + delta));
     
-    // Use requestAnimationFrame for smooth resizing
-    requestAnimationFrame(() => {
-      setSidebarWidth(newWidth);
-    });
+    // Direct DOM manipulation for smooth, real-time resizing without React re-renders
+    if (sidebarRef.current) {
+      sidebarRef.current.style.width = `${newWidth}px`;
+      sidebarRef.current.style.minWidth = `${newWidth}px`;
+      sidebarRef.current.style.maxWidth = `${newWidth}px`;
+    }
+    
+    // Update state in the background (for localStorage save on end)
+    setSidebarWidth(newWidth);
   }, [isResizing]);
 
   // Handle resize end
   const handleResizeEnd = useCallback(() => {
+    if (!sidebarRef.current) {
+      setIsResizing(false);
+      return;
+    }
+    
+    // Get final width from DOM to ensure accuracy
+    const finalWidth = parseFloat(sidebarRef.current.style.width) || sidebarWidth;
+    
+    // Update state with final width
+    setSidebarWidth(finalWidth);
+    
+    // Re-enable transitions after resize is complete (restore original or use CSS class default)
+    sidebarRef.current.style.transition = originalTransition.current;
+    
+    // Sync styles to ensure consistency (React will handle via style prop after render)
+    // Small delay to allow transition to be restored first
+    requestAnimationFrame(() => {
+      if (sidebarRef.current) {
+        sidebarRef.current.style.width = '';
+        sidebarRef.current.style.minWidth = '';
+        sidebarRef.current.style.maxWidth = '';
+      }
+    });
+    
     setIsResizing(false);
-  }, []);
+  }, [sidebarWidth]);
 
   // Setup resize event listeners
   useEffect(() => {
@@ -166,26 +207,24 @@ export const Sidebar = memo(function Sidebar({
             className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500/30 active:bg-blue-500/50 transition-colors z-20 group"
             onMouseDown={handleResizeStart}
             title="Drag to resize"
+            style={{ 
+              // Extend hitbox for easier grabbing (but keep visual width minimal)
+              paddingLeft: '2px',
+              marginLeft: '-2px'
+            }}
           >
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-white/10 rounded-r group-hover:bg-blue-500/50 transition-all" />
+            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${
+              isResizing 
+                ? 'bg-blue-500/70 h-16' 
+                : 'bg-white/10 group-hover:bg-blue-500/50'
+            }`} />
           </div>
         )}
 
         {/* Header - Minimal Design */}
         <div className={`px-3 py-2.5 border-b border-white/[0.08] transition-opacity duration-200 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <div className="flex items-center justify-between gap-2">
-            {/* Settings Button */}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
-              title="Settings (Ctrl+,)"
-              disabled={isCollapsed}
-              aria-label="Open Settings"
-            >
-              <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
-            </button>
-
-            {/* Collapse Button - Top Right (Industry Standard) */}
+            {/* Collapse Button - Top Left */}
             <button
               onClick={toggleSidebar}
               className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
@@ -193,6 +232,17 @@ export const Sidebar = memo(function Sidebar({
               aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               <i className={`fa-solid fa-chevron-left text-white/70 group-hover:text-white text-sm transition-all duration-300 ${isCollapsed ? 'rotate-180' : ''}`}></i>
+            </button>
+
+            {/* Settings Button - Top Right */}
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center justify-center w-9 h-9 hover:bg-white/[0.08] bg-transparent border-none transition-all duration-200 hover:scale-105 active:scale-95 group"
+              title="Settings (Ctrl+,)"
+              disabled={isCollapsed}
+              aria-label="Open Settings"
+            >
+              <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
             </button>
           </div>
         </div>
@@ -250,7 +300,7 @@ export const Sidebar = memo(function Sidebar({
             {/* Settings Icon */}
             <button
               onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center w-11 h-11 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
+              className="flex items-center justify-center w-11 h-11 hover:bg-white/[0.08] bg-transparent border-none transition-all duration-200 hover:scale-105 active:scale-95 group"
               title="Settings (Ctrl+,)"
               aria-label="Open Settings"
             >
