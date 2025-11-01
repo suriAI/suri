@@ -292,6 +292,7 @@ export const Settings: React.FC<SettingsProps> = ({
               onLateThresholdToggle={(enabled) => updateAttendanceSetting({ lateThresholdEnabled: enabled })}
               onClassStartTimeChange={(time) => updateAttendanceSetting({ classStartTime: time })}
               onCooldownChange={(seconds) => updateAttendanceSetting({ attendanceCooldownSeconds: seconds })}
+              onSpoofDetectionToggle={(enabled) => updateAttendanceSetting({ enableSpoofDetection: enabled })}
               isStreaming={isStreaming}
             />
           )}

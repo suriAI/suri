@@ -98,7 +98,8 @@ class FaceDetector:
                 landmarks_5[:, 0] *= scale_x
                 landmarks_5[:, 1] *= scale_y
                 
-                is_face_too_small = face_width_orig < self.min_face_size or face_height_orig < self.min_face_size
+                # Only check face size if min_face_size > 0 (when spoof detection is enabled)
+                is_face_too_small = self.min_face_size > 0 and (face_width_orig < self.min_face_size or face_height_orig < self.min_face_size)
                 
                 detection = {
                     'bbox': {
@@ -110,7 +111,7 @@ class FaceDetector:
                     'confidence': float(conf)
                 }
                 
-                # Add liveness status for small faces
+                # Add liveness status for small faces (only if min_face_size > 0)
                 if is_face_too_small:
                     detection['liveness'] = {
                         'is_real': False,

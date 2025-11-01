@@ -28,6 +28,7 @@ interface SidebarProps {
   
   // Settings
   setShowSettings: (show: boolean) => void;
+  enableSpoofDetection: boolean;
 }
 
 const MIN_WIDTH = 64; // Collapsed width (icon only)
@@ -51,6 +52,7 @@ export const Sidebar = memo(function Sidebar({
   handleSelectGroup,
   setShowGroupManagement,
   setShowSettings,
+  enableSpoofDetection,
 }: SidebarProps) {
   // Persistent state from localStorage
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -265,6 +267,7 @@ export const Sidebar = memo(function Sidebar({
                 recognitionEnabled={recognitionEnabled}
                 trackedFaces={trackedFaces}
                 groupMembers={groupMembers}
+                enableSpoofDetection={enableSpoofDetection}
               />
             </div>
           </div>

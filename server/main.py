@@ -28,7 +28,7 @@ from utils.image_utils import decode_base64_image, encode_image_to_base64
 from utils.websocket_manager import manager, handle_websocket_message
 from utils.attendance_database import AttendanceDatabaseManager
 from routes import attendance
-from config import FACE_DETECTOR_MODEL_PATH, FACE_DETECTOR_CONFIG, LIVENESS_DETECTOR_CONFIG, FACE_RECOGNIZER_MODEL_PATH, FACE_RECOGNIZER_CONFIG, CORS_CONFIG, FACE_TRACKER_CONFIG, DATA_DIR
+from config import FACE_DETECTOR_MODEL_PATH, FACE_DETECTOR_CONFIG, LIVENESS_DETECTOR_CONFIG, FACE_RECOGNIZER_MODEL_PATH, FACE_RECOGNIZER_CONFIG, CORS_CONFIG, FACE_TRACKER_CONFIG, DATA_DIR, MODEL_CONFIGS
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -91,11 +91,13 @@ class FaceRecognitionRequest(BaseModel):
     bbox: List[float]  # Face bounding box [x, y, width, height]
     landmarks_5: Optional[List[List[float]]] = None  # Optional 5-point landmarks from face detector (FAST!)
     group_id: Optional[str] = None  # Optional group ID to filter recognition to specific group members
+    enable_liveness_detection: bool = True  # Enable/disable liveness detection for spoof protection
 
 class FaceRegistrationRequest(BaseModel):
     person_id: str
     image: str  # Base64 encoded image
     bbox: List[float]  # Face bounding box [x, y, width, height]
+    enable_liveness_detection: bool = True  # Enable/disable liveness detection for spoof protection
     landmarks_5: Optional[List[List[float]]] = None  # Optional 5-point landmarks from face detector (FAST!)
 
 class FaceRecognitionResponse(BaseModel):
@@ -381,6 +383,14 @@ async def detect_faces(request: DetectionRequest):
             face_detector.set_confidence_threshold(request.confidence_threshold)
             face_detector.set_nms_threshold(request.nms_threshold)
             
+            # When liveness detection is disabled, remove minimum face size limit
+            # When enabled, restore default minimum face size (80px for liveness compatibility)
+            if not request.enable_liveness_detection:
+                face_detector.set_min_face_size(0)  # No limit when spoof detection is off
+            else:
+                default_min_size = MODEL_CONFIGS.get("face_detector", {}).get("min_face_size", 80)
+                face_detector.set_min_face_size(default_min_size)
+            
             faces = face_detector.detect_faces(image)
             
             # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
@@ -451,6 +461,14 @@ async def detect_faces_upload(
             face_detector.set_confidence_threshold(confidence_threshold)
             face_detector.set_nms_threshold(nms_threshold)
             
+            # When liveness detection is disabled, remove minimum face size limit
+            # When enabled, restore default minimum face size (80px for liveness compatibility)
+            if not enable_liveness_detection:
+                face_detector.set_min_face_size(0)  # No limit when spoof detection is off
+            else:
+                default_min_size = MODEL_CONFIGS.get("face_detector", {}).get("min_face_size", 80)
+                face_detector.set_min_face_size(default_min_size)
+            
             faces = face_detector.detect_faces(image)
             
             # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
@@ -505,7 +523,8 @@ async def recognize_face(request: FaceRecognitionRequest):
         # OPTIMIZATION: Keep BGR format (no conversion needed)
         image = decode_base64_image(request.image)
         
-        if liveness_detector:
+        # Only perform liveness detection if enabled
+        if liveness_detector and request.enable_liveness_detection:
             temp_face = {
                 'bbox': {
                     'x': request.bbox[0],
@@ -602,7 +621,8 @@ async def register_person(request: FaceRegistrationRequest):
         # OPTIMIZATION: Keep BGR format (no conversion needed)
         image = decode_base64_image(request.image)
         
-        if liveness_detector:
+        # Only perform liveness detection if enabled
+        if liveness_detector and request.enable_liveness_detection:
             temp_face = {
                 'bbox': {
                     'x': request.bbox[0],
@@ -835,6 +855,9 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
     await websocket.accept()
     # WebSocket detection connected
     
+    # Store enable_liveness_detection per client (default to True)
+    enable_liveness_detection = True
+    
     try:
         await websocket.send_text(json.dumps({
             "type": "connection",
@@ -859,6 +882,18 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                         continue
                     
                     elif message.get("type") == "config":
+                        # Update enable_liveness_detection from config
+                        if "enable_liveness_detection" in message:
+                            enable_liveness_detection = message.get("enable_liveness_detection", True)
+                            # When liveness detection is disabled, remove minimum face size limit
+                            # When enabled, restore default minimum face size (80px for liveness compatibility)
+                            if face_detector:
+                                if not enable_liveness_detection:
+                                    face_detector.set_min_face_size(0)  # No limit when spoof detection is off
+                                else:
+                                    default_min_size = MODEL_CONFIGS.get("face_detector", {}).get("min_face_size", 80)
+                                    face_detector.set_min_face_size(default_min_size)
+                        
                         await websocket.send_text(json.dumps({
                             "type": "config_ack",
                             "success": True,
@@ -886,7 +921,7 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                     
                     faces = face_detector.detect_faces(image)
                     faces = await process_face_tracking(faces, image)
-                    faces = await process_liveness_detection(faces, image, True)
+                    faces = await process_liveness_detection(faces, image, enable_liveness_detection)
                     
                     serialized_faces = []
                     for face in faces:

@@ -62,8 +62,8 @@ declare global {
       }>;
       model_used: string;
     }>
-    recognizeFace: (imageData: string, bbox: number[], groupId?: string, landmarks_5?: number[][]) => Promise<FaceRecognitionResponse>
-    registerFace: (imageData: string, personId: string, bbox: number[], groupId?: string) => Promise<FaceRegistrationResponse>
+    recognizeFace: (imageData: string, bbox: number[], groupId?: string, landmarks_5?: number[][], enableLivenessDetection?: boolean) => Promise<FaceRecognitionResponse>
+    registerFace: (imageData: string, personId: string, bbox: number[], groupId?: string, enableLivenessDetection?: boolean) => Promise<FaceRegistrationResponse>
     getFaceStats: () => Promise<DatabaseStatsResponse>
     removePerson: (personId: string) => Promise<PersonRemovalResponse>
     updatePerson: (oldPersonId: string, newPersonId: string) => Promise<PersonUpdateResponse>

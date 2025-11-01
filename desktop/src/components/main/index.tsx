@@ -240,6 +240,10 @@ export default function Main() {
   // Elite Tracking System States
   const [trackingMode, setTrackingMode] = useState<'auto' | 'manual'>('auto');
   const [attendanceCooldownSeconds, setAttendanceCooldownSeconds] = useState<number>(10);
+  const [enableSpoofDetection, setEnableSpoofDetection] = useState<boolean>(() => {
+    const saved = localStorage.getItem('suri_enable_spoof_detection');
+    return saved !== null ? saved === 'true' : true; // Default to enabled
+  });
   const [trackedFaces, setTrackedFaces] = useState<Map<string, TrackedFace>>(new Map());
   // Attendance states
   const [attendanceGroups, setAttendanceGroups] = useState<AttendanceGroup[]>([]);
@@ -250,10 +254,8 @@ export default function Main() {
   const [groupToDelete, setGroupToDelete] = useState<AttendanceGroup | null>(null);
   const [newGroupName, setNewGroupName] = useState('');
   
-  // Attendance cooldown tracking
-  const [attendanceCooldowns, setAttendanceCooldowns] = useState<Map<string, number>>(new Map());
-  
   // CRITICAL: Synchronous cooldown ref to prevent race conditions from async setState
+  // This is the source of truth for cooldown timestamps (faster than state)
   const cooldownTimestampsRef = useRef<Map<string, number>>(new Map());
   
   // Persistent cooldown tracking (for recognized faces)
@@ -270,6 +272,13 @@ export default function Main() {
   useEffect(() => {
     detectionEnabledRef.current = detectionEnabled;
   }, [detectionEnabled]);
+
+  // Update backend service when spoof detection setting changes
+  useEffect(() => {
+    if (backendServiceRef.current) {
+      backendServiceRef.current.setLivenessDetection(enableSpoofDetection);
+    }
+  }, [enableSpoofDetection]);
 
   // Periodic state validation to catch issues during long delays
   useEffect(() => {
@@ -331,13 +340,15 @@ export default function Main() {
       // Batch all updates in a single transition to prevent blocking
       startTransition(() => {
         // Update tracked faces with current cooldown remaining
+        // Use ref for cooldown timestamps to avoid dependency on state
         setTrackedFaces(prev => {
           const newTracked = new Map(prev);
           let hasChanges = false;
           
           for (const [trackId, track] of newTracked) {
             if (track.personId) {
-              const lastAttendanceTime = attendanceCooldowns.get(track.personId);
+              // Use ref instead of state to avoid effect restarts
+              const lastAttendanceTime = cooldownTimestampsRef.current.get(track.personId);
               if (lastAttendanceTime) {
                 const timeSinceLastAttendance = now - lastAttendanceTime;
                 const cooldownMs = attendanceCooldownSeconds * 1000;
@@ -365,7 +376,7 @@ export default function Main() {
           return hasChanges ? newTracked : prev;
         });
         
-        // Update persistent cooldowns
+        // Update persistent cooldowns - only remove truly expired ones
         setPersistentCooldowns(prev => {
           const newPersistent = new Map(prev);
           let hasChanges = false;
@@ -374,34 +385,30 @@ export default function Main() {
             const timeSinceStart = now - cooldownInfo.startTime;
             const cooldownMs = attendanceCooldownSeconds * 1000;
             
+            // Only remove if cooldown is fully expired (past the full duration)
             if (timeSinceStart >= cooldownMs) {
-              // Cooldown expired, remove it
-              newPersistent.delete(personId);
-              hasChanges = true;
+              // Verify cooldown is still expired in ref before removing
+              const refTimestamp = cooldownTimestampsRef.current.get(personId);
+              if (!refTimestamp || (now - refTimestamp >= cooldownMs)) {
+                newPersistent.delete(personId);
+                hasChanges = true;
+              }
             }
           }
           
           return hasChanges ? newPersistent : prev;
         });
         
-        // Clean up expired cooldowns in both ref and state
-        setAttendanceCooldowns(prev => {
-          const newCooldowns = new Map(prev);
-          let hasExpired = false;
+        // Clean up expired cooldowns from ref
+        // Note: We only clean the ref since persistentCooldowns are cleaned separately above
+        for (const [personId, timestamp] of cooldownTimestampsRef.current) {
+          const timeSinceLastAttendance = now - timestamp;
+          const cooldownMs = attendanceCooldownSeconds * 1000;
           
-          for (const [personId, timestamp] of newCooldowns) {
-            const timeSinceLastAttendance = now - timestamp;
-            const cooldownMs = attendanceCooldownSeconds * 1000;
-            
-            if (timeSinceLastAttendance >= cooldownMs) {
-              newCooldowns.delete(personId);
-              cooldownTimestampsRef.current.delete(personId); // Also clean from ref
-              hasExpired = true;
-            }
+          if (timeSinceLastAttendance >= cooldownMs) {
+            cooldownTimestampsRef.current.delete(personId);
           }
-          
-          return hasExpired ? newCooldowns : prev;
-        });
+        }
       });
     };
     
@@ -420,7 +427,7 @@ export default function Main() {
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [attendanceCooldowns, attendanceCooldownSeconds, persistentCooldowns]);
+  }, [attendanceCooldownSeconds]); // Only depend on cooldown duration, not the cooldown maps themselves
 
 
 
@@ -708,18 +715,12 @@ export default function Main() {
                     }
 
                     // CRITICAL FIX: Set cooldown SYNCHRONOUSLY in ref FIRST to block immediate subsequent frames
-                    // Then update state for visual display
+                    // Then update persistent cooldowns for visual display
                     const logTime = Date.now();
                     cooldownTimestampsRef.current.set(cooldownKey, logTime); // SYNC update - immediate effect!
 
                     // Batch state updates in transition to prevent blocking
                     startTransition(() => {
-                      setAttendanceCooldowns(prev => {
-                        const newCooldowns = new Map(prev);
-                        newCooldowns.set(cooldownKey, logTime);
-                        return newCooldowns;
-                      });
-
                       // Add persistent cooldown for visual display using person_id as key
                       setPersistentCooldowns(prev => {
                         const newPersistent = new Map(prev);
@@ -1430,7 +1431,7 @@ export default function Main() {
     // PRESERVE cooldowns - don't clear them so they persist across stop/start cycles
     // This prevents duplicate detections when restarting quickly
     
-    // Note: We keep persistentCooldowns, attendanceCooldowns, and cooldownTimestampsRef
+    // Note: We keep persistentCooldowns and cooldownTimestampsRef
     // so that recently detected people can't be detected again immediately after restart
     
     // Reset ACCURATE FPS tracking
@@ -2019,6 +2020,7 @@ export default function Main() {
               handleSelectGroup={handleSelectGroup}
               setShowGroupManagement={setShowGroupManagement}
           setShowSettings={setShowSettings}
+          enableSpoofDetection={enableSpoofDetection}
             />
            </div>
   
@@ -2060,11 +2062,18 @@ export default function Main() {
                 lateThresholdMinutes: currentGroup?.settings?.late_threshold_minutes ?? 15,
                 classStartTime: currentGroup?.settings?.class_start_time ?? '08:00',
                 attendanceCooldownSeconds: attendanceCooldownSeconds,
+                enableSpoofDetection: enableSpoofDetection,
               }}
               onAttendanceSettingsChange={async (updates) => {
                 // Handle tracking mode change
                 if (updates.trackingMode !== undefined) {
                   setTrackingMode(updates.trackingMode);
+                }
+                
+                // Handle spoof detection toggle (global setting)
+                if (updates.enableSpoofDetection !== undefined) {
+                  setEnableSpoofDetection(updates.enableSpoofDetection);
+                  localStorage.setItem('suri_enable_spoof_detection', String(updates.enableSpoofDetection));
                 }
                 
                 // Handle cooldown change (global setting)

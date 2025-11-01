@@ -84,7 +84,7 @@ ipcMain.handle('backend:detect-faces', async (_event, imageBase64: string, optio
 });
 
 // Face recognition via IPC
-ipcMain.handle('backend:recognize-face', async (_event, imageData: string, bbox: number[], groupId?: string, landmarks_5?: number[][]) => {
+ipcMain.handle('backend:recognize-face', async (_event, imageData: string, bbox: number[], groupId?: string, landmarks_5?: number[][], enableLivenessDetection: boolean = true) => {
     try {
         const url = `${backendService.getUrl()}/face/recognize`;
         
@@ -92,7 +92,8 @@ ipcMain.handle('backend:recognize-face', async (_event, imageData: string, bbox:
             image: imageData,
             bbox: bbox,
             group_id: groupId,
-            landmarks_5: landmarks_5
+            landmarks_5: landmarks_5,
+            enable_liveness_detection: enableLivenessDetection
         };
 
         const response = await fetch(url, {
@@ -121,7 +122,7 @@ ipcMain.handle('backend:recognize-face', async (_event, imageData: string, bbox:
 });
 
 // Face registration via IPC
-ipcMain.handle('backend:register-face', async (_event, imageData: string, personId: string, bbox: number[], groupId?: string) => {
+ipcMain.handle('backend:register-face', async (_event, imageData: string, personId: string, bbox: number[], groupId?: string, enableLivenessDetection: boolean = true) => {
     try {
         const url = `${backendService.getUrl()}/face/register`;
         
@@ -129,7 +130,8 @@ ipcMain.handle('backend:register-face', async (_event, imageData: string, person
             image: imageData,
             person_id: personId,
             bbox: bbox,
-            group_id: groupId
+            group_id: groupId,
+            enable_liveness_detection: enableLivenessDetection
         };
 
         const response = await fetch(url, {

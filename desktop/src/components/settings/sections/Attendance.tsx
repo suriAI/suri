@@ -7,6 +7,7 @@ interface AttendanceProps {
   onLateThresholdToggle: (enabled: boolean) => void;
   onClassStartTimeChange: (time: string) => void;
   onCooldownChange: (seconds: number) => void;
+  onSpoofDetectionToggle: (enabled: boolean) => void;
   isStreaming?: boolean;
 }
 
@@ -17,6 +18,7 @@ export function Attendance({
   onLateThresholdToggle,
   onClassStartTimeChange,
   onCooldownChange,
+  onSpoofDetectionToggle,
   isStreaming = false,
 }: AttendanceProps) {
   return (
@@ -50,6 +52,30 @@ export function Attendance({
             Manual
           </span>
         </div>
+      </div>
+
+      {/* Spoof Detection Section */}
+      <div className="flex items-center justify-between py-3 border-b border-white/5 gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-white/90">Anti-Spoof Detection</div>
+          <div className="text-xs text-white/50 mt-0.5">
+            {attendanceSettings.enableSpoofDetection 
+              ? 'Protection enabled - blocks photo/video attacks' 
+              : 'Disabled - accepts all faces'}
+          </div>
+        </div>
+        
+        <button
+          onClick={() => onSpoofDetectionToggle(!attendanceSettings.enableSpoofDetection)}
+          disabled={isStreaming}
+          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ${
+            attendanceSettings.enableSpoofDetection ? 'bg-red-500/30' : 'bg-white/10'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          <div className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
+            attendanceSettings.enableSpoofDetection ? 'translate-x-5' : 'translate-x-0'
+          }`}></div>
+        </button>
       </div>
 
       {/* Attendance Cooldown Section */}

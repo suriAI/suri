@@ -15,6 +15,7 @@ export interface AttendanceSettings {
   lateThresholdMinutes: number;
   classStartTime: string;
   attendanceCooldownSeconds: number;
+  enableSpoofDetection: boolean;
 }
 
 export interface SettingsOverview {

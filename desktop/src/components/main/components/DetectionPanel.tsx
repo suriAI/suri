@@ -10,6 +10,7 @@ interface DetectionPanelProps {
   recognitionEnabled: boolean;
   trackedFaces: Map<string, TrackedFace>;
   groupMembers: AttendanceMember[];
+  enableSpoofDetection: boolean;
 }
 
 // Memoized individual detection card to prevent unnecessary re-renders
@@ -88,6 +89,7 @@ export function DetectionPanel({
   recognitionEnabled,
   trackedFaces,
   groupMembers,
+  enableSpoofDetection,
 }: DetectionPanelProps) {
   // Create display name map for members
   const displayNameMap = useMemo(() => {
@@ -100,7 +102,25 @@ export function DetectionPanel({
     [trackedFaces]
   );
 
-  const hasDetections = currentDetections?.faces?.length ?? 0;
+  // Filter faces: if spoof detection is OFF, only show recognized faces
+  // If spoof detection is ON, show all faces (current behavior)
+  const filteredFaces = useMemo(() => {
+    if (!currentDetections?.faces) return [];
+    
+    if (!enableSpoofDetection) {
+      // Only show recognized faces when spoof detection is off
+      return currentDetections.faces.filter(face => {
+        const trackId = face.track_id!;
+        const recognitionResult = currentRecognitionResults.get(trackId);
+        return recognitionEnabled && !!recognitionResult?.person_id;
+      });
+    }
+    
+    // Show all faces when spoof detection is on
+    return currentDetections.faces;
+  }, [currentDetections?.faces, currentRecognitionResults, recognitionEnabled, enableSpoofDetection]);
+
+  const hasDetections = filteredFaces.length > 0;
 
   return (
     <>
@@ -109,7 +129,7 @@ export function DetectionPanel({
           NO DETECTION
         </div>
       ) : (
-        currentDetections?.faces?.map((face, index) => {
+        filteredFaces.map((face, index) => {
             const trackId = face.track_id!;
             const recognitionResult = currentRecognitionResults.get(trackId);
             const isRecognized = recognitionEnabled && !!recognitionResult?.person_id;

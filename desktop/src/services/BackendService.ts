@@ -20,6 +20,7 @@ interface DetectionRequest {
   model_type?: string;
   confidence_threshold?: number;
   nms_threshold?: number;
+  enable_liveness_detection?: boolean;
 }
 
 interface DetectionResponse {
@@ -80,6 +81,14 @@ export class BackendService {
   private pingInterval: number | null = null;
   private isConnecting = false;
   private connectionPromise: Promise<void> | null = null;
+  private enableLivenessDetection: boolean = (() => {
+    // Initialize from localStorage if available, default to true
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('suri_enable_spoof_detection');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  })();
 
   constructor(config?: Partial<BackendConfig>) {
     this.config = {
@@ -187,7 +196,8 @@ export class BackendService {
         image: imageBase64,
         model_type: options.model_type || 'face_detector',
         confidence_threshold: options.confidence_threshold || 0.5,
-        nms_threshold: options.nms_threshold || 0.3
+        nms_threshold: options.nms_threshold || 0.3,
+        enable_liveness_detection: this.enableLivenessDetection
       };
 
       const response = await fetch(`${this.config.baseUrl}/detect`, {
@@ -227,6 +237,7 @@ export class BackendService {
       formData.append('model_type', options.model_type || 'face_detector');
       formData.append('confidence_threshold', (options.confidence_threshold || 0.5).toString());
       formData.append('nms_threshold', (options.nms_threshold || 0.3).toString());
+      formData.append('enable_liveness_detection', String(this.enableLivenessDetection));
 
       const response = await fetch(`${this.config.baseUrl}/detect/upload`, {
         method: 'POST',
@@ -276,6 +287,8 @@ export class BackendService {
           this.isConnecting = false;
           this.connectionPromise = null;
           this.startPingInterval();
+          // Send initial config with liveness detection setting
+          this.sendConfig();
           resolve();
         };
         
@@ -355,6 +368,27 @@ export class BackendService {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
+    }
+  }
+
+  /**
+   * Update liveness detection setting and send config to backend
+   */
+  setLivenessDetection(enabled: boolean): void {
+    this.enableLivenessDetection = enabled;
+    this.sendConfig();
+  }
+
+  /**
+   * Send config message to WebSocket with current settings
+   */
+  private sendConfig(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'config',
+        enable_liveness_detection: this.enableLivenessDetection,
+        timestamp: Date.now()
+      }));
     }
   }
 
@@ -500,7 +534,7 @@ export class BackendService {
         base64Image = await this.imageDataToBase64(imageData);
       }
 
-      return await window.electronAPI.backend.recognizeFace(base64Image, bbox || [], groupId, landmarks_5);
+      return await window.electronAPI.backend.recognizeFace(base64Image, bbox || [], groupId, landmarks_5, this.enableLivenessDetection);
     } catch (error) {
       console.error('Face recognition failed:', error);
       throw error;
@@ -521,7 +555,7 @@ export class BackendService {
         ? imageData 
         : await this.imageDataToBase64(imageData);
 
-      return await window.electronAPI.backend.registerFace(base64Image, personId, bbox || [], groupId);
+      return await window.electronAPI.backend.registerFace(base64Image, personId, bbox || [], groupId, this.enableLivenessDetection);
     } catch (error) {
       console.error('Face registration failed:', error);
       throw error;
