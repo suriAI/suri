@@ -260,11 +260,18 @@ export default function Main() {
   
   // Persistent cooldown tracking (for recognized faces)
   const [persistentCooldowns, setPersistentCooldowns] = useState<Map<string, CooldownInfo>>(new Map());
+  // Ref to always access latest persistentCooldowns in callbacks (avoids stale closure)
+  const persistentCooldownsRef = useRef<Map<string, CooldownInfo>>(new Map());
 
   // Defer non-critical UI updates to prevent blocking - must be after state declarations
   const deferredCurrentRecognitionResults = useDeferredValue(currentRecognitionResults);
 
   // Keep refs in sync with state
+  useEffect(() => {
+    // Sync persistentCooldowns ref with state (critical for avoiding stale closures)
+    persistentCooldownsRef.current = persistentCooldowns;
+  }, [persistentCooldowns]);
+
   useEffect(() => {
     isStreamingRef.current = isStreaming;
   }, [isStreaming]);
@@ -383,19 +390,18 @@ export default function Main() {
           
           for (const [personId, cooldownInfo] of newPersistent) {
             const timeSinceStart = now - cooldownInfo.startTime;
-            const cooldownMs = attendanceCooldownSeconds * 1000;
+            // Use stored cooldown duration to prevent premature removal when setting changes
+            const cooldownSeconds = cooldownInfo.cooldownDurationSeconds ?? attendanceCooldownSeconds;
+            const cooldownMs = cooldownSeconds * 1000;
+            const expirationThreshold = cooldownMs + 500;
             
-            // Only remove if cooldown is fully expired (past the full duration)
-            if (timeSinceStart >= cooldownMs) {
-              // Verify cooldown is still expired in ref before removing
-              const refTimestamp = cooldownTimestampsRef.current.get(personId);
-              if (!refTimestamp || (now - refTimestamp >= cooldownMs)) {
-                newPersistent.delete(personId);
-                hasChanges = true;
-              }
+            if (timeSinceStart >= expirationThreshold) {
+              newPersistent.delete(personId);
+              hasChanges = true;
             }
           }
           
+          persistentCooldownsRef.current = hasChanges ? newPersistent : prev;
           return hasChanges ? newPersistent : prev;
         });
         
@@ -674,27 +680,36 @@ export default function Main() {
                     const cooldownKey = response.person_id;
                     const cooldownMs = attendanceCooldownSeconds * 1000;
 
-                    // CRITICAL: Use ref for synchronous check to avoid race conditions
-                    const lastAttendanceTime = cooldownTimestampsRef.current.get(cooldownKey) || 0;
-                    const timeSinceLastAttendance = currentTime - lastAttendanceTime;
+                    // CRITICAL: Check BOTH ref AND state for cooldown - use ref to get latest state
+                    // Use the earliest (oldest) timestamp to ensure we don't miss an active cooldown
+                    const refTimestamp = cooldownTimestampsRef.current.get(cooldownKey);
+                    // Use ref to access latest state (avoids stale closure issue)
+                    const stateCooldown = persistentCooldownsRef.current.get(cooldownKey);
+                    const stateTimestamp = stateCooldown?.startTime;
+                    
+                    // Use state timestamp if available (source of truth), otherwise fall back to ref
+                    const authoritativeTimestamp = stateTimestamp || refTimestamp || 0;
+                    const timeSinceLastAttendance = currentTime - authoritativeTimestamp;
 
                     if (timeSinceLastAttendance < cooldownMs) {
                       const remainingCooldown = Math.ceil((cooldownMs - timeSinceLastAttendance) / 1000);
 
-                    // Update lastKnownBbox in persistentCooldowns for display even when face disappears
-                    startTransition(() => {
-                      setPersistentCooldowns(prev => {
-                        const newPersistent = new Map(prev);
-                        const existing = newPersistent.get(cooldownKey);
-                        if (existing) {
-                          newPersistent.set(cooldownKey, {
-                            ...existing,
-                            lastKnownBbox: face.bbox
-                          });
-                          return newPersistent;
-                        }
-                        return prev;
-                      });
+                      // Update lastKnownBbox in persistentCooldowns for display even when face disappears
+                      startTransition(() => {
+                        setPersistentCooldowns(prev => {
+                          const newPersistent = new Map(prev);
+                          const existing = newPersistent.get(cooldownKey);
+                          if (existing) {
+                            newPersistent.set(cooldownKey, {
+                              ...existing,
+                              lastKnownBbox: face.bbox
+                            });
+                            // Sync ref with latest state
+                            persistentCooldownsRef.current = newPersistent;
+                            return newPersistent;
+                          }
+                          return prev;
+                        });
 
                       // Update the tracked face with cooldown info for overlay display using track_id
                       setTrackedFaces(prev => {
@@ -714,25 +729,65 @@ export default function Main() {
                       return { trackId, result: { ...response, name: memberName, memberName, cooldownRemaining: remainingCooldown } };
                     }
 
-                    // CRITICAL FIX: Set cooldown SYNCHRONOUSLY in ref FIRST to block immediate subsequent frames
-                    // Then update persistent cooldowns for visual display
+                    // CRITICAL FIX: Only create NEW cooldown when person logs attendance after cooldown expires
+                    // This code path only runs when timeSinceLastAttendance >= cooldownMs (cooldown expired)
                     const logTime = Date.now();
-                    cooldownTimestampsRef.current.set(cooldownKey, logTime); // SYNC update - immediate effect!
+                    
+                    // CRITICAL: Use ref to get latest state (avoids stale closure issue)
+                    // The ref might be out of sync, but persistentCooldownsRef.current is always latest
+                    const existingInState = persistentCooldownsRef.current.get(cooldownKey);
+                    const existingInStateStillActive = existingInState && 
+                      (logTime - existingInState.startTime < cooldownMs);
+                    
+                    // Only create new cooldown if:
+                    // 1. No ref timestamp exists (first time), OR
+                    // 2. Ref shows expired AND state also shows expired (double verification)
+                    const existingRefTimestamp = cooldownTimestampsRef.current.get(cooldownKey);
+                    const refShowsExpired = !existingRefTimestamp || (logTime - existingRefTimestamp >= cooldownMs);
+                    
+                    // Only proceed if BOTH ref and state confirm cooldown is expired (or doesn't exist)
+                    if (!existingInStateStillActive && refShowsExpired) {
+                      cooldownTimestampsRef.current.set(cooldownKey, logTime);
 
-                    // Batch state updates in transition to prevent blocking
-                    startTransition(() => {
-                      // Add persistent cooldown for visual display using person_id as key
-                      setPersistentCooldowns(prev => {
-                        const newPersistent = new Map(prev);
-                        newPersistent.set(cooldownKey, {
-                          personId: response.person_id!,
-                          startTime: logTime,
-                          memberName: memberName,
-                          lastKnownBbox: face.bbox
+                      startTransition(() => {
+                        setPersistentCooldowns(prev => {
+                          const newPersistent = new Map(prev);
+                          newPersistent.set(cooldownKey, {
+                            personId: response.person_id!,
+                            startTime: logTime,
+                            memberName: memberName,
+                            lastKnownBbox: face.bbox,
+                            cooldownDurationSeconds: attendanceCooldownSeconds
+                          });
+                          persistentCooldownsRef.current = newPersistent;
+                          return newPersistent;
                         });
-                        return newPersistent;
                       });
-                    });
+                    } else if (existingInStateStillActive) {
+                      // Edge case: State shows active cooldown but ref doesn't - sync them
+                      // This can happen due to race conditions - preserve state as source of truth
+                      if (!existingRefTimestamp || existingRefTimestamp !== existingInState.startTime) {
+                        cooldownTimestampsRef.current.set(cooldownKey, existingInState.startTime);
+                      }
+                      
+                      // Update metadata only, preserve startTime
+                      startTransition(() => {
+                        setPersistentCooldowns(prev => {
+                          const newPersistent = new Map(prev);
+                          const existing = newPersistent.get(cooldownKey);
+                          if (existing) {
+                            newPersistent.set(cooldownKey, {
+                              ...existing,
+                              memberName: memberName,
+                              lastKnownBbox: face.bbox
+                            });
+                            // Sync ref with latest state
+                            persistentCooldownsRef.current = newPersistent;
+                          }
+                          return newPersistent;
+                        });
+                      });
+                    }
                     
                     // AUTO MODE: Process attendance event immediately
                     try {

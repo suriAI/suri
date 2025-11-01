@@ -90,6 +90,9 @@ export interface CooldownInfo {
   memberName?: string;
   startTime: number;
   lastKnownBbox?: { x: number; y: number; width: number; height: number };
+  // Store the cooldown duration that was active when this cooldown was created
+  // This prevents premature removal when the setting changes
+  cooldownDurationSeconds: number;
 }
 
 // Re-export needed types

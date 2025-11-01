@@ -258,7 +258,7 @@ export const Sidebar = memo(function Sidebar({
         <div className={`sidebar h-screen max-h-screen flex flex-col overflow-hidden transition-opacity duration-200 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           {/* Face Detection Display - Half of remaining space */}
           <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto space-y-2 custom-scroll">
+            <div className="flex-1 overflow-y-auto custom-scroll">
               {/* Active Cooldowns - Only show in Auto mode */}
               <CooldownList
                 trackingMode={trackingMode}
@@ -266,14 +266,16 @@ export const Sidebar = memo(function Sidebar({
                 attendanceCooldownSeconds={attendanceCooldownSeconds}
               />
               
-              <DetectionPanel
-                currentDetections={currentDetections}
-                currentRecognitionResults={currentRecognitionResults}
-                recognitionEnabled={recognitionEnabled}
-                trackedFaces={trackedFaces}
-                groupMembers={groupMembers}
-                enableSpoofDetection={enableSpoofDetection}
-              />
+              <div className="px-2 py-1.5">
+                <DetectionPanel
+                  currentDetections={currentDetections}
+                  currentRecognitionResults={currentRecognitionResults}
+                  recognitionEnabled={recognitionEnabled}
+                  trackedFaces={trackedFaces}
+                  groupMembers={groupMembers}
+                  enableSpoofDetection={enableSpoofDetection}
+                />
+              </div>
             </div>
           </div>
 

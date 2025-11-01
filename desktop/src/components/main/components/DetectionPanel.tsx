@@ -13,7 +13,7 @@ interface DetectionPanelProps {
   enableSpoofDetection: boolean;
 }
 
-// Memoized individual detection card to prevent unnecessary re-renders
+// Memoized individual detection card - compact border-status design with enhanced spoof UI
 const DetectionCard = memo(({ 
   face, 
   index, 
@@ -29,53 +29,136 @@ const DetectionCard = memo(({
   displayName: string;
   trackedFace: TrackedFace | undefined;
 }) => {
+  // Get status styles with enhanced spoof visibility
+  const getStatusStyles = () => {
+    if (!face.liveness) {
+      return {
+        borderColor: 'border-white/20',
+        bgColor: '',
+        statusText: 'UNKNOWN',
+        statusColor: 'text-white/60',
+        score: null
+      };
+    }
+
+    const status = face.liveness.status;
+    const liveScore = face.liveness.live_score;
+    const spoofScore = face.liveness.spoof_score;
+
+    switch (status) {
+      case 'real':
+        return {
+          borderColor: 'border-green-500/60',
+          bgColor: '',
+          statusText: 'REAL',
+          statusColor: 'text-green-400',
+          score: liveScore !== null && liveScore !== undefined ? liveScore : null
+        };
+      case 'fake':
+        // Enhanced spoof styling - very prominent
+        return {
+          borderColor: 'border-red-500/90',
+          bgColor: 'bg-red-950/30',
+          statusText: 'SPOOF',
+          statusColor: 'text-red-300 font-semibold',
+          score: spoofScore !== null && spoofScore !== undefined ? spoofScore : null
+        };
+      case 'uncertain':
+        return {
+          borderColor: 'border-amber-500/60',
+          bgColor: '',
+          statusText: 'UNCERTAIN',
+          statusColor: 'text-amber-400',
+          score: liveScore !== null && liveScore !== undefined ? liveScore : spoofScore
+        };
+      case 'error':
+        return {
+          borderColor: 'border-yellow-500/60',
+          bgColor: '',
+          statusText: 'ERROR',
+          statusColor: 'text-yellow-400',
+          score: null
+        };
+      case 'insufficient_quality':
+        return {
+          borderColor: 'border-blue-500/60',
+          bgColor: '',
+          statusText: 'TOO SMALL',
+          statusColor: 'text-blue-400',
+          score: null
+        };
+      default:
+        return {
+          borderColor: 'border-white/20',
+          bgColor: '',
+          statusText: 'UNKNOWN',
+          statusColor: 'text-white/60',
+          score: null
+        };
+    }
+  };
+
+  const statusStyles = getStatusStyles();
+  const isSpoof = face.liveness?.status === 'fake';
+  const hasName = isRecognized && recognitionResult?.person_id && displayName;
+  const similarityScore = isRecognized && recognitionResult?.similarity 
+    ? (recognitionResult.similarity * 100).toFixed(0) 
+    : null;
+
   return (
-    <div key={index} className={`glass-card rounded-lg p-3 ${trackedFace?.isLocked ? 'border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-transparent' : ''}`}>
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center space-x-2">
-            <div className="font-medium text-sm">
-              {isRecognized && recognitionResult?.person_id && displayName}
-            </div>
-            {isRecognized && recognitionResult?.similarity && (
-              <div className="text-xs text-green-400/80 font-mono">
-                {(recognitionResult.similarity * 100).toFixed(0)}%
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="text-right space-y-1">
-          {face.liveness && (
-            <div className={`text-xs px-2 py-1 rounded border mt-1 ${
-              face.liveness.status === 'real' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 
-              face.liveness.status === 'fake' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 
-              face.liveness.status === 'uncertain' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 
-              face.liveness.status === 'error' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' : 
-              face.liveness.status === 'insufficient_quality' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' :
-              'bg-white/5 border-white/10 text-white/60'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">
-                  {face.liveness.status === 'real' ? 'LIVE' :
-                   face.liveness.status === 'fake' ? 'SPOOF' :
-                   face.liveness.status === 'uncertain' ? 'UNCERTAIN' :
-                   face.liveness.status === 'error' ? 'ERROR' :
-                   face.liveness.status === 'insufficient_quality' ? 'TOO SMALL' : 'UNKNOWN'}
+    <div 
+      key={index} 
+      className={`
+        glass-card rounded-lg p-2 border-l-4 min-h-[32px]
+        ${statusStyles.borderColor}
+        ${statusStyles.bgColor}
+        ${trackedFace?.isLocked ? 'border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-transparent' : ''}
+        ${isSpoof ? 'ring-1 ring-red-500/20' : ''}
+      `}
+    >
+      {/* Single-line compact layout */}
+      <div className="flex items-center justify-between gap-2">
+        {/* Left: Name and Recognition Score */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {hasName ? (
+            <>
+              <span className={`font-medium text-sm truncate ${
+                isSpoof ? 'text-red-200' : 'text-white'
+              }`}>
+                {displayName}
+              </span>
+              {similarityScore && !isSpoof && (
+                <span className="text-xs text-green-400/70 font-mono shrink-0">
+                  {similarityScore}%
                 </span>
-                {((face.liveness.live_score !== undefined && face.liveness.live_score !== null) ||
-                  (face.liveness.spoof_score !== undefined && face.liveness.spoof_score !== null)) && (
-                  <span className="font-mono text-xs">
-                    {face.liveness.status === 'real' && face.liveness.live_score !== null
-                      ? `${((face.liveness.live_score || 0) * 100).toFixed(0)}%`
-                      : face.liveness.spoof_score !== null
-                      ? `${((face.liveness.spoof_score || 0) * 100).toFixed(0)}%`
-                      : ''}
-                  </span>
-                )}
-              </div>
-            </div>
+              )}
+            </>
+          ) : (
+            <span className={`text-xs italic ${
+              isSpoof ? 'text-red-300/70' : 'text-white/40'
+            }`}>
+              {isSpoof ? 'Spoofed Face' : 'Unknown'}
+            </span>
           )}
         </div>
+
+        {/* Right: Status Text + Score (Enhanced for spoofs) */}
+        {face.liveness && (
+          <div className={`flex items-center gap-1.5 shrink-0 ${statusStyles.statusColor}`}>
+            <span className={`text-xs ${
+              isSpoof ? 'font-bold tracking-wide' : 'font-medium'
+            }`}>
+              {statusStyles.statusText}
+            </span>
+            {statusStyles.score !== null && (
+              <span className={`text-xs font-mono ${
+                isSpoof ? 'opacity-100 font-semibold' : 'opacity-80'
+              }`}>
+                {(statusStyles.score * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -129,7 +212,8 @@ export function DetectionPanel({
           NO DETECTION
         </div>
       ) : (
-        filteredFaces.map((face, index) => {
+        <div className="space-y-1.5">
+          {filteredFaces.map((face, index) => {
             const trackId = face.track_id!;
             const recognitionResult = currentRecognitionResults.get(trackId);
             const isRecognized = recognitionEnabled && !!recognitionResult?.person_id;
@@ -153,8 +237,9 @@ export function DetectionPanel({
                 trackedFace={trackedFace}
               />
             );
-          })
-        )}
+          })}
+        </div>
+      )}
     </>
   );
 }

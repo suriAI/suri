@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
 import type { CooldownInfo } from '../types';
 
 interface CooldownListProps {
@@ -28,22 +28,50 @@ export const CooldownList = memo(function CooldownList({
   persistentCooldowns,
   attendanceCooldownSeconds,
 }: CooldownListProps) {
-  // Memoize active cooldowns to prevent recalculation on every render
+  // Force re-render every second for continuous countdown
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    // Update every second to recalculate remaining time
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const activeCooldowns = useMemo(() => {
-    const now = Date.now();
-    const cooldownMs = attendanceCooldownSeconds * 1000;
+    const now = currentTime;
     const active: Array<{ info: CooldownInfo; remaining: number }> = [];
 
     for (const cooldownInfo of persistentCooldowns.values()) {
       const timeSinceStart = now - cooldownInfo.startTime;
-      if (timeSinceStart >= 0 && timeSinceStart < cooldownMs) {
-        const remainingCooldown = Math.max(1, Math.ceil((cooldownMs - timeSinceStart) / 1000));
+      
+      // Use stored cooldown duration to prevent premature removal when setting changes
+      const cooldownSecondsForThisCooldown = cooldownInfo.cooldownDurationSeconds ?? attendanceCooldownSeconds;
+      const cooldownMsForThisCooldown = cooldownSecondsForThisCooldown * 1000;
+      const expirationThreshold = cooldownMsForThisCooldown + 500;
+      
+      if (timeSinceStart >= 0 && timeSinceStart < expirationThreshold) {
+        const remainingMs = cooldownMsForThisCooldown - timeSinceStart;
+        
+        let remainingCooldown: number;
+        if (remainingMs <= 0) {
+          remainingCooldown = 0;
+        } else {
+          remainingCooldown = Math.ceil(remainingMs / 1000);
+          if (remainingCooldown === 0 && remainingMs > 0) {
+            remainingCooldown = 1;
+          }
+        }
+        
         active.push({ info: cooldownInfo, remaining: remainingCooldown });
       }
     }
 
+    active.sort((a, b) => a.remaining - b.remaining);
     return active;
-  }, [persistentCooldowns, attendanceCooldownSeconds]);
+  }, [persistentCooldowns, attendanceCooldownSeconds, currentTime]);
 
   if (trackingMode !== 'auto' || activeCooldowns.length === 0) {
     return null;
