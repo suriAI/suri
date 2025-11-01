@@ -257,8 +257,8 @@ export const drawOverlays = ({
         const remainingMs = cooldownMs - timeSinceStart;
         const remainingCooldownSeconds = Math.floor(remainingMs / 1000);
 
-        // Only show "Done" if there's at least 1 full second remaining (don't show at 0s)
-        if (remainingCooldownSeconds > 0) {
+        // Show "Done" while cooldown is active, but hide when showing 0s for better UX
+        if (timeSinceStart < cooldownMs && remainingCooldownSeconds > 0) {
           ctx.save();
 
           const centerX = (x1 + x2) / 2;

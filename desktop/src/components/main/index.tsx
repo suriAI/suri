@@ -631,13 +631,11 @@ export default function Main() {
                     const timeSinceLastAttendance = currentTime - authoritativeTimestamp;
                     
                     // Use stored cooldown duration to check if still active
+                    // Block for FULL duration - standard behavior for cooldowns (like gaming, API rate limits)
                     const storedCooldownSeconds = cooldownInfo?.cooldownDurationSeconds ?? attendanceCooldownSeconds;
                     const storedCooldownMs = storedCooldownSeconds * 1000;
-                    const remainingMs = storedCooldownMs - timeSinceLastAttendance;
-                    const remainingCooldownSeconds = Math.floor(remainingMs / 1000);
 
-                    // Only block if there's at least 1 full second remaining (don't block at 0s)
-                    if (remainingCooldownSeconds > 0) {
+                    if (timeSinceLastAttendance < storedCooldownMs) {
                       // Update lastKnownBbox in persistentCooldowns for display even when face disappears
                       startTransition(() => {
                         setPersistentCooldowns(prev => {
