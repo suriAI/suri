@@ -858,6 +858,12 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
     # Store enable_liveness_detection per client (default to True)
     enable_liveness_detection = True
     
+    # Initialize min_face_size based on default enable_liveness_detection state
+    # This ensures correct face size limiting from the first frame
+    if face_detector:
+        default_min_size = MODEL_CONFIGS.get("face_detector", {}).get("min_face_size", 80)
+        face_detector.set_min_face_size(default_min_size)
+    
     try:
         await websocket.send_text(json.dumps({
             "type": "connection",
