@@ -473,7 +473,7 @@ export default function Main() {
           blob.arrayBuffer().then(resolve).catch(() => {
             resolve(null);
           });
-        }, 'image/jpeg', 1.0);
+        }, 'image/jpeg', 0.9);
       } catch (error) {
         resolve(null);
       }
