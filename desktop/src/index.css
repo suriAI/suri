@@ -349,6 +349,33 @@ body {
   box-shadow: none !important;
 }
 
+.sidebar-toggle-btn {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  position: static !important;
+  overflow: visible !important;
+}
+
+.sidebar-toggle-btn:hover {
+  border: none !important;
+  background: transparent !important;
+}
+
+.sidebar-toggle-btn:active {
+  border: none !important;
+  background: transparent !important;
+}
+
+.sidebar-toggle-btn:focus-visible {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
 @layer base {
   button:active {
     transform: translateY(0);

@@ -229,11 +229,16 @@ export const Sidebar = memo(function Sidebar({
             {/* Collapse Button - Top Left */}
             <button
               onClick={toggleSidebar}
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
+              className="sidebar-toggle-btn flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group"
               title={isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
               aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              <i className={`fa-solid fa-chevron-left text-white/70 group-hover:text-white text-sm transition-all duration-300 ${isCollapsed ? 'rotate-180' : ''}`}></i>
+              <img 
+                src="/sidebar-collapse.svg" 
+                alt="" 
+                className="w-5 h-5 transition-all duration-300 group-hover:opacity-100"
+                style={{ filter: 'brightness(0) invert(1)', opacity: 0.7 }}
+              />
             </button>
 
             {/* Settings Button - Top Right */}
@@ -244,7 +249,7 @@ export const Sidebar = memo(function Sidebar({
               disabled={isCollapsed}
               aria-label="Open Settings"
             >
-              <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
+              <i className="fa-solid fa-gear text-white/50 group-hover:text-white text-base transition-colors"></i>
             </button>
           </div>
         </div>
@@ -290,11 +295,16 @@ export const Sidebar = memo(function Sidebar({
             {/* Expand Button - Top */}
             <button
               onClick={toggleSidebar}
-              className="flex items-center justify-center w-11 h-11 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all duration-200 hover:scale-105 active:scale-95 group"
+              className="sidebar-toggle-btn flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group"
               title="Expand sidebar (Ctrl+B)"
               aria-label="Expand sidebar"
             >
-              <i className="fa-solid fa-chevron-right text-white/70 group-hover:text-white text-sm transition-colors"></i>
+              <img 
+                src="/sidebar-expand.svg" 
+                alt="" 
+                className="w-5 h-5 transition-all group-hover:opacity-100"
+                style={{ filter: 'brightness(0) invert(1)', opacity: 0.7 }}
+              />
             </button>
 
             {/* Visual Separator */}
@@ -307,7 +317,7 @@ export const Sidebar = memo(function Sidebar({
               title="Settings (Ctrl+,)"
               aria-label="Open Settings"
             >
-              <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
+              <i className="fa-regular fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
             </button>
           </div>
         )}
