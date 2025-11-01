@@ -59,7 +59,10 @@ export const CooldownList = memo(function CooldownList({
         if (remainingMs <= 0) {
           remainingCooldown = 0;
         } else {
-          remainingCooldown = Math.ceil(remainingMs / 1000);
+          // Use Math.floor to show actual full seconds remaining, not rounded up
+          // This ensures 5s setting shows 5s, not 6s
+          remainingCooldown = Math.floor(remainingMs / 1000);
+          // Ensure minimum of 1 if there's any time left
           if (remainingCooldown === 0 && remainingMs > 0) {
             remainingCooldown = 1;
           }
