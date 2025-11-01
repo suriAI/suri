@@ -37,14 +37,14 @@ export function GroupContent({
 }: GroupContentProps) {
   if (!selectedGroup) {
     return (
-      <div className="h-full px-6 py-6">
+      <div className="h-full px-6 pt-6">
         <EmptyState onCreateGroup={onCreateGroup} hasGroups={(groups?.length ?? 0) > 0} />
       </div>
     );
   }
 
   return (
-    <div className="h-full px-6 py-6">
+    <div className="h-full px-6 pt-6">
       {activeSection === 'overview' && (
         <Overview group={selectedGroup} members={members} />
       )}

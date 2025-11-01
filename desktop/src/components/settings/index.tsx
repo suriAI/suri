@@ -266,7 +266,7 @@ export const Settings: React.FC<SettingsProps> = ({
         </div>
 
         {/* Section Content */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scroll">
+        <div className="flex-1 overflow-y-auto p-8 pb-0 custom-scroll">
           {activeSection === 'group' && (
             <div className="h-full -m-8">
               <GroupPanel
