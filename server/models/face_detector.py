@@ -15,7 +15,7 @@ class FaceDetector:
         conf_threshold: float,
         nms_threshold: float,
         top_k: int,
-        min_face_size: int = 80,
+        min_face_size: int,
     ):
 
         self.model_path = model_path
@@ -23,9 +23,7 @@ class FaceDetector:
         self.conf_threshold = conf_threshold
         self.nms_threshold = nms_threshold
         self.top_k = top_k
-        self.min_face_size = (
-            min_face_size  # Minimum face size for liveness detection compatibility
-        )
+        self.min_face_size = min_face_size
         self.detector = None
 
         if model_path and os.path.isfile(model_path):

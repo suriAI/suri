@@ -426,15 +426,13 @@ async def detect_faces(request: DetectionRequest):
             face_detector.set_nms_threshold(request.nms_threshold)
 
             # When liveness detection is disabled, remove minimum face size limit
-            # When enabled, restore default minimum face size (80px for liveness compatibility)
+            # When enabled, restore default minimum face size from config (single source of truth)
             if not request.enable_liveness_detection:
                 face_detector.set_min_face_size(
                     0
                 )  # No limit when spoof detection is off
             else:
-                default_min_size = MODEL_CONFIGS.get("face_detector", {}).get(
-                    "min_face_size", 80
-                )
+                default_min_size = FACE_DETECTOR_CONFIG["min_face_size"]
                 face_detector.set_min_face_size(default_min_size)
 
             faces = face_detector.detect_faces(image)
@@ -524,15 +522,13 @@ async def detect_faces_upload(
             face_detector.set_nms_threshold(nms_threshold)
 
             # When liveness detection is disabled, remove minimum face size limit
-            # When enabled, restore default minimum face size (80px for liveness compatibility)
+            # When enabled, restore default minimum face size from config (single source of truth)
             if not enable_liveness_detection:
                 face_detector.set_min_face_size(
                     0
                 )  # No limit when spoof detection is off
             else:
-                default_min_size = MODEL_CONFIGS.get("face_detector", {}).get(
-                    "min_face_size", 80
-                )
+                default_min_size = FACE_DETECTOR_CONFIG["min_face_size"]
                 face_detector.set_min_face_size(default_min_size)
 
             faces = face_detector.detect_faces(image)
@@ -991,10 +987,9 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
 
     # Initialize min_face_size based on default enable_liveness_detection state
     # This ensures correct face size limiting from the first frame
+    # Using config as single source of truth
     if face_detector:
-        default_min_size = MODEL_CONFIGS.get("face_detector", {}).get(
-            "min_face_size", 80
-        )
+        default_min_size = FACE_DETECTOR_CONFIG["min_face_size"]
         face_detector.set_min_face_size(default_min_size)
 
     try:
@@ -1035,16 +1030,14 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                                 "enable_liveness_detection", True
                             )
                             # When liveness detection is disabled, remove minimum face size limit
-                            # When enabled, restore default minimum face size (80px for liveness compatibility)
+                            # When enabled, restore default minimum face size from config (single source of truth)
                             if face_detector:
                                 if not enable_liveness_detection:
                                     face_detector.set_min_face_size(
                                         0
                                     )  # No limit when spoof detection is off
                                 else:
-                                    default_min_size = MODEL_CONFIGS.get(
-                                        "face_detector", {}
-                                    ).get("min_face_size", 80)
+                                    default_min_size = FACE_DETECTOR_CONFIG["min_face_size"]
                                     face_detector.set_min_face_size(default_min_size)
 
                         await websocket.send_text(

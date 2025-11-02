@@ -151,7 +151,7 @@ MODEL_CONFIGS = {
         "score_threshold": 0.7,
         "nms_threshold": 0.3,
         "top_k": 100,
-        "min_face_size": 80,  # Minimum face size for liveness detection compatibility
+        "min_face_size": 80,  # (IMPORTANT! DO NOT CHANGE) Minimum face size for anti-spoofing compatibility
         "backend_id": 0,
         "target_id": 0,
         "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
