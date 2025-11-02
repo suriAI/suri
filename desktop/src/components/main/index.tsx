@@ -21,6 +21,9 @@ const NON_LOGGING_ANTISPOOF_STATUSES = new Set<'real' | 'fake' | 'uncertain' | '
 
 const TRACKING_HISTORY_LIMIT = 20;
 
+let skipFrames = 0;
+let frameCounter = 0;
+
 // Extended recognition response with additional UI properties
 export interface ExtendedFaceRecognitionResponse extends FaceRecognitionResponse {
   memberName?: string;
@@ -194,10 +197,6 @@ export default function Main() {
     lastUpdateTime: Date.now()
   });
 
-  // Frame counter for skipping frames
-  const frameCounterRef = useRef(0);
-
-  // Settings view state
   const [showSettings, setShowSettings] = useState(false);
   const [isSettingsFullScreen, setIsSettingsFullScreen] = useState(false);
   const [groupInitialSection, setGroupInitialSection] = useState<GroupSection | undefined>(undefined);
@@ -328,7 +327,7 @@ export default function Main() {
       if (startTimeout) clearTimeout(startTimeout);
       if (stopTimeout) clearTimeout(stopTimeout);
     };
-  }, [isStartingRef.current, isStoppingRef.current, emergencyRecovery]);
+  }, [emergencyRecovery]);
 
   // Real-time countdown updater - optimized to reduce state update frequency
   useEffect(() => {
@@ -426,7 +425,7 @@ export default function Main() {
             resolve(null);
           });
         }, 'image/jpeg', 0.9);
-      } catch (error) {
+      } catch {
         resolve(null);
       }
     });
@@ -936,6 +935,10 @@ export default function Main() {
 
         // Process the detection result
         if (data.faces && Array.isArray(data.faces)) {
+          if (data.suggested_skip !== undefined) {
+            skipFrames = data.suggested_skip;
+          }
+
           const detectionResult: DetectionResult = {
             faces: data.faces.map((face: WebSocketFaceData) => {
               const bbox = face.bbox || [0, 0, 0, 0];
@@ -1041,12 +1044,9 @@ export default function Main() {
       return;
     }
 
-    // Increment frame counter
-    frameCounterRef.current++;
+    frameCounter++;
 
-    // Skip every 2nd frame
-    if (frameCounterRef.current % 2 !== 0) {
-      // Schedule next frame processing
+    if (frameCounter % (skipFrames + 1) !== 0) {
       if (detectionEnabledRef.current && isStreamingRef.current) {
         requestAnimationFrame(() => processCurrentFrame());
       }
@@ -1059,11 +1059,9 @@ export default function Main() {
         return;
       }
       
-      // Send frame to backend
       backendServiceRef.current.sendDetectionRequest(frameData).catch(error => {
         console.error('❌ WebSocket detection request failed:', error);
         
-        // Continue processing on error
         if (detectionEnabledRef.current && isStreamingRef.current) {
           requestAnimationFrame(() => processCurrentFrame());
         }
@@ -1071,7 +1069,6 @@ export default function Main() {
     } catch (error) {
       console.error('❌ Frame capture failed:', error);
       
-      // Continue processing on error
       if (detectionEnabledRef.current && isStreamingRef.current) {
         requestAnimationFrame(() => processCurrentFrame());
       }
@@ -1087,7 +1084,7 @@ export default function Main() {
       if (videoDevices.length > 0 && !selectedCamera) {
         setSelectedCamera(videoDevices[0].deviceId);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to get camera devices');
     }
   }, [selectedCamera]);
@@ -1710,7 +1707,6 @@ export default function Main() {
       console.error('❌ Failed to create group:', error);
       setError('Failed to create group');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newGroupName, loadAttendanceData, handleSelectGroup]);
 
 
@@ -2020,7 +2016,7 @@ export default function Main() {
               onQuickSettingsChange={setQuickSettings}
               attendanceSettings={{
                 trackingMode: trackingMode,
-                lateThresholdEnabled: (currentGroup?.settings as any)?.late_threshold_enabled ?? false,
+                lateThresholdEnabled: (currentGroup?.settings as { late_threshold_enabled?: boolean })?.late_threshold_enabled ?? false,
                 lateThresholdMinutes: currentGroup?.settings?.late_threshold_minutes ?? 15,
                 classStartTime: currentGroup?.settings?.class_start_time ?? '08:00',
                 attendanceCooldownSeconds: attendanceCooldownSeconds,

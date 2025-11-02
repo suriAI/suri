@@ -78,6 +78,7 @@ class DetectionResponse(BaseModel):
     faces: List[Dict]
     processing_time: float
     model_used: str
+    suggested_skip: int = 0
 
 class StreamingRequest(BaseModel):
     session_id: str
@@ -417,11 +418,15 @@ async def detect_faces(request: DetectionRequest):
             if 'embedding' in face:
                 del face['embedding']
         
+        processing_time_ms = processing_time * 1000
+        suggested_skip = 2 if processing_time_ms > 50 else (1 if processing_time_ms > 30 else 0)
+        
         return DetectionResponse(
             success=True,
             faces=faces,
             processing_time=processing_time,
-            model_used=request.model_type
+            model_used=request.model_type,
+            suggested_skip=suggested_skip
         )
         
     except Exception as e:
@@ -495,11 +500,15 @@ async def detect_faces_upload(
             if 'embedding' in face:
                 del face['embedding']
         
+        processing_time_ms = processing_time * 1000
+        suggested_skip = 2 if processing_time_ms > 50 else (1 if processing_time_ms > 30 else 0)
+        
         return {
             "success": True,
             "faces": faces,
             "processing_time": processing_time,
-            "model_used": model_type
+            "model_used": model_type,
+            "suggested_skip": suggested_skip
         }
         
     except Exception as e:
@@ -958,7 +967,8 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                         "model_used": "face_detector",
                         "processing_time": processing_time,
                         "timestamp": time.time(),
-                        "success": True
+                        "success": True,
+                        "suggested_skip": 2 if processing_time * 1000 > 50 else (1 if processing_time * 1000 > 30 else 0)
                     }))
                     
             except Exception as e:

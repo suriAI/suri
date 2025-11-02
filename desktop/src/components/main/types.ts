@@ -49,6 +49,7 @@ export interface WebSocketDetectionResponse {
   timestamp?: number;
   frame_timestamp?: number;
   frame_dropped?: boolean;
+  suggested_skip?: number;
   performance_metrics?: {
     actual_fps?: number;
     overload_counter?: number;
