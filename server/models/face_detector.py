@@ -18,6 +18,8 @@ class FaceDetector:
         min_face_size: int,
     ):
 
+        # Initialize class attributes
+
         self.model_path = model_path
         self.input_size = input_size
         self.conf_threshold = conf_threshold
@@ -25,29 +27,23 @@ class FaceDetector:
         self.top_k = top_k
         self.min_face_size = min_face_size
         self.detector = None
-
-        # Initialize OpenCV FaceDetectorYN
+ 
         if model_path and os.path.isfile(model_path):
             try:
                 self.detector = cv2.FaceDetectorYN.create(
                     self.model_path,
-                    "",
+                    "", # Config file path (empty for ONNX - params passed directly)
                     self.input_size,
                     self.conf_threshold,
                     self.nms_threshold,
                     self.top_k,
                 )
             except Exception as e:
-                logger.error(f"Error initializing face detector: {e}")
-                self.detector = None
+                logger.error(f"Error loading face detector model: {e}")
 
     def detect_faces(self, image: np.ndarray) -> List[dict]:
         # Detect faces in the given image
-        if not self.detector:
-            return []
-
-        # Early exit for invalid images
-        if image is None or image.size == 0:
+        if not self.detector or image is None or image.size == 0:
             logger.warning("Invalid image provided to face detector")
             return []
 
@@ -63,7 +59,7 @@ class FaceDetector:
         if faces is None or len(faces) == 0:
             return []
 
-        # Convert detections to our format
+        # Convert to face detection dict
         detections = []
         for face in faces:
             x, y, w, h = face[:4]
