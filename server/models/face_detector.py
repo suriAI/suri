@@ -26,23 +26,20 @@ class FaceDetector:
         self.min_face_size = min_face_size
         self.detector = None
 
+        # Initialize OpenCV FaceDetectorYN
         if model_path and os.path.isfile(model_path):
-            self._init_detector()
-
-    def _init_detector(self):
-        """Initialize the OpenCV FaceDetectorYN"""
-        try:
-            self.detector = cv2.FaceDetectorYN.create(
-                self.model_path,
-                "",
-                self.input_size,
-                self.conf_threshold,
-                self.nms_threshold,
-                self.top_k,
-            )
-        except Exception as e:
-            logger.error(f"Error initializing face detector: {e}")
-            self.detector = None
+            try:
+                self.detector = cv2.FaceDetectorYN.create(
+                    self.model_path,
+                    "",
+                    self.input_size,
+                    self.conf_threshold,
+                    self.nms_threshold,
+                    self.top_k,
+                )
+            except Exception as e:
+                logger.error(f"Error initializing face detector: {e}")
+                self.detector = None
 
     def detect_faces(self, image: np.ndarray) -> List[dict]:
         # Detect faces in the given image
