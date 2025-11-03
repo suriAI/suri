@@ -433,7 +433,7 @@ export default function Main() {
   }, []);
 
   // Face recognition function
-  const performFaceRecognition = useCallback(async (detectionResult: DetectionResult, frameData?: ArrayBuffer | null) => {
+  const performFaceRecognition = useCallback(async (detectionResult: DetectionResult, frameData: ArrayBuffer | null) => {
     try {
       // Only perform recognition when a group is selected
       const currentGroupValue = currentGroupRef.current;
@@ -442,10 +442,9 @@ export default function Main() {
         return;
       }
 
-      // Use provided frame data or fallback to stored frame data
-      const frameDataToUse = frameData || lastDetectionFrameRef.current;
-      if (!frameDataToUse) {
-        return; // Skip if no frame data available
+      // Skip if no frame data available
+      if (!frameData) {
+        return;
       }
 
       // Capture current group at start of processing to validate later
@@ -497,7 +496,7 @@ export default function Main() {
           const bbox = [face.bbox.x, face.bbox.y, face.bbox.width, face.bbox.height];
           
           const response = await backendServiceRef.current.recognizeFace(
-            frameDataToUse,
+            frameData,
             bbox,
             currentGroupValue?.id,
             face.landmarks_5
@@ -871,30 +870,11 @@ export default function Main() {
         backendServiceRef.current = new BackendService();
       }
 
-      // Check backend readiness before connecting WebSocket with retry logic
+      // Simple check: backend ready or not
+      const readinessCheck = await window.electronAPI?.backend.checkReadiness();
       
-      const waitForBackendReady = async (maxAttempts = 5, baseDelay = 100) => {
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          
-          const readinessCheck = await window.electronAPI?.backend.checkReadiness();
-          
-          if (readinessCheck?.ready && readinessCheck?.modelsLoaded) {
-            return true;
-          }
-          
-          if (attempt < maxAttempts) {
-            const delay = baseDelay * Math.pow(1.2, attempt - 1); // Faster exponential backoff for WebSocket
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-        
-        return false;
-      };
-      
-      const isBackendReady = await waitForBackendReady();
-      
-      if (!isBackendReady) {
-        throw new Error('Backend not ready: Models still loading after retries');
+      if (!readinessCheck?.ready || !readinessCheck?.modelsLoaded) {
+        throw new Error('Backend not ready: Models still loading');
       }
 
 
@@ -1213,27 +1193,10 @@ export default function Main() {
         setCameraActive(true);
         
         try {
-          // Wait for backend to be ready with retry logic
-          const waitForBackendReady = async (maxAttempts = 10, baseDelay = 200) => {
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {       
-              const readinessCheck = await window.electronAPI?.backend.checkReadiness();
-            
-              if (readinessCheck?.ready && readinessCheck?.modelsLoaded) {
-                return true;
-              }
-              
-              if (attempt < maxAttempts) {
-                const delay = baseDelay * Math.pow(1.3, attempt - 1); // Faster exponential backoff
-                await new Promise(resolve => setTimeout(resolve, delay));
-              }
-            }
-            
-            return false;
-          };
+          // Check if backend is ready
+          const readinessCheck = await window.electronAPI?.backend.checkReadiness();
           
-          const isBackendReady = await waitForBackendReady();
-          
-          if (!isBackendReady) {
+          if (!readinessCheck?.ready || !readinessCheck?.modelsLoaded) {
             setError('Backend models are still loading. Please wait and try again.');
             
             // Still allow camera to start but don't enable detection
@@ -1248,31 +1211,9 @@ export default function Main() {
           if (websocketStatus === 'disconnected') {
             try {
               await initializeWebSocket();
-              
-              // CRITICAL: Set backend ready immediately since WebSocket is connected
+              // Set backend ready immediately since WebSocket is connected
               backendServiceReadyRef.current = true;
-              
-              // Wait for WebSocket to be fully ready before starting detection
-              let attempts = 0;
-              const maxAttempts = 20; // Increased attempts for better reliability
-              const waitForReady = () => {
-                return new Promise<void>((resolve, reject) => {
-                  const checkReady = () => {
-                    if (backendServiceRef.current?.isWebSocketReady()) {
-                      startDetectionInterval();
-                      resolve();
-                    } else if (attempts < maxAttempts) {
-                      attempts++;
-                      setTimeout(checkReady, 100); // Check every 100ms
-                    } else {
-                      reject(new Error('WebSocket readiness timeout'));
-                    }
-                  };
-                  checkReady();
-                });
-              };
-              
-              await waitForReady();
+              startDetectionInterval();
             } catch (error) {
               console.error('❌ Failed to initialize WebSocket or start detection:', error);
               setDetectionEnabled(false);
@@ -1812,32 +1753,12 @@ export default function Main() {
 
   // Monitor WebSocket status and start detection when connected
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | undefined;
-    
     if (websocketStatus === 'connected' && detectionEnabledRef.current) {
-      // Poll for WebSocket readiness with exponential backoff
-      let attempts = 0;
-      const maxAttempts = 10;
-      const checkReadiness = () => {
-        if (backendServiceRef.current?.isWebSocketReady() && 
-            detectionEnabledRef.current) {
-          startDetectionInterval();
-        } else if (attempts < maxAttempts) {
-          attempts++;
-          const delay = Math.min(50 * Math.pow(1.2, attempts), 500); // Faster exponential backoff, max 500ms
-          timeoutId = setTimeout(checkReadiness, delay);
-        }
-      };
-      
-      // Start checking immediately
-      checkReadiness();
-    }
-    
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      // WebSocket is connected - start detection if ready
+      if (backendServiceRef.current?.isWebSocketReady()) {
+        startDetectionInterval();
       }
-    };
+    }
   }, [websocketStatus, startDetectionInterval]);
 
   // Monitor detectionEnabled state changes

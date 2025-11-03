@@ -178,7 +178,7 @@ export class BackendService {
    * Detect faces using HTTP API
    */
   async detectFaces(
-    imageData: ImageData | string,
+    imageData: string,
     options: {
       model_type?: string;
       confidence_threshold?: number;
@@ -186,16 +186,8 @@ export class BackendService {
     } = {}
   ): Promise<DetectionResponse> {
     try {
-      let imageBase64: string;
-      
-      if (typeof imageData === 'string') {
-        imageBase64 = imageData;
-      } else {
-        imageBase64 = await this.imageDataToBase64(imageData);
-      }
-
       const request: DetectionRequest = {
-        image: imageBase64,
+        image: imageData,
         model_type: options.model_type || 'face_detector',
         confidence_threshold: options.confidence_threshold || 0.5,
         nms_threshold: options.nms_threshold || 0.3,
@@ -218,42 +210,6 @@ export class BackendService {
       return await response.json();
     } catch (error) {
       console.error('Face detection failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Detect faces using file upload
-   */
-  async detectFacesFromFile(
-    file: File,
-    options: {
-      model_type?: string;
-      confidence_threshold?: number;
-      nms_threshold?: number;
-    } = {}
-  ): Promise<DetectionResponse> {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('model_type', options.model_type || 'face_detector');
-      formData.append('confidence_threshold', (options.confidence_threshold || 0.5).toString());
-      formData.append('nms_threshold', (options.nms_threshold || 0.3).toString());
-      formData.append('enable_liveness_detection', String(this.enableLivenessDetection));
-
-      const response = await fetch(`${this.config.baseUrl}/detect/upload`, {
-        method: 'POST',
-        body: formData,
-        signal: AbortSignal.timeout(this.config.timeout)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('File upload detection failed:', error);
       throw error;
     }
   }
@@ -394,32 +350,13 @@ export class BackendService {
     }
   }
 
-  async sendDetectionRequest(
-    imageData: ImageData | string | ArrayBuffer
-  ): Promise<void> {
+  async sendDetectionRequest(frameData: ArrayBuffer): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return;
     }
 
     try {
-      let binaryData: ArrayBuffer;
-
-      if (imageData instanceof ArrayBuffer) {
-        binaryData = imageData;
-      } else if (typeof imageData === 'string') {
-        const base64Data = imageData.includes('base64,') ? imageData.split('base64,')[1] : imageData;
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        binaryData = bytes.buffer;
-      } else {
-        binaryData = await this.imageDataToJpegBinary(imageData);
-      }
-
-      this.ws.send(binaryData);
-
+      this.ws.send(frameData);
     } catch (error) {
       this.handleMessage({
         type: 'error',
@@ -427,20 +364,6 @@ export class BackendService {
         timestamp: Date.now()
       });
     }
-  }
-
-  private async imageDataToJpegBinary(imageData: ImageData): Promise<ArrayBuffer> {
-    if (!imageData || typeof imageData.width !== 'number' || typeof imageData.height !== 'number' || 
-        imageData.width <= 0 || imageData.height <= 0) {
-      throw new Error('Invalid ImageData');
-    }
-
-    const canvas = new OffscreenCanvas(imageData.width, imageData.height);
-    const ctx = canvas.getContext('2d')!;
-    ctx.putImageData(imageData, 0, 0);
-    
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
-    return await blob.arrayBuffer();
   }
 
   ping(): void {
@@ -514,27 +437,20 @@ export class BackendService {
    * Recognize a face from image data (via IPC)
    */
   async recognizeFace(
-    imageData: ImageData | string | ArrayBuffer,
+    imageData: ArrayBuffer,
     bbox?: number[],
     groupId?: string,
     landmarks_5?: number[][]
   ): Promise<FaceRecognitionResponse> {
     try {
-      let base64Image: string;
-      if (typeof imageData === 'string') {
-        base64Image = imageData;
-      } else if (imageData instanceof ArrayBuffer) {
-        // Convert ArrayBuffer to Base64
-        const blob = new Blob([imageData], { type: 'image/jpeg' });
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-        base64Image = dataUrl.split(',')[1];
-      } else {
-        base64Image = await this.imageDataToBase64(imageData);
-      }
+      // Convert ArrayBuffer to Base64
+      const blob = new Blob([imageData], { type: 'image/jpeg' });
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+      const base64Image = dataUrl.split(',')[1];
 
       return await window.electronAPI.backend.recognizeFace(base64Image, bbox || [], groupId, landmarks_5, this.enableLivenessDetection);
     } catch (error) {
@@ -547,17 +463,13 @@ export class BackendService {
    * Register a new face with person ID (via IPC)
    */
   async registerFace(
-    imageData: ImageData | string,
+    imageData: string,
     personId: string,
     bbox?: number[],
     groupId?: string
   ): Promise<FaceRegistrationResponse> {
     try {
-      const base64Image = typeof imageData === 'string' 
-        ? imageData 
-        : await this.imageDataToBase64(imageData);
-
-      return await window.electronAPI.backend.registerFace(base64Image, personId, bbox || [], groupId, this.enableLivenessDetection);
+      return await window.electronAPI.backend.registerFace(imageData, personId, bbox || [], groupId, this.enableLivenessDetection);
     } catch (error) {
       console.error('Face registration failed:', error);
       throw error;
@@ -689,33 +601,6 @@ export class BackendService {
     }
   }
 
-  private async imageDataToBase64(imageData: ImageData): Promise<string> {
-    // Validate ImageData dimensions
-    if (!imageData || typeof imageData.width !== 'number' || typeof imageData.height !== 'number' || 
-        imageData.width <= 0 || imageData.height <= 0) {
-      throw new Error('Invalid ImageData: width and height must be positive numbers');
-    }
-
-    // Create a canvas to convert ImageData to base64
-    const canvas = new OffscreenCanvas(imageData.width, imageData.height);
-    const ctx = canvas.getContext('2d')!;
-    ctx.putImageData(imageData, 0, 0);
-    
-    // Convert to blob and then to base64
-    return new Promise<string>((resolve, reject) => {
-      canvas.convertToBlob({ type: 'image/jpeg', quality: 0.9 })
-        .then(blob => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = (reader.result as string).split(',')[1];
-            resolve(base64);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        })
-        .catch(reject);
-    });
-  }
 }
 
 // Singleton instance for global use
