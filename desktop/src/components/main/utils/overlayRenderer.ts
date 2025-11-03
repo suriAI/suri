@@ -328,6 +328,9 @@ export const drawOverlays = ({
     const isRecognized = recognitionEnabled && recognitionResult?.person_id;
     let label = "";
     let shouldShowLabel = false;
+    const similarityScore = isRecognized && recognitionResult?.similarity 
+      ? (recognitionResult.similarity * 100).toFixed(0) 
+      : null;
 
     if (isRecognized && recognitionResult && quickSettings.showRecognitionNames) {
       label = recognitionResult.name || recognitionResult.person_id || "Unknown";
@@ -335,11 +338,31 @@ export const drawOverlays = ({
     }
 
     if (shouldShowLabel) {
+      ctx.save();
+      
       // Clamp label position to canvas bounds to ensure visibility at edges
       const labelX = Math.max(4, Math.min(displayWidth - 100, clampedX1 + 4));
       const labelY = Math.max(13, Math.min(displayHeight - 4, clampedY1 - 6));
+      
+      // Draw name
       ctx.font = '600 13px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = color;
       ctx.fillText(label, labelX, labelY);
+      
+      // Draw similarity percentage beside the name if available
+      if (similarityScore) {
+        // Measure name width to position percentage next to it
+        const nameWidth = ctx.measureText(label).width;
+        const percentageX = labelX + nameWidth + 6; // 6px spacing
+        
+        ctx.font = '500 11px system-ui, -apple-system, sans-serif';
+        ctx.globalAlpha = 0.8; // Slightly transparent
+        ctx.fillStyle = color;
+        ctx.fillText(`${similarityScore}%`, percentageX, labelY);
+        ctx.globalAlpha = 1.0; // Reset alpha
+      }
+      
+      ctx.restore();
     }
 
     if (isRecognized && recognitionResult?.person_id) {

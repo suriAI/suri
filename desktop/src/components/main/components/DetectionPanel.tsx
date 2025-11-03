@@ -108,9 +108,6 @@ const DetectionCard = memo(({
   const statusStyles = getStatusStyles();
   const isSpoof = face.liveness?.status === 'fake';
   const hasName = isRecognized && recognitionResult?.person_id && displayName;
-  const similarityScore = isRecognized && recognitionResult?.similarity 
-    ? (recognitionResult.similarity * 100).toFixed(0) 
-    : null;
 
   return (
     <div 
@@ -125,21 +122,14 @@ const DetectionCard = memo(({
     >
       {/* Single-line compact layout */}
       <div className="flex items-center justify-between gap-2">
-        {/* Left: Name and Recognition Score */}
+        {/* Left: Name */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {hasName ? (
-            <>
-              <span className={`font-medium text-sm truncate ${
-                isSpoof ? 'text-red-200' : 'text-white'
-              }`}>
-                {displayName}
-              </span>
-              {similarityScore && !isSpoof && (
-                <span className="text-xs text-green-400/70 font-mono shrink-0">
-                  {similarityScore}%
-                </span>
-              )}
-            </>
+            <span className={`font-medium text-sm truncate ${
+              isSpoof ? 'text-red-200' : 'text-white'
+            }`}>
+              {displayName}
+            </span>
           ) : (
             <span className={`text-xs italic ${
               isSpoof ? 'text-red-300/70' : 'text-white/40'
