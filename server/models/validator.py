@@ -160,7 +160,7 @@ class LivenessValidator:
 
         # Calculate center of original bbox
         xc, yc = x1_input + w / 2, y1_input + h / 2
-        
+
         # Calculate expanded bbox top-left corner (may be outside image bounds)
         x_expanded = int(xc - max_dim * bbox_inc / 2)
         y_expanded = int(yc - max_dim * bbox_inc / 2)
@@ -385,7 +385,9 @@ class LivenessValidator:
                 if face_crop is None or face_crop.size == 0:
                     continue
             except Exception as e:
-                logger.warning(f"increased_crop failed, skipping liveness for this face: {e}")
+                logger.warning(
+                    f"increased_crop failed, skipping liveness for this face: {e}"
+                )
                 continue
 
             face_crops.append(face_crop)
@@ -399,10 +401,10 @@ class LivenessValidator:
         results = []
         for i, detection in enumerate(face_detections):
             # Skip liveness processing if face already has liveness status (e.g., from size filter or edge cases)
-            if (
-                "liveness" in detection
-                and detection["liveness"].get("status") in ["too_small", "uncertain"]
-            ):
+            if "liveness" in detection and detection["liveness"].get("status") in [
+                "too_small",
+                "uncertain",
+            ]:
                 # Keep existing liveness status from detector (small face filter or edge case)
                 results.append(detection)
                 continue

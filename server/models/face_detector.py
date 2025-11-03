@@ -111,7 +111,9 @@ class FaceDetector:
             clipped_area = face_width_orig * face_height_orig
 
             # Calculate visibility ratio (how much of the face is actually visible)
-            visibility_ratio = clipped_area / original_area if original_area > 0 else 1.0
+            visibility_ratio = (
+                clipped_area / original_area if original_area > 0 else 1.0
+            )
 
             # Check if face is too close to image edges (within 5% of image dimension)
             edge_threshold_x = orig_width * 0.05
@@ -159,7 +161,7 @@ class FaceDetector:
             is_edge_case_for_uncertain = (
                 is_near_edge and visibility_ratio < 0.85
             ) or landmarks_near_edge
-            
+
             # Only apply edge case uncertain marking if liveness detection is enabled
             # If min_face_size is 0, spoof detection is OFF - allow all faces including edge cases
             liveness_detection_enabled = self.min_face_size > 0
@@ -185,7 +187,9 @@ class FaceDetector:
                     "status": "too_small",
                     "decision_reason": f"Face too small ({face_width_orig}x{face_height_orig}px) for reliable liveness detection (minimum: {self.min_face_size}px)",
                 }
-            elif liveness_detection_enabled and (is_edge_case_for_uncertain or is_critically_low_visibility):
+            elif liveness_detection_enabled and (
+                is_edge_case_for_uncertain or is_critically_low_visibility
+            ):
                 # Mark as uncertain for edge cases or low visibility ONLY if liveness detection is enabled
                 # This prevents misclassification when spoof detection is ON
                 # When spoof detection is OFF, edge cases are allowed for recognition
