@@ -42,8 +42,8 @@ const DetectionCard = memo(({
     }
 
     const status = face.liveness.status;
-    const liveScore = face.liveness.live_score;
-    const spoofScore = face.liveness.spoof_score;
+    const liveScore = face.liveness.live_score ?? null;
+    const spoofScore = face.liveness.spoof_score ?? null;
 
     switch (status) {
       case 'real':

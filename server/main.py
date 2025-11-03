@@ -262,8 +262,16 @@ async def process_liveness_detection(
         for i, face in enumerate(faces_with_liveness):
             if "liveness" in face:
                 liveness = face["liveness"]
+                live_score = liveness.get("live_score")
+                spoof_score = liveness.get("spoof_score")
+                live_score_str = (
+                    f"{live_score:.3f}" if live_score is not None else "N/A"
+                )
+                spoof_score_str = (
+                    f"{spoof_score:.3f}" if spoof_score is not None else "N/A"
+                )
                 logger.info(
-                    f"Face {i} result: is_real={liveness['is_real']}, live_score={liveness['live_score']:.3f}, spoof_score={liveness['spoof_score']:.3f}, predicted_class={liveness.get('predicted_class', 'N/A')}"
+                    f"Face {i} result: is_real={liveness['is_real']}, live_score={live_score_str}, spoof_score={spoof_score_str}, predicted_class={liveness.get('predicted_class', 'N/A')}, status={liveness.get('status', 'N/A')}"
                 )
 
         return faces_with_liveness
@@ -1036,7 +1044,9 @@ async def websocket_detect_endpoint(websocket: WebSocket, client_id: str):
                                         0
                                     )  # No limit when spoof detection is off
                                 else:
-                                    default_min_size = FACE_DETECTOR_CONFIG["min_face_size"]
+                                    default_min_size = FACE_DETECTOR_CONFIG[
+                                        "min_face_size"
+                                    ]
                                     face_detector.set_min_face_size(default_min_size)
 
                         await websocket.send_text(

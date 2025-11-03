@@ -955,10 +955,12 @@ export default function Main() {
                 landmarks_5: face.landmarks_5, // Pass YuNet 5-point landmarks through
                 liveness: face.liveness ? {
                   is_real: face.liveness.is_real ?? null,
-                  confidence: face.liveness.confidence || 0,
+                  confidence: face.liveness.confidence ?? 0,
                   live_score: face.liveness.live_score,
                   spoof_score: face.liveness.spoof_score,
-                  status: face.liveness.status || 'error'
+                  status: face.liveness.status || 'error',
+                  label: face.liveness.label,
+                  message: face.liveness.message || (face.liveness as any).decision_reason
                 } : undefined
               };
             }),

@@ -27,12 +27,12 @@ class FaceDetector:
         self.top_k = top_k
         self.min_face_size = min_face_size
         self.detector = None
- 
+
         if model_path and os.path.isfile(model_path):
             try:
                 self.detector = cv.FaceDetectorYN.create(
                     self.model_path,
-                    "", # Config file path (empty for ONNX - params passed directly)
+                    "",  # Config file path (empty for ONNX - params passed directly)
                     self.input_size,
                     self.conf_threshold,
                     self.nms_threshold,
@@ -56,12 +56,17 @@ class FaceDetector:
             scale_y = 1.0
         else:
             # Use INTER_AREA for downscaling
-            interpolation = cv.INTER_AREA if (orig_width > self.input_size[0] or orig_height > self.input_size[1]) else cv.INTER_LINEAR
-            detection_img = cv.resize(image, self.input_size, interpolation=interpolation)
+            interpolation = (
+                cv.INTER_AREA
+                if (orig_width > self.input_size[0] or orig_height > self.input_size[1])
+                else cv.INTER_LINEAR
+            )
+            detection_img = cv.resize(
+                image, self.input_size, interpolation=interpolation
+            )
             scale_x = orig_width / self.input_size[0]
             scale_y = orig_height / self.input_size[1]
 
-        
         faces = self.detector.detect(detection_img)[1]
 
         # Exit if no faces detected

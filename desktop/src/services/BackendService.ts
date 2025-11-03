@@ -61,8 +61,10 @@ interface IPCMessage {
       live_score?: number;
       spoof_score?: number;
       confidence?: number;
-      status?: 'real' | 'fake' | 'error';
+      status?: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
       label?: string;
+      message?: string;
+      decision_reason?: string;
     };
     track_id?: number;
   }>;

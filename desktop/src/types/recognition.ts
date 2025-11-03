@@ -104,9 +104,10 @@ export interface FaceWithRecognition {
     is_real: boolean | null;
     live_score?: number;
     spoof_score?: number;
-    confidence: number;
-    status: 'real' | 'fake' | 'error';
+    confidence?: number;
+    status: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
     label?: string;
+    message?: string;
   };
   recognition?: RecognitionResult;
 }

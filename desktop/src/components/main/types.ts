@@ -16,7 +16,7 @@ export interface DetectionResult {
     landmarks_5?: number[][]; // YuNet 5-point landmarks [[x,y], [x,y], ...]
     liveness?: {
       is_real: boolean | null;
-      confidence: number;
+      confidence?: number;
       live_score?: number;
       spoof_score?: number;
       status: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
@@ -32,15 +32,16 @@ export interface WebSocketFaceData {
   confidence?: number;
   track_id?: number;
   landmarks_5?: number[][]; // YuNet 5-point landmarks [[x,y], [x,y], ...]
-  liveness?: {
-    is_real?: boolean | null;
-    confidence?: number;
-    live_score?: number;
-    spoof_score?: number;
-    status?: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
-    label?: string;
-    message?: string;
-  };
+    liveness?: {
+      is_real?: boolean | null;
+      confidence?: number;
+      live_score?: number;
+      spoof_score?: number;
+      status?: 'real' | 'fake' | 'uncertain' | 'error' | 'insufficient_quality';
+      label?: string;
+      message?: string;
+      decision_reason?: string;
+    };
 }
 
 export interface WebSocketDetectionResponse {
