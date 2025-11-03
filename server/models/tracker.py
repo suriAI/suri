@@ -7,7 +7,6 @@ import lap
 logger = logging.getLogger(__name__)
 
 
-
 def linear_assignment(cost_matrix: np.ndarray) -> np.ndarray:
     """
     Solve the linear assignment problem using LAP (optimized LAPJV algorithm)
