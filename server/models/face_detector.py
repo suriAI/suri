@@ -167,6 +167,7 @@ class FaceDetector:
             liveness_detection_enabled = self.min_face_size > 0
 
             # Create detection dict
+            # Keep landmarks as float32 to preserve sub-pixel precision for better alignment accuracy
             detection = {
                 "bbox": {
                     "x": x1_orig,
@@ -175,7 +176,7 @@ class FaceDetector:
                     "height": face_height_orig,
                 },
                 "confidence": conf,
-                "landmarks_5": landmarks_5.astype(int).tolist(),
+                "landmarks_5": landmarks_5.tolist(),
             }
 
             # Add liveness status for small faces, edge cases, or low visibility faces
