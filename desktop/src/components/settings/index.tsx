@@ -290,7 +290,10 @@ export const Settings: React.FC<SettingsProps> = ({
               <>
                 Group{" "}
                 <span className="text-sm text-white/60 ml-1">
-                  ({groupSections.find((s) => s.id === groupInitialSection)?.label || "Overview"})
+                  (
+                  {groupSections.find((s) => s.id === groupInitialSection)
+                    ?.label || "Overview"}
+                  )
                 </span>
               </>
             ) : (

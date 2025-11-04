@@ -314,7 +314,9 @@ export class BackendService {
     });
 
     this.process.on("exit", (code, signal) => {
-      console.log(`[BackendService] Process exited with code ${code}${signal ? ` and signal ${signal}` : ""}`);
+      console.log(
+        `[BackendService] Process exited with code ${code}${signal ? ` and signal ${signal}` : ""}`,
+      );
       this.status.isRunning = false;
       this.cleanup();
     });

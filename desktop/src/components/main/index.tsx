@@ -245,9 +245,7 @@ export default function Main() {
       }>,
     ) => number
   >(() => 1.0);
-  const loadAttendanceDataRef = useRef<() => Promise<void>>(
-    async () => {},
-  );
+  const loadAttendanceDataRef = useRef<() => Promise<void>>(async () => {});
   const processCurrentFrameRef = useRef<() => Promise<void>>(async () => {});
 
   // Set current group with persistence
@@ -324,9 +322,9 @@ export default function Main() {
   useEffect(() => {
     const validationInterval = setInterval(() => {
       if (isStartingRef.current && isStoppingRef.current) {
-          isStartingRef.current = false;
-          isStoppingRef.current = false;
-        }
+        isStartingRef.current = false;
+        isStoppingRef.current = false;
+      }
     }, 10000);
 
     return () => clearInterval(validationInterval);
@@ -594,9 +592,10 @@ export default function Main() {
                       existingTrack.trackingHistory,
                     );
                     existingTrack.occlusionCount = 0;
-                    existingTrack.angleConsistency = calculateAngleConsistencyRef.current(
-                      existingTrack.trackingHistory,
-                    );
+                    existingTrack.angleConsistency =
+                      calculateAngleConsistencyRef.current(
+                        existingTrack.trackingHistory,
+                      );
                     existingTrack.livenessStatus = currentLivenessStatus;
 
                     newTracked.set(existingTrack.id, existingTrack);
@@ -748,12 +747,14 @@ export default function Main() {
                             if ("requestIdleCallback" in window) {
                               requestIdleCallback(
                                 () => {
-                                  loadAttendanceDataRef.current().catch((err) =>
-                                    console.error(
-                                      "Failed to refresh attendance:",
-                                      err,
-                                    ),
-                                  );
+                                  loadAttendanceDataRef
+                                    .current()
+                                    .catch((err) =>
+                                      console.error(
+                                        "Failed to refresh attendance:",
+                                        err,
+                                      ),
+                                    );
                                 },
                                 { timeout: 500 },
                               );
@@ -896,11 +897,7 @@ export default function Main() {
         console.error("❌ Face recognition processing failed:", error);
       }
     },
-    [
-      trackingMode,
-      attendanceCooldownSeconds,
-      attendanceEnabled,
-    ],
+    [trackingMode, attendanceCooldownSeconds, attendanceEnabled],
   );
 
   // Process current frame
@@ -1112,11 +1109,7 @@ export default function Main() {
       }
       backendServiceReadyRef.current = false;
     }
-  }, [
-    recognitionEnabled,
-    performFaceRecognition,
-    websocketStatus,
-  ]);
+  }, [recognitionEnabled, performFaceRecognition, websocketStatus]);
 
   // Get camera devices
   const getCameraDevices = useCallback(async () => {
@@ -1575,12 +1568,12 @@ export default function Main() {
 
       let consistencyScore = 0;
       for (let i = 1; i < history.length; i++) {
-      const prev = history[i - 1];
-      const curr = history[i];
-      const dx = curr.bbox.x - prev.bbox.x;
-      const dy = curr.bbox.y - prev.bbox.y;
-      const movement = Math.sqrt(dx * dx + dy * dy);
-      const smoothness = Math.max(0, 1 - movement / 100);
+        const prev = history[i - 1];
+        const curr = history[i];
+        const dx = curr.bbox.x - prev.bbox.x;
+        const dy = curr.bbox.y - prev.bbox.y;
+        const movement = Math.sqrt(dx * dx + dy * dy);
+        const smoothness = Math.max(0, 1 - movement / 100);
         consistencyScore += smoothness;
       }
 
@@ -1619,25 +1612,28 @@ export default function Main() {
     return () => clearInterval(cleanupInterval);
   }, [handleOcclusion]);
 
-  const handleSelectGroup = useCallback(async (group: AttendanceGroup) => {
-    setCurrentGroup(group);
+  const handleSelectGroup = useCallback(
+    async (group: AttendanceGroup) => {
+      setCurrentGroup(group);
 
-    try {
-      const [members, , records] = await Promise.all([
-        attendanceManager.getGroupMembers(group.id),
-        attendanceManager.getGroupStats(group.id),
-        attendanceManager.getRecords({
-          group_id: group.id,
-          limit: 100,
-        }),
-      ]);
+      try {
+        const [members, , records] = await Promise.all([
+          attendanceManager.getGroupMembers(group.id),
+          attendanceManager.getGroupStats(group.id),
+          attendanceManager.getRecords({
+            group_id: group.id,
+            limit: 100,
+          }),
+        ]);
 
-      setGroupMembers(members);
-      setRecentAttendance(records);
-    } catch (error) {
-      console.error("❌ Failed to load data for selected group:", error);
-    }
-  }, [setCurrentGroup]);
+        setGroupMembers(members);
+        setRecentAttendance(records);
+      } catch (error) {
+        console.error("❌ Failed to load data for selected group:", error);
+      }
+    },
+    [setCurrentGroup],
+  );
 
   useEffect(() => {
     loadAttendanceDataRef.current = loadAttendanceData;
