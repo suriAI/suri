@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
 
 import cv2
 import numpy as np
@@ -57,23 +58,6 @@ if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-app = FastAPI(
-    title="SURI",
-    description="A desktop application for automated attendance tracking using Artificial Intelligence.",
-    version="1.0.0",
-)
-
-# Configure CORS - Use configuration from config.py
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_CONFIG["allow_origins"],
-    allow_credentials=CORS_CONFIG["allow_credentials"],
-    allow_methods=CORS_CONFIG["allow_methods"],
-    allow_headers=CORS_CONFIG["allow_headers"],
-    expose_headers=CORS_CONFIG.get("expose_headers", []),
-)
-
 # Initialize global variables
 face_detector = None
 liveness_detector = None
@@ -81,15 +65,14 @@ face_recognizer = None
 face_tracker = None
 attendance_database = None
 
-# Include attendance routes
-app.include_router(attendance.router)
 
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize models on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown"""
+    # Startup
     global face_detector, liveness_detector, face_recognizer, face_tracker, attendance_database
     try:
+        logger.info("🚀 Starting up backend server...")
         face_detector = FaceDetector(
             model_path=str(FACE_DETECTOR_MODEL_PATH),
             input_size=tuple(FACE_DETECTOR_CONFIG["input_size"]),
@@ -139,19 +122,16 @@ async def startup_event():
         # Set model references for face processing utilities
         set_model_references(liveness_detector, face_tracker, face_recognizer)
 
+        logger.info("✅ Startup complete")
+
     except Exception as e:
         logger.error(f"Failed to initialize models: {e}")
         raise
 
+    yield  # App runs here
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
+    # Shutdown
     logger.info("🛑 Shutting down backend server...")
-
-    # Cleanup models and resources
-    global face_detector, liveness_detector, face_recognizer, face_tracker, attendance_database
-
     try:
         # Database connections use context managers - no explicit close needed
         logger.info("Releasing model references...")
@@ -167,6 +147,27 @@ async def shutdown_event():
 
     except Exception as e:
         logger.error(f"❌ Error during shutdown cleanup: {e}")
+
+
+app = FastAPI(
+    title="SURI",
+    description="A desktop application for automated attendance tracking using Artificial Intelligence.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# Configure CORS - Use configuration from config.py
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_CONFIG["allow_origins"],
+    allow_credentials=CORS_CONFIG["allow_credentials"],
+    allow_methods=CORS_CONFIG["allow_methods"],
+    allow_headers=CORS_CONFIG["allow_headers"],
+    expose_headers=CORS_CONFIG.get("expose_headers", []),
+)
+
+# Include attendance routes
+app.include_router(attendance.router)
 
 
 @app.get("/")
