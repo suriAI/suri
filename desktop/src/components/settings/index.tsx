@@ -285,10 +285,17 @@ export const Settings: React.FC<SettingsProps> = ({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Section Header */}
         <div className="px-8 py-6 border-b border-white/10">
-          <h2 className="text-xl font-semibold">
-            {activeSection === "group"
-              ? `Group - ${groupSections.find((s) => s.id === groupInitialSection)?.label || "Overview"}`
-              : sections.find((s) => s.id === activeSection)?.label}
+          <h2 className="text-xl font-semibold flex items-center">
+            {activeSection === "group" ? (
+              <>
+                Group{" "}
+                <span className="text-sm text-white/60 ml-1">
+                  ({groupSections.find((s) => s.id === groupInitialSection)?.label || "Overview"})
+                </span>
+              </>
+            ) : (
+              sections.find((s) => s.id === activeSection)?.label
+            )}
           </h2>
         </div>
 

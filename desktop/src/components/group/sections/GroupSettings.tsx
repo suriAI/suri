@@ -50,8 +50,6 @@ export function GroupSettings({
 
   return (
     <section className="h-full flex flex-col overflow-hidden space-y-4">
-      <h2 className="text-lg font-semibold flex-shrink-0">Group Settings</h2>
-
       <div className="flex-1 overflow-y-auto custom-scroll overflow-x-hidden min-h-0 pr-2 space-y-4">
         {/* Group Information Card */}
         <div className="rounded-xl border border-white/10 bg-white/5 p-5">
