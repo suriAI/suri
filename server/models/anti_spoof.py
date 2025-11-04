@@ -62,41 +62,26 @@ class AntiSpoof:
     def preprocessing(self, img: np.ndarray) -> np.ndarray:
         """
         Preprocess image for anti-spoofing model
-        OPTIMIZED: Uses in-place operations to reduce memory allocations
+        Matches reference implementation: https://github.com/hairymax/Face-AntiSpoofing/
 
         Args:
-            img: Input image (BGR format from OpenCV)
+            img: Input image (BGR format from OpenCV, already square crop from increased_crop)
 
         Returns:
             Preprocessed image tensor (RGB format for ONNX model)
+            Shape: (1, 3, 128, 128), dtype: float32, range: [0, 1]
 
         Process:
-            1. Resize to model input size (128x128) maintaining aspect ratio
-            2. Add padding with black borders if needed
-            3. Convert BGR → RGB (models expect RGB)
-            4. Normalize to [0, 1] range (in-place)
-            5. Transpose to CHW format and add batch dimension
+            1. Resize directly to 128x128 (crop is already square from increased_crop)
+            2. Convert BGR → RGB (models expect RGB)
+            3. Normalize to [0, 1] range (in-place)
+            4. Transpose to CHW format and add batch dimension
         """
         new_size = self.model_img_size
-        old_size = img.shape[:2]
 
-        ratio = float(new_size) / max(old_size)
-        scaled_shape = tuple([int(x * ratio) for x in old_size])
+        # Direct resize to square (crop from increased_crop is already square)
+        img = cv2.resize(img, (new_size, new_size), interpolation=cv2.INTER_LINEAR)
 
-        # Resize in BGR format (faster)
-        img = cv2.resize(img, (scaled_shape[1], scaled_shape[0]))
-
-        delta_w = new_size - scaled_shape[1]
-        delta_h = new_size - scaled_shape[0]
-        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
-        left, right = delta_w // 2, delta_w - (delta_w // 2)
-
-        # Add padding in BGR format
-        img = cv2.copyMakeBorder(
-            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0]
-        )
-
-        # CRITICAL OPTIMIZATION: Minimize memory allocations
         # Convert BGR to RGB
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
