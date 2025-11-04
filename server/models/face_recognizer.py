@@ -57,11 +57,7 @@ class FaceRecognizer:
             self.db_manager = None
             logger.warning("No database path provided, running without persistence")
 
-        # Initialize the model
-        self._initialize_model()
-
-    def _initialize_model(self):
-        """Initialize the ONNX model with optimized session options"""
+        # Initialize the ONNX model with optimized session options
         try:
             # Check if model file exists
             if not os.path.exists(self.model_path):
@@ -71,7 +67,7 @@ class FaceRecognizer:
             session_options = ort.SessionOptions()
 
             # Apply optimized session options if available
-            if hasattr(self, "session_options") and self.session_options:
+            if self.session_options:
                 for key, value in self.session_options.items():
                     if hasattr(session_options, key):
                         setattr(session_options, key, value)
