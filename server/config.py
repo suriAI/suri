@@ -158,7 +158,7 @@ MODEL_CONFIGS = {
     },
     "liveness_detector": {
         "model_path": WEIGHTS_DIR / "antispoof.onnx",
-        "confidence_threshold": 0.7,
+        "confidence_threshold": 0.97,
         "bbox_inc": 1.5,
         "model_img_size": 128,
     },

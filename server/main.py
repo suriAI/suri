@@ -192,7 +192,6 @@ async def get_available_models():
     if liveness_detector:
         models_info["liveness_detector"] = {
             "available": True,
-            "info": liveness_detector.get_model_info(),
         }
     else:
         models_info["liveness_detector"] = {"available": False}
@@ -464,9 +463,7 @@ async def recognize_face(request: FaceRecognitionRequest):
                 "track_id": -1,
             }
 
-            liveness_results = await liveness_detector.detect_faces_async(
-                image, [temp_face]
-            )
+            liveness_results = await liveness_detector.detect_faces(image, [temp_face])
 
             if liveness_results and len(liveness_results) > 0:
                 liveness_data = liveness_results[0].get("liveness", {})
@@ -575,9 +572,7 @@ async def register_person(request: FaceRegistrationRequest):
                 "track_id": -1,
             }
 
-            liveness_results = await liveness_detector.detect_faces_async(
-                image, [temp_face]
-            )
+            liveness_results = await liveness_detector.detect_faces(image, [temp_face])
 
             if liveness_results and len(liveness_results) > 0:
                 liveness_data = liveness_results[0].get("liveness", {})

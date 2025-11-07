@@ -39,8 +39,8 @@ async def process_liveness_detection(
             conf = face.get("confidence", 0)
             logger.info(f"Input face {i}: bbox={bbox}, confidence={conf}")
 
-        # Use simple liveness detector
-        faces_with_liveness = liveness_detector.detect_faces(image, faces)
+        # Process liveness detection
+        faces_with_liveness = await liveness_detector.detect_faces(image, faces)
 
         logger.info(
             f"process_liveness_detection: {len(faces_with_liveness)} faces processed"

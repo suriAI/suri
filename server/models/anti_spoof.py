@@ -2,10 +2,7 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 import os
-import logging
-from typing import List, Dict, Any
-
-logger = logging.getLogger(__name__)
+from typing import List, Dict
 
 
 class AntiSpoof:
@@ -20,6 +17,7 @@ class AntiSpoof:
         self.model_img_size = model_img_size
         self.config = config or {}
         self.confidence_threshold = confidence_threshold
+        self.cache_duration = 0  # Cache disabled
 
         self.ort_session, self.input_name = self._init_session_(model_path)
 
@@ -34,25 +32,16 @@ class AntiSpoof:
                     onnx_model_path,
                     providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
                 )
-                logger.info(
-                    f"Liveness detection model loaded with providers: {ort_session.get_providers()}"
-                )
-            except Exception as e:
-                logger.error(f"Error loading liveness detection model: {e}")
+            except Exception:
                 try:
                     ort_session = ort.InferenceSession(
                         onnx_model_path, providers=["CPUExecutionProvider"]
                     )
-                    logger.info("Liveness detection model loaded with CPU provider")
-                except Exception as e2:
-                    logger.error(
-                        f"Failed to load liveness detection model with CPU: {e2}"
-                    )
+                except Exception:
                     return None, None
 
             if ort_session:
                 input_name = ort_session.get_inputs()[0].name
-                logger.info(f"Liveness detection model input name: {input_name}")
 
         return ort_session, input_name
 
@@ -116,7 +105,7 @@ class AntiSpoof:
     def predict(self, imgs: List[np.ndarray]) -> List[Dict]:
         """Predict anti-spoofing for list of face images"""
         if not self.ort_session:
-            return []
+            return [None] * len(imgs)
 
         results = []
         for img in imgs:
@@ -124,39 +113,34 @@ class AntiSpoof:
                 onnx_result = self.ort_session.run(
                     [], {self.input_name: self.preprocessing(img)}
                 )
-                pred = onnx_result[0]
-                pred = self.postprocessing(pred)
+                raw_logits = onnx_result[0]  # Raw logits before softmax
+                pred = self.postprocessing(raw_logits)
 
                 if pred.shape[1] != 3:
-                    logger.error(
-                        f"Model output has {pred.shape[1]} classes, expected 3 (live, print, replay)"
-                    )
-                    results.append(self._create_error_result("Invalid model output"))
+                    results.append(None)
                     continue
 
                 live_score = float(pred[0][0])
                 print_score = float(pred[0][1])
                 replay_score = float(pred[0][2])
-                predicted_class = np.argmax(pred[0])
-
-                score_sum = live_score + print_score + replay_score
-                if abs(score_sum - 1.0) > 1e-6:
-                    logger.warning(
-                        f"Liveness detection scores not properly normalized: sum={score_sum:.6f}"
-                    )
+                predicted_class = int(np.argmax(pred[0]))
 
                 spoof_score = print_score + replay_score
                 max_confidence = max(live_score, spoof_score)
-                is_real = (live_score > spoof_score) and (
-                    max_confidence >= self.confidence_threshold
+                margin = live_score - spoof_score
+                is_real = (
+                    (live_score > spoof_score)
+                    and (max_confidence >= self.confidence_threshold)
+                    and (margin >= 0.05)  # safety margin
                 )
 
                 if live_score > spoof_score:
-                    if max_confidence >= self.confidence_threshold:
-                        decision_reason = f"Live face detected with high confidence ({max_confidence:.3f} ≥ {self.confidence_threshold})"
-                    else:
+                    if max_confidence >= self.confidence_threshold and margin >= 0.05:
+                        decision_reason = f"Live face detected with high confidence ({max_confidence:.3f} ≥ {self.confidence_threshold}) and sufficient margin ({margin:.3f} ≥ 0.05)"
+                    elif max_confidence < self.confidence_threshold:
                         decision_reason = f"Low confidence detection ({max_confidence:.3f} < {self.confidence_threshold}), rejecting as spoof for safety"
-                        is_real = False
+                    else:
+                        decision_reason = f"Insufficient margin ({margin:.3f} < 0.05), rejecting as spoof for safety"
                 else:
                     decision_reason = f"Spoof detected: spoof_score ({spoof_score:.3f}) > live_score ({live_score:.3f})"
 
@@ -202,29 +186,12 @@ class AntiSpoof:
                 }
                 results.append(result)
 
-            except Exception as e:
-                logger.error(f"Error in anti-spoofing prediction: {e}")
-                results.append(self._create_error_result(f"Prediction error: {str(e)}"))
+            except Exception:
+                results.append(None)
 
         return results
 
-    def _create_error_result(self, error_msg: str) -> Dict:
-        """Create a standardized error result"""
-        return {
-            "is_real": False,
-            "live_score": 0.0,
-            "spoof_score": 1.0,
-            "confidence": 0.0,
-            "decision_reason": f"Error: {error_msg}",
-            "label": "Error",
-            "detailed_label": f"Error: {error_msg}",
-            "predicted_class": 1,
-            "print_score": 0.5,
-            "replay_score": 0.5,
-            "attack_type": "error",
-        }
-
-    def detect_faces(
+    async def detect_faces(
         self, image: np.ndarray, face_detections: List[Dict]
     ) -> List[Dict]:
         """Process face detections with anti-spoofing"""
@@ -233,10 +200,20 @@ class AntiSpoof:
 
         face_crops = []
         valid_detections = []
+        results = []
 
         for detection in face_detections:
+            # Skip faces already marked as too_small by face_detector
+            if (
+                "liveness" in detection
+                and detection["liveness"].get("status") == "too_small"
+            ):
+                results.append(detection)
+                continue
+
             bbox = detection.get("bbox", {})
             if not bbox:
+                results.append(detection)
                 continue
 
             x = int(bbox.get("x", 0))
@@ -245,6 +222,7 @@ class AntiSpoof:
             h = int(bbox.get("height", 0))
 
             if w <= 0 or h <= 0:
+                results.append(detection)
                 continue
 
             try:
@@ -252,31 +230,23 @@ class AntiSpoof:
                     image, (x, y, x + w, y + h), bbox_inc=1.5
                 )
                 if face_crop is None or face_crop.size == 0:
+                    results.append(detection)
                     continue
-            except Exception as e:
-                logger.warning(
-                    f"increased_crop failed, skipping liveness for this face: {e}"
-                )
+            except Exception:
+                results.append(detection)
                 continue
 
             face_crops.append(face_crop)
             valid_detections.append(detection)
 
         if not face_crops:
-            return face_detections
+            return results if results else face_detections
 
         predictions = self.predict(face_crops)
 
-        results = []
-        for i, detection in enumerate(face_detections):
-            if "liveness" in detection and detection["liveness"].get("status") == "too_small":
-                results.append(detection)
-                continue
-
-            if detection in valid_detections:
-                valid_idx = valid_detections.index(detection)
-                prediction = predictions[valid_idx]
-
+        # Match predictions with valid_detections (maintains 1:1 mapping)
+        for detection, prediction in zip(valid_detections, predictions):
+            if prediction is not None:
                 detection["liveness"] = {
                     "is_real": prediction["is_real"],
                     "live_score": prediction["live_score"],
@@ -291,89 +261,11 @@ class AntiSpoof:
                     "replay_score": prediction["replay_score"],
                     "attack_type": prediction["attack_type"],
                 }
-            else:
-                detection["liveness"] = {
-                    "is_real": False,
-                    "live_score": 0.0,
-                    "spoof_score": 1.0,
-                    "confidence": 0.0,
-                    "decision_reason": "Error: Processing failed",
-                    "label": "Error",
-                    "detailed_label": "Error: Processing failed",
-                    "status": "error",
-                    "predicted_class": 1,
-                    "print_score": 0.5,
-                    "replay_score": 0.5,
-                    "attack_type": "error",
-                }
-
+            # If prediction is None, detection is added without liveness data
             results.append(detection)
 
         return results
 
-    async def detect_faces_async(self, image, faces):
-        return self.detect_faces(image, faces)
-
-    def validate_model(self) -> Dict[str, Any]:
-        """Validate that the model is properly configured for 3-class detection"""
-        validation_result = {
-            "is_valid": False,
-            "model_path": str(self.model_path),
-            "model_exists": False,
-            "session_loaded": False,
-            "output_classes": 0,
-            "expected_classes": 3,
-            "class_names": ["live", "print", "replay"],
-            "strategy": "CONFIDENCE",
-            "errors": [],
-        }
-
-        if os.path.isfile(self.model_path):
-            validation_result["model_exists"] = True
-        else:
-            validation_result["errors"].append(
-                f"Model file not found: {self.model_path}"
-            )
-            return validation_result
-
-        if self.ort_session is not None:
-            validation_result["session_loaded"] = True
-        else:
-            validation_result["errors"].append("ONNX session not loaded")
-            return validation_result
-
-        try:
-            dummy_img = np.zeros(
-                (self.model_img_size, self.model_img_size, 3), dtype=np.uint8
-            )
-            dummy_input = self.preprocessing(dummy_img)
-            onnx_result = self.ort_session.run([], {self.input_name: dummy_input})
-            pred = onnx_result[0]
-
-            if len(pred.shape) == 2 and pred.shape[1] == 3:
-                validation_result["output_classes"] = pred.shape[1]
-                validation_result["is_valid"] = True
-            else:
-                validation_result["errors"].append(
-                    f"Invalid output shape: {pred.shape}, expected (1, 3)"
-                )
-
-        except Exception as e:
-            validation_result["errors"].append(f"Model inference test failed: {str(e)}")
-
-        return validation_result
-
-    def get_model_info(self):
-        """Get model information"""
-        validation = self.validate_model()
-        return {
-            "model_path": self.model_path,
-            "model_img_size": self.model_img_size,
-            "validation": validation,
-            "supported_attacks": ["print", "replay"],
-            "detection_classes": 3,
-            "class_names": ["live", "print", "replay"],
-            "strategy": "CONFIDENCE",
-            "strategy_description": "(live_score > spoof_score) AND (confidence >= threshold)",
-            "configuration": {"confidence_threshold": self.confidence_threshold},
-        }
+    def clear_cache(self):
+        """Clear cache (stub method for API compatibility)"""
+        pass
