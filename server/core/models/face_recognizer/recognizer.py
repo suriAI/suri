@@ -1,14 +1,23 @@
 import asyncio
 import logging
-from typing import List, Dict, Tuple, Optional, Any
-import os
 import time
+from typing import List, Dict, Tuple, Optional, Any
 
-import cv2
 import numpy as np
-import onnxruntime as ort
 
 from database.face import FaceDatabaseManager
+from .session_utils import init_face_recognizer_session
+from .preprocess import (
+    align_face,
+    preprocess_image,
+    align_faces_batch,
+    preprocess_batch,
+)
+from .postprocess import (
+    normalize_embedding,
+    normalize_embeddings_batch,
+    find_best_match,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +38,17 @@ class FaceRecognizer:
         self.providers = providers or ["CPUExecutionProvider"]
         self.database_path = database_path
 
+        # Preprocessing constants
         self.INPUT_MEAN = 127.5
         self.INPUT_STD = 127.5
         self.EMBEDDING_DIM = 512
 
-        self.session = None
+        # Session Layer: Initialize ONNX session
+        self.session, self.input_name = init_face_recognizer_session(
+            model_path, self.providers, session_options
+        )
 
-        self._persons_cache = None
-        self._cache_timestamp = 0
-        self._cache_ttl = 1.0
-
+        # Database Layer: Initialize database manager
         if self.database_path:
             if self.database_path.endswith(".json"):
                 sqlite_path = self.database_path.replace(".json", ".db")
@@ -50,181 +60,104 @@ class FaceRecognizer:
             self.db_manager = None
             logger.warning("No database path provided, running without persistence")
 
-        try:
-            if not os.path.exists(self.model_path):
-                raise FileNotFoundError(f"Model file not found: {self.model_path}")
-
-            ort_opts = ort.SessionOptions()
-
-            if session_options:
-                for key, value in session_options.items():
-                    if hasattr(ort_opts, key):
-                        setattr(ort_opts, key, value)
-
-            self.session = ort.InferenceSession(
-                self.model_path, sess_options=ort_opts, providers=self.providers
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to initialize face recognizer model: {e}")
-            raise
-
-    def _align_face(self, image: np.ndarray, landmarks: np.ndarray) -> np.ndarray:
-        """Align face using similarity transformation based on 5 landmarks."""
-        try:
-            reference_points = np.array(
-                [
-                    [38.2946, 51.6963],
-                    [73.5318, 51.5014],
-                    [56.0252, 71.7366],
-                    [41.5493, 92.3655],
-                    [70.7299, 92.2041],
-                ],
-                dtype=np.float32,
-            )
-
-            tform, _ = cv2.estimateAffinePartial2D(
-                landmarks,
-                reference_points,
-                method=cv2.LMEDS,
-                maxIters=1,
-                refineIters=0,
-            )
-
-            if tform is None:
-                raise ValueError("Failed to compute similarity transformation matrix")
-
-            aligned_face = cv2.warpAffine(
-                image,
-                tform,
-                self.input_size,
-                flags=cv2.INTER_CUBIC,
-                borderMode=cv2.BORDER_CONSTANT,
-                borderValue=0,
-            )
-
-            return aligned_face
-
-        except Exception as e:
-            logger.error(f"Face alignment failed: {e}")
-            h, w = image.shape[:2]
-            center_x, center_y = w // 2, h // 2
-            size = min(w, h) // 2
-
-            x1 = max(0, center_x - size)
-            y1 = max(0, center_y - size)
-            x2 = min(w, center_x + size)
-            y2 = min(h, center_y + size)
-
-            face_crop = image[y1:y2, x1:x2]
-            return cv2.resize(face_crop, self.input_size)
-
-    def _preprocess_image(self, aligned_face: np.ndarray) -> np.ndarray:
-        rgb_image = cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB)
-        normalized = (rgb_image.astype(np.float32) - self.INPUT_MEAN) / self.INPUT_STD
-        input_tensor = np.transpose(normalized, (2, 0, 1))
-        return np.expand_dims(input_tensor, axis=0)
+        # Cache Layer: Person database cache
+        self._persons_cache = None
+        self._cache_timestamp = 0
+        self._cache_ttl = 1.0
 
     def _extract_embedding(self, image: np.ndarray, landmarks_5: List) -> np.ndarray:
-        landmarks = np.array(landmarks_5, dtype=np.float32)
-        aligned_face = self._align_face(image, landmarks)
-        input_tensor = self._preprocess_image(aligned_face)
+        """
+        Extract embedding from a single face.
 
-        feeds = {self.session.get_inputs()[0].name: input_tensor}
+        Pipeline: Align -> Preprocess -> Infer -> Normalize
+        """
+        landmarks = np.array(landmarks_5, dtype=np.float32)
+
+        # Preprocessing Layer: Align and preprocess
+        aligned_face = align_face(image, landmarks, self.input_size)
+        input_tensor = preprocess_image(
+            aligned_face, self.INPUT_MEAN, self.INPUT_STD
+        )
+
+        # Inference Layer: Run model
+        feeds = {self.input_name: input_tensor}
         outputs = self.session.run(None, feeds)
         embedding = outputs[0][0]
 
-        norm = np.linalg.norm(embedding)
-        if norm > 0:
-            embedding = embedding / norm
-
-        return embedding.astype(np.float32)
+        # Postprocessing Layer: Normalize embedding
+        return normalize_embedding(embedding)
 
     def _extract_embeddings_batch(
         self, image: np.ndarray, face_data_list: List[Dict]
     ) -> List[np.ndarray]:
-        """BATCH PROCESSING: Extract embeddings in single inference call"""
+        """
+        Extract embeddings for multiple faces in batch.
+
+        Pipeline: Batch Align -> Batch Preprocess -> Batch Infer -> Batch Normalize
+        """
         if not face_data_list:
             return []
 
-        aligned_faces = []
-        for i, face_data in enumerate(face_data_list):
-            try:
-                landmarks_5 = face_data.get("landmarks_5")
-                landmarks = np.array(landmarks_5, dtype=np.float32)
-                aligned_face = self._align_face(image, landmarks)
-                aligned_faces.append(aligned_face)
-            except Exception as e:
-                logger.warning(f"Failed to align face {i}: {e}")
-                continue
+        # Preprocessing Layer: Batch alignment
+        aligned_faces = align_faces_batch(image, face_data_list, self.input_size)
 
         if not aligned_faces:
             return []
 
-        batch_tensors = [self._preprocess_image(face)[0] for face in aligned_faces]
-        batch_input = np.stack(batch_tensors, axis=0)
+        # Preprocessing Layer: Batch preprocessing
+        batch_input = preprocess_batch(
+            aligned_faces, self.INPUT_MEAN, self.INPUT_STD
+        )
 
-        feeds = {self.session.get_inputs()[0].name: batch_input}
+        # Inference Layer: Batch inference
+        feeds = {self.input_name: batch_input}
         outputs = self.session.run(None, feeds)
-
         embeddings = outputs[0]
-        normalized_embeddings = []
 
-        for embedding in embeddings:
-            norm = np.linalg.norm(embedding)
-            if norm > 0:
-                embedding = embedding / norm
-            normalized_embeddings.append(embedding.astype(np.float32))
+        # Postprocessing Layer: Batch normalization
+        return normalize_embeddings_batch(embeddings)
 
-        return normalized_embeddings
+    def _get_database(self) -> Dict[str, np.ndarray]:
+        """
+        Get person database with caching.
 
-    def _find_best_match(
-        self, embedding: np.ndarray, allowed_person_ids: Optional[List[str]] = None
-    ) -> Tuple[Optional[str], float]:
-        """Find best matching person using cached database"""
-        if not self.db_manager:
-            return None, 0.0
-
+        Returns:
+            Dictionary mapping person_id to embedding
+        """
         current_time = time.time()
 
         if (
             self._persons_cache is None
             or (current_time - self._cache_timestamp) > self._cache_ttl
         ):
-            self._persons_cache = self.db_manager.get_all_persons()
+            if self.db_manager:
+                self._persons_cache = self.db_manager.get_all_persons()
+            else:
+                self._persons_cache = {}
             self._cache_timestamp = current_time
 
-        all_persons = self._persons_cache
+        return self._persons_cache
 
-        if not all_persons:
+    def _find_best_match(
+        self, embedding: np.ndarray, allowed_person_ids: Optional[List[str]] = None
+    ) -> Tuple[Optional[str], float]:
+        """
+        Find best matching person using cached database.
+
+        Uses Postprocessing Layer for similarity matching.
+        """
+        if not self.db_manager:
             return None, 0.0
 
-        if allowed_person_ids is not None:
-            all_persons = {
-                pid: emb
-                for pid, emb in all_persons.items()
-                if pid in allowed_person_ids
-            }
-            if not all_persons:
-                return None, 0.0
+        database = self._get_database()
 
-        best_person_id = None
-        best_similarity = 0.0
+        if not database:
+            return None, 0.0
 
-        for person_id, stored_embedding in all_persons.items():
-            similarity = float(np.dot(embedding, stored_embedding))
-
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_person_id = person_id
-
-        if best_similarity >= self.similarity_threshold:
-            logger.info(
-                f"Recognized: {best_person_id} (similarity: {best_similarity:.3f})"
-            )
-            return best_person_id, best_similarity
-        else:
-            return None, best_similarity
+        # Postprocessing Layer: Find best match
+        return find_best_match(
+            embedding, database, self.similarity_threshold, allowed_person_ids
+        )
 
     def _refresh_cache(self):
         """Refresh cache after database modifications"""
@@ -241,6 +174,7 @@ class FaceRecognizer:
         landmarks_5: List,
         allowed_person_ids: Optional[List[str]] = None,
     ) -> Dict:
+        """Async wrapper for face recognition"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None, self._recognize_face_sync, image, landmarks_5, allowed_person_ids
@@ -252,9 +186,19 @@ class FaceRecognizer:
         landmarks_5: List,
         allowed_person_ids: Optional[List[str]] = None,
     ) -> Dict:
+        """
+        Synchronous face recognition.
+
+        Full pipeline: Extract Embedding -> Find Match -> Return Result
+        """
         try:
             embedding = self._extract_embedding(image, landmarks_5)
             person_id, similarity = self._find_best_match(embedding, allowed_person_ids)
+
+            if person_id:
+                logger.info(
+                    f"Recognized: {person_id} (similarity: {similarity:.3f})"
+                )
 
             return {
                 "person_id": person_id,
@@ -274,6 +218,7 @@ class FaceRecognizer:
     async def register_person(
         self, person_id: str, image: np.ndarray, landmarks_5: List
     ) -> Dict:
+        """Async wrapper for person registration"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None, self._register_person_sync, person_id, image, landmarks_5
@@ -282,6 +227,11 @@ class FaceRecognizer:
     def _register_person_sync(
         self, person_id: str, image: np.ndarray, landmarks_5: List
     ) -> Dict:
+        """
+        Register a new person in the database.
+
+        Pipeline: Extract Embedding -> Save to Database -> Refresh Cache
+        """
         try:
             embedding = self._extract_embedding(image, landmarks_5)
 
@@ -309,6 +259,11 @@ class FaceRecognizer:
     def extract_embeddings_for_tracking(
         self, image: np.ndarray, face_detections: List[Dict]
     ) -> List[np.ndarray]:
+        """
+        Extract embeddings for face tracking.
+
+        Used by face tracker to get appearance features.
+        """
         try:
             if not face_detections:
                 return []
@@ -346,6 +301,7 @@ class FaceRecognizer:
             return []
 
     def remove_person(self, person_id: str) -> Dict:
+        """Remove a person from the database"""
         try:
             if self.db_manager:
                 remove_success = self.db_manager.remove_person(person_id)
@@ -379,12 +335,14 @@ class FaceRecognizer:
             return {"success": False, "error": str(e), "person_id": person_id}
 
     def get_all_persons(self) -> List[str]:
+        """Get list of all registered person IDs"""
         if self.db_manager:
             all_persons = self.db_manager.get_all_persons()
             return list(all_persons.keys())
         return []
 
     def update_person_id(self, old_person_id: str, new_person_id: str) -> Dict:
+        """Update a person's ID in the database"""
         try:
             if self.db_manager:
                 updated_count = self.db_manager.update_person_id(
@@ -415,6 +373,7 @@ class FaceRecognizer:
             return {"success": False, "error": str(e), "updated_records": 0}
 
     def get_stats(self) -> Dict:
+        """Get face recognition statistics"""
         total_persons = 0
         persons = []
 
@@ -426,9 +385,11 @@ class FaceRecognizer:
         return {"total_persons": total_persons, "persons": persons}
 
     def set_similarity_threshold(self, threshold: float):
+        """Update similarity threshold for recognition"""
         self.similarity_threshold = threshold
 
     def clear_database(self) -> Dict:
+        """Clear all persons from the database"""
         try:
             if self.db_manager:
                 clear_success = self.db_manager.clear_database()
@@ -449,3 +410,4 @@ class FaceRecognizer:
         """Invalidate cache without refreshing"""
         self._persons_cache = None
         self._cache_timestamp = 0
+
