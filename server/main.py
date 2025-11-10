@@ -633,7 +633,7 @@ async def recognize_face(request: FaceRecognitionRequest):
 
         # Perform recognition
         result = await face_recognizer.recognize_face(
-            image, request.bbox, landmarks_5, allowed_person_ids
+            image, landmarks_5, allowed_person_ids
         )
 
         processing_time = time.time() - start_time
