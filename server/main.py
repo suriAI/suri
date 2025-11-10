@@ -631,7 +631,8 @@ async def recognize_face(request: FaceRecognitionRequest):
                 request.group_id
             )
 
-        result = await face_recognizer.recognize_face_async(
+        # Perform recognition
+        result = await face_recognizer.recognize_face(
             image, request.bbox, landmarks_5, allowed_person_ids
         )
 
@@ -737,8 +738,8 @@ async def register_person(request: FaceRegistrationRequest):
                 detail="Landmarks required for face recognition",
             )
 
-        result = await face_recognizer.register_person_async(
-            request.person_id, image, request.bbox, landmarks_5
+        result = await face_recognizer.register_person(
+            request.person_id, image, landmarks_5
         )
 
         processing_time = time.time() - start_time

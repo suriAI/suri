@@ -235,7 +235,18 @@ class FaceRecognizer:
             self._persons_cache = None
             self._cache_timestamp = 0
 
-    def recognize_face(
+    async def recognize_face(
+        self,
+        image: np.ndarray,
+        landmarks_5: List,
+        allowed_person_ids: Optional[List[str]] = None,
+    ) -> Dict:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, self._recognize_face_sync, image, landmarks_5, allowed_person_ids
+        )
+
+    def _recognize_face_sync(
         self,
         image: np.ndarray,
         landmarks_5: List,
@@ -260,16 +271,40 @@ class FaceRecognizer:
                 "error": str(e),
             }
 
-    async def recognize_face_async(
-        self,
-        image: np.ndarray,
-        landmarks_5: List,
-        allowed_person_ids: Optional[List[str]] = None,
+    async def register_person(
+        self, person_id: str, image: np.ndarray, landmarks_5: List
     ) -> Dict:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None, self.recognize_face, image, landmarks_5, allowed_person_ids
+            None, self._register_person_sync, person_id, image, landmarks_5
         )
+
+    def _register_person_sync(
+        self, person_id: str, image: np.ndarray, landmarks_5: List
+    ) -> Dict:
+        try:
+            embedding = self._extract_embedding(image, landmarks_5)
+
+            if self.db_manager:
+                save_success = self.db_manager.add_person(person_id, embedding)
+                stats = self.db_manager.get_stats()
+                total_persons = stats.get("total_persons", 0)
+                self._refresh_cache()
+            else:
+                save_success = False
+                total_persons = 0
+                logger.warning("No database manager available for registration")
+
+            return {
+                "success": True,
+                "person_id": person_id,
+                "database_saved": save_success,
+                "total_persons": total_persons,
+            }
+
+        except Exception as e:
+            logger.error(f"Person registration failed: {e}")
+            return {"success": False, "error": str(e), "person_id": person_id}
 
     def extract_embeddings_for_tracking(
         self, image: np.ndarray, face_detections: List[Dict]
@@ -309,41 +344,6 @@ class FaceRecognizer:
         except Exception as e:
             logger.error(f"Embedding extraction for tracking failed: {e}")
             return []
-
-    def register_person(
-        self, person_id: str, image: np.ndarray, landmarks_5: List
-    ) -> Dict:
-        try:
-            embedding = self._extract_embedding(image, landmarks_5)
-
-            if self.db_manager:
-                save_success = self.db_manager.add_person(person_id, embedding)
-                stats = self.db_manager.get_stats()
-                total_persons = stats.get("total_persons", 0)
-                self._refresh_cache()
-            else:
-                save_success = False
-                total_persons = 0
-                logger.warning("No database manager available for registration")
-
-            return {
-                "success": True,
-                "person_id": person_id,
-                "database_saved": save_success,
-                "total_persons": total_persons,
-            }
-
-        except Exception as e:
-            logger.error(f"Person registration failed: {e}")
-            return {"success": False, "error": str(e), "person_id": person_id}
-
-    async def register_person_async(
-        self, person_id: str, image: np.ndarray, landmarks_5: List
-    ) -> Dict:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, self.register_person, person_id, image, landmarks_5
-        )
 
     def remove_person(self, person_id: str) -> Dict:
         try:
