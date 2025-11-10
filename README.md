@@ -581,38 +581,7 @@ FACE_TRACKER_CONFIG["max_age"] = 20
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these guidelines:
-
-1. **Fork the repository**
-2. **Create feature branch**: `git checkout -b feature/amazing-feature`
-3. **Code standards**:
-   - Python: Follow PEP 8, use type hints
-   - TypeScript: Use ESLint config, prefer functional components
-   - Commits: Use conventional commits (feat/fix/docs/refactor)
-4. **Test thoroughly**: Ensure changes work across platforms
-5. **Update documentation**: Add/update relevant README sections
-6. **Submit PR**: Include description and screenshots if UI changes
-
-### Development Setup
-
-```bash
-# Install dev dependencies
-cd desktop && pnpm install
-cd server && pip install -r requirements.txt
-
-# Run linters
-cd desktop && pnpm lint
-cd server && flake8 .
-
-# Run type checks
-cd desktop && tsc --noEmit
-cd server && mypy .
-```
-
-### Third-Party Licenses
-
-- **ONNX Models**: Models may have their own licenses. Check model documentation.
-- **Libraries**: All dependencies are under permissive licenses (MIT/Apache/BSD).
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and development setup instructions.
 
 ---
 
