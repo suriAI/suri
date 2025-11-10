@@ -13,7 +13,6 @@ import type {
 } from "./types";
 import type { AttendanceGroup } from "../../types/recognition";
 
-// Re-export types for backward compatibility
 export type { QuickSettings, AttendanceSettings };
 
 interface SettingsProps {
@@ -64,7 +63,6 @@ export const Settings: React.FC<SettingsProps> = ({
   });
   const [groups, setGroups] = useState<AttendanceGroup[]>(initialGroups);
   const [isLoading, setIsLoading] = useState(false);
-  const [, setShowCreateGroupInSettings] = useState(false);
 
   const toggleQuickSetting = (key: keyof QuickSettings) => {
     const newSettings = { ...quickSettings, [key]: !quickSettings[key] };
@@ -198,10 +196,6 @@ export const Settings: React.FC<SettingsProps> = ({
                 setActiveSection("group");
                 setGroupInitialSection("overview");
                 setIsGroupExpanded(true);
-                // Trigger create group in GroupPanel after a short delay to ensure GroupPanel is loaded
-                setTimeout(() => {
-                  setShowCreateGroupInSettings(true);
-                }, 100);
               }}
               className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/70 hover:text-white"
               title="Create new group"

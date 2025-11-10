@@ -15,7 +15,6 @@ app.commandLine.appendSwitch("enable-features", "Vulkan,UseSkiaRenderer");
 app.commandLine.appendSwitch("enable-webgl");
 app.commandLine.appendSwitch("enable-webgl2-compute-context");
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
-app.commandLine.appendSwitch("ignore-gpu-blacklist"); // Legacy support
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 
@@ -28,12 +27,7 @@ if (process.platform === "win32") {
   app.commandLine.appendSwitch("use-angle", "default"); // Let ANGLE choose best backend
 }
 
-// Enable logging for debugging (commented out GPU error suppression)
-// app.commandLine.appendSwitch('disable-logging')
-// app.commandLine.appendSwitch('log-level', '3') // Only show fatal errors
-
 let mainWindowRef: BrowserWindow | null = null;
-// Removed legacy scrfdService usage
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

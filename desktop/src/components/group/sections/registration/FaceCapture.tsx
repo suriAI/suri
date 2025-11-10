@@ -168,8 +168,6 @@ export function FaceCapture({
     loadMemberStatus();
   }, [loadMemberStatus]);
 
-  // Auto-selection removed - user must manually select a member
-
   useEffect(() => {
     if (group) {
       // Keep selection if member still exists in the group

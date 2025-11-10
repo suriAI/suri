@@ -252,8 +252,6 @@ export const setupCanvasContext = (
   ctx.lineJoin = "miter";
 };
 
-// REMOVED: drawFaceMeshLandmarks - no longer needed
-
 interface DrawOverlaysParams {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   overlayCanvasRef: React.RefObject<HTMLCanvasElement | null>;

@@ -118,8 +118,6 @@ export function Reports({ group }: ReportsProps) {
     }
   }, [group.id, reportStartDate, reportEndDate]);
 
-  // Removed separate summary export to avoid confusion; main export is current view CSV below
-
   // Debounce report generation to avoid spamming API on date changes
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -393,6 +391,7 @@ export function Reports({ group }: ReportsProps) {
                       const v = (r as RowData)[c.key];
                       if (typeof v === "boolean") return v ? "true" : "false";
                       if (typeof v === "number") return String(v);
+                      if (v instanceof Date) return v.toISOString();
                       return v ?? "";
                     });
                     rows.push(row);
