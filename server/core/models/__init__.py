@@ -1,5 +1,5 @@
-from .face_detector import FaceDetector
-from .liveness_detector import LivenessDetector
+from .face_detector.detector import FaceDetector
+from .liveness_detector.detector import LivenessDetector
 from .face_recognizer import FaceRecognizer
 from .tracker import FaceTracker
 

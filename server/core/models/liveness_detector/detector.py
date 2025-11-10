@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
-import onnxruntime as ort
-import os
 from typing import List, Dict
+from .session_utils import init_onnx_session
+from .preprocess import preprocess_image, crop_with_margin
+from .postprocess import softmax, deduplicate_detections, process_prediction
 
 
 class LivenessDetector:
@@ -23,109 +24,21 @@ class LivenessDetector:
 
     def _init_session_(self, onnx_model_path: str):
         """Initialize ONNX Runtime session"""
-        ort_session = None
-        input_name = None
-
-        if os.path.isfile(onnx_model_path):
-            try:
-                ort_session = ort.InferenceSession(
-                    onnx_model_path,
-                    providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-                )
-            except Exception:
-                try:
-                    ort_session = ort.InferenceSession(
-                        onnx_model_path, providers=["CPUExecutionProvider"]
-                    )
-                except Exception:
-                    return None, None
-
-            if ort_session:
-                input_name = ort_session.get_inputs()[0].name
-
-        return ort_session, input_name
+        return init_onnx_session(onnx_model_path)
 
     def preprocessing(self, img: np.ndarray) -> np.ndarray:
         """Preprocess image for model inference"""
-        new_size = self.model_img_size
-        old_size = img.shape[:2]
-
-        ratio = float(new_size) / max(old_size)
-        scaled_shape = tuple([int(x * ratio) for x in old_size])
-        img = cv2.resize(img, (scaled_shape[1], scaled_shape[0]))
-
-        delta_w = new_size - scaled_shape[1]
-        delta_h = new_size - scaled_shape[0]
-        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
-        left, right = delta_w // 2, delta_w - (delta_w // 2)
-
-        img = cv2.copyMakeBorder(
-            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0]
-        )
-
-        img = img.transpose(2, 0, 1).astype(np.float32) / 255.0
-        img_batch = np.expand_dims(img, axis=0)
-        return img_batch
+        return preprocess_image(img, self.model_img_size)
 
     def postprocessing(self, prediction: np.ndarray) -> np.ndarray:
         """Apply softmax to prediction (supports both single and batch predictions)"""
-        # Handle both single prediction [1, 3] and batch predictions [N, 3]
-        if len(prediction.shape) == 1:
-            prediction = prediction.reshape(1, -1)
-
-        # Apply softmax along the last dimension (axis=-1) for each sample
-        # Subtract max for numerical stability
-        exp_pred = np.exp(prediction - np.max(prediction, axis=-1, keepdims=True))
-        return exp_pred / np.sum(exp_pred, axis=-1, keepdims=True)
+        return softmax(prediction)
 
     def increased_crop(
         self, img: np.ndarray, bbox: tuple, bbox_inc: float
     ) -> np.ndarray:
         """Crop face with expanded bounding box"""
-        real_h, real_w = img.shape[:2]
-        x, y, w, h = bbox
-
-        w = w - x
-        h = h - y
-        max_dimension = max(w, h)
-
-        xc = x + w / 2
-        yc = y + h / 2
-
-        x = int(xc - max_dimension * bbox_inc / 2)
-        y = int(yc - max_dimension * bbox_inc / 2)
-
-        x1 = 0 if x < 0 else x
-        y1 = 0 if y < 0 else y
-        x2 = (
-            real_w
-            if x + max_dimension * bbox_inc > real_w
-            else x + int(max_dimension * bbox_inc)
-        )
-        y2 = (
-            real_h
-            if y + max_dimension * bbox_inc > real_h
-            else y + int(max_dimension * bbox_inc)
-        )
-
-        img = img[y1:y2, x1:x2, :]
-
-        pad_top = y1 - y
-        pad_bottom = int(max_dimension * bbox_inc - y2 + y)
-        pad_left = x1 - x
-        pad_right = int(max_dimension * bbox_inc - x2 + x)
-
-        img = cv2.copyMakeBorder(
-            img,
-            pad_top,
-            pad_bottom,
-            pad_left,
-            pad_right,
-            cv2.BORDER_CONSTANT,
-            value=[0, 0, 0],
-        )
-
-        return img
+        return crop_with_margin(img, bbox, bbox_inc)
 
     def detect_faces(
         self, image: np.ndarray, face_detections: List[Dict]
@@ -136,43 +49,8 @@ class LivenessDetector:
 
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        seen_bboxes = {}
-        deduplicated_detections = []
-
-        for detection in face_detections:
-            bbox = detection.get("bbox", {})
-            if isinstance(bbox, dict):
-                bbox_key = (
-                    bbox.get("x", 0),
-                    bbox.get("y", 0),
-                    bbox.get("width", 0),
-                    bbox.get("height", 0),
-                )
-            elif isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
-                bbox_key = (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
-            else:
-                deduplicated_detections.append(detection)
-                continue
-
-            track_id = detection.get("track_id", None)
-            if track_id is not None:
-                if isinstance(track_id, (np.integer, np.int32, np.int64)):
-                    track_id = int(track_id)
-
-            if bbox_key in seen_bboxes:
-                existing_track_id = seen_bboxes[bbox_key].get("track_id", None)
-                if existing_track_id is not None:
-                    if isinstance(existing_track_id, (np.integer, np.int32, np.int64)):
-                        existing_track_id = int(existing_track_id)
-
-                if track_id is not None and track_id >= 0:
-                    if existing_track_id is None or existing_track_id < 0:
-                        idx = deduplicated_detections.index(seen_bboxes[bbox_key])
-                        deduplicated_detections[idx] = detection
-                        seen_bboxes[bbox_key] = detection
-            else:
-                deduplicated_detections.append(detection)
-                seen_bboxes[bbox_key] = detection
+        # Deduplicate detections
+        deduplicated_detections = deduplicate_detections(face_detections)
 
         face_crops = []
         valid_detections = []
@@ -279,28 +157,9 @@ class LivenessDetector:
                 continue
 
             track_id = detection.get("track_id", None)
-            if track_id is not None:
-                if isinstance(track_id, (np.integer, np.int32, np.int64)):
-                    track_id = int(track_id)
-
-            live_score = float(raw_pred[0])
-            print_score = float(raw_pred[1])
-            replay_score = float(raw_pred[2])
-
-            spoof_score = print_score + replay_score
-            max_confidence = max(live_score, spoof_score)
-
-            is_real = (
-                live_score > spoof_score and live_score >= self.confidence_threshold
+            result = process_prediction(
+                raw_pred, self.confidence_threshold, track_id=track_id
             )
-
-            result = {
-                "is_real": bool(is_real),
-                "live_score": float(live_score),
-                "spoof_score": float(spoof_score),
-                "confidence": float(max_confidence),
-                "status": "live" if is_real else "spoof",
-            }
             processed_predictions.append(result)
 
         for detection, prediction in zip(valid_detections, processed_predictions):
