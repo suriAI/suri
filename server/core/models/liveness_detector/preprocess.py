@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from typing import List, Dict, Tuple, Optional
 
 
 def preprocess_image(img: np.ndarray, model_img_size: int) -> np.ndarray:
@@ -71,3 +72,62 @@ def crop_with_margin(img: np.ndarray, bbox: tuple, bbox_inc: float) -> np.ndarra
     )
 
     return img
+
+
+def extract_bbox_coordinates(detection: Dict) -> Optional[Tuple[int, int, int, int]]:
+    """Extract bbox coordinates from detection."""
+    bbox = detection.get("bbox", {})
+    if not bbox:
+        return None
+
+    x = int(bbox.get("x", 0))
+    y = int(bbox.get("y", 0))
+    w = int(bbox.get("width", 0))
+    h = int(bbox.get("height", 0))
+
+    if w <= 0 or h <= 0:
+        return None
+
+    return (x, y, w, h)
+
+
+def extract_face_crops_from_detections(
+    rgb_image: np.ndarray,
+    detections: List[Dict],
+    bbox_inc: float,
+    crop_fn,
+) -> Tuple[List[np.ndarray], List[Dict], List[Dict]]:
+    """
+    Extract face crops from detections.
+    
+    Returns:
+        Tuple of (face_crops, valid_detections, skipped_results)
+        - face_crops: List of cropped face images
+        - valid_detections: List of detections with valid crops
+        - skipped_results: List of detections that were skipped
+    """
+    face_crops = []
+    valid_detections = []
+    skipped_results = []
+
+    for detection in detections:
+        bbox_coords = extract_bbox_coordinates(detection)
+        if bbox_coords is None:
+            skipped_results.append(detection)
+            continue
+
+        x, y, w, h = bbox_coords
+
+        try:
+            face_crop = crop_fn(rgb_image, (x, y, x + w, y + h), bbox_inc)
+            if len(face_crop.shape) != 3 or face_crop.shape[2] != 3:
+                skipped_results.append(detection)
+                continue
+        except Exception:
+            skipped_results.append(detection)
+            continue
+
+        face_crops.append(face_crop)
+        valid_detections.append(detection)
+
+    return face_crops, valid_detections, skipped_results

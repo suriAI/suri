@@ -1018,9 +1018,7 @@ async def register_face_for_group_person(group_id: str, person_id: str, request:
         # Register the face
         logger.info(f"Registering face for {person_id} in group {group_id}")
 
-        result = await face_recognizer.register_person(
-            person_id, image, landmarks_5
-        )
+        result = await face_recognizer.register_person(person_id, image, landmarks_5)
 
         if result["success"]:
             logger.info(

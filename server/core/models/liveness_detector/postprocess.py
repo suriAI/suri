@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Tuple, Optional
 
 
 def softmax(prediction: np.ndarray) -> np.ndarray:
@@ -83,3 +83,126 @@ def process_prediction(
     }
 
     return result
+
+
+def validate_detection(detection: Dict, min_face_size: int) -> Tuple[bool, Optional[Dict]]:
+    """
+    Validate detection and check if it meets minimum face size requirement.
+    
+    Returns:
+        Tuple of (is_valid, liveness_status_dict)
+        - is_valid: True if detection should be processed, False if skipped
+        - liveness_status_dict: None if valid, or liveness dict if marked as too_small
+    """
+    # Skip if already marked as too_small
+    if (
+        "liveness" in detection
+        and detection["liveness"].get("status") == "too_small"
+    ):
+        return False, None
+
+    bbox = detection.get("bbox", {})
+    if not bbox:
+        return False, None
+
+    x = int(bbox.get("x", 0))
+    y = int(bbox.get("y", 0))
+    w = int(bbox.get("width", 0))
+    h = int(bbox.get("height", 0))
+
+    if w <= 0 or h <= 0:
+        return False, None
+
+    # Check minimum face size
+    if min_face_size > 0:
+        if w < min_face_size or h < min_face_size:
+            liveness_status = {
+                "is_real": False,
+                "status": "too_small",
+                "live_score": 0.0,
+                "spoof_score": 1.0,
+                "confidence": 0.0,
+            }
+            return False, liveness_status
+
+    return True, None
+
+
+def run_batch_inference(
+    face_crops: List[np.ndarray],
+    ort_session,
+    input_name: str,
+    preprocess_fn,
+    postprocess_fn,
+) -> List[Optional[np.ndarray]]:
+    """
+    Run batch inference on face crops.
+    
+    Returns:
+        List of raw predictions (or None for failed predictions)
+    """
+    if not face_crops:
+        return []
+
+    raw_predictions = []
+    if not ort_session:
+        return [None] * len(face_crops)
+
+    try:
+        # Batch preprocess all face crops: [N, C, H, W]
+        batch_inputs = np.concatenate(
+            [preprocess_fn(img) for img in face_crops], axis=0
+        )
+
+        # Run single batch inference
+        onnx_results = ort_session.run([], {input_name: batch_inputs})
+        batch_logits = onnx_results[0]  # Shape: [N, 3]
+
+        # Validate batch output shape
+        if batch_logits.shape[1] != 3:
+            return [None] * len(face_crops)
+
+        # Apply postprocessing (softmax) to entire batch at once
+        batch_predictions = postprocess_fn(batch_logits)  # Shape: [N, 3]
+
+        # Extract individual predictions
+        for i in range(len(face_crops)):
+            try:
+                raw_pred = batch_predictions[i]  # Shape: [3]
+                raw_predictions.append(raw_pred)
+            except Exception:
+                raw_predictions.append(None)
+    except Exception:
+        # Fallback to None for all predictions on batch failure
+        return [None] * len(face_crops)
+
+    return raw_predictions
+
+
+def assemble_liveness_results(
+    valid_detections: List[Dict],
+    raw_predictions: List[Optional[np.ndarray]],
+    confidence_threshold: float,
+    results: List[Dict],
+) -> List[Dict]:
+    """Assemble liveness results from predictions and add to results list."""
+    for detection, raw_pred in zip(valid_detections, raw_predictions):
+        if raw_pred is None:
+            results.append(detection)
+            continue
+
+        track_id = detection.get("track_id", None)
+        prediction = process_prediction(
+            raw_pred, confidence_threshold, track_id=track_id
+        )
+
+        detection["liveness"] = {
+            "is_real": prediction["is_real"],
+            "live_score": prediction["live_score"],
+            "spoof_score": prediction["spoof_score"],
+            "confidence": prediction["confidence"],
+            "status": prediction["status"],
+        }
+        results.append(detection)
+
+    return results
