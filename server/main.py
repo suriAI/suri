@@ -227,14 +227,7 @@ async def get_available_models():
         and hasattr(face_recognizer, "session")
         and face_recognizer.session is not None
     ):
-        try:
-            models_info["face_recognizer"] = {
-                "available": True,
-                "info": face_recognizer.get_model_info(),
-            }
-        except Exception as e:
-            logger.error(f"Error getting face_recognizer info: {e}")
-            models_info["face_recognizer"] = {"available": False}
+        models_info["face_recognizer"] = {"available": True}
     else:
         models_info["face_recognizer"] = {"available": False}
 

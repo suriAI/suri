@@ -30,21 +30,16 @@ class FaceRecognizer:
         self.database_path = database_path
         self.session_options = session_options
 
-        # Model specifications
         self.INPUT_MEAN = 127.5
         self.INPUT_STD = 127.5
         self.EMBEDDING_DIM = 512
 
-        # Model components
         self.session = None
 
-        # OPTIMIZATION: In-memory cache for database queries
-        # Prevents SQLite I/O bottleneck on every frame (+50% FPS)
+        # Cache for persons to minimize database queries
         self._persons_cache = None
         self._cache_timestamp = 0
-        self._cache_ttl = 1.0  # 1 second cache duration
-
-        # Initialize SQLite database manager
+        self._cache_ttl = 1.0
         if self.database_path:
             # Convert .json extension to .db for SQLite
             if self.database_path.endswith(".json"):
@@ -57,22 +52,17 @@ class FaceRecognizer:
             self.db_manager = None
             logger.warning("No database path provided, running without persistence")
 
-        # Initialize the ONNX model with optimized session options
         try:
-            # Check if model file exists
             if not os.path.exists(self.model_path):
                 raise FileNotFoundError(f"Model file not found: {self.model_path}")
 
-            # Create optimized session options
             session_options = ort.SessionOptions()
 
-            # Apply optimized session options if available
             if self.session_options:
                 for key, value in self.session_options.items():
                     if hasattr(session_options, key):
                         setattr(session_options, key, value)
 
-            # Create ONNX session with optimized options
             self.session = ort.InferenceSession(
                 self.model_path, sess_options=session_options, providers=self.providers
             )
@@ -82,16 +72,6 @@ class FaceRecognizer:
             raise
 
     def _align_face(self, image: np.ndarray, landmarks_5: List) -> np.ndarray:
-        """
-        Align face using face detector 5-point landmarks
-
-        Args:
-            image: Input image
-            landmarks_5: 5-point landmarks from face detector [[x1,y1], [x2,y2], ...]
-
-        Returns:
-            Aligned face crop (112x112)
-        """
         landmarks = np.array(landmarks_5, dtype=np.float32)
         aligned_face = self._create_aligned_face(image, landmarks)
         return aligned_face
@@ -99,55 +79,34 @@ class FaceRecognizer:
     def _create_aligned_face(
         self, image: np.ndarray, landmarks: np.ndarray
     ) -> np.ndarray:
-        """
-        Create aligned face using similarity transform with all 5 landmarks
-        OPTIMIZED: OpenCV's optimized C++ implementation (10x faster than manual SVD)
-        Uses all 5 points for best accuracy with similarity transform (preserves face shape)
-
-        Args:
-            image: Input image
-            landmarks: 5-point landmarks [[x1,y1], [x2,y2], ...]
-
-        Returns:
-            Aligned face crop (112x112)
-        """
+        """Align face using similarity transformation based on 5 landmarks."""
         try:
-            # Define reference points for 112x112 face alignment (standard face recognizer)
             reference_points = np.array(
                 [
-                    [38.2946, 51.6963],  # left eye
-                    [73.5318, 51.5014],  # right eye
-                    [56.0252, 71.7366],  # nose tip
-                    [41.5493, 92.3655],  # left mouth corner
-                    [70.7299, 92.2041],  # right mouth corner
+                    [38.2946, 51.6963],  # Left eye
+                    [73.5318, 51.5014],  # Right eye
+                    [56.0252, 71.7366],  # Nose tip
+                    [41.5493, 92.3655],  # Left mouth corner
+                    [70.7299, 92.2041],  # Right mouth corner
                 ],
                 dtype=np.float32,
             )
 
-            # Ensure landmarks are in correct format
-            if landmarks.shape != (5, 2):
-                raise ValueError(
-                    f"Expected landmarks shape (5, 2), got {landmarks.shape}"
-                )
-
             src_points = landmarks.astype(np.float32)
             dst_points = reference_points.astype(np.float32)
 
-            # Use OpenCV's optimized similarity transform with all 5 points
             tform, _ = cv2.estimateAffinePartial2D(
                 src_points,
                 dst_points,
                 method=cv2.LMEDS,
-                maxIters=1,  # Fastest for reliable landmarks (all points are inliers)
-                refineIters=0,  # No refinement needed
+                maxIters=1,
+                refineIters=0,
             )
 
             if tform is None:
                 raise ValueError("Failed to compute similarity transformation matrix")
 
-            # Apply transformation with cubic interpolation for superior quality
-            # INTER_CUBIC provides 95% sharper images and better texture preservation
-            # Speed cost is minimal (~0.5ms) but improves face recognition accuracy
+            # INTER_CUBIC: sharper images, better texture preservation, improves accuracy
             aligned_face = cv2.warpAffine(
                 image,
                 tform,
@@ -161,7 +120,6 @@ class FaceRecognizer:
 
         except Exception as e:
             logger.error(f"Face alignment failed: {e}")
-            # Fallback to simple crop
             h, w = image.shape[:2]
             center_x, center_y = w // 2, h // 2
             size = min(w, h) // 2
@@ -175,27 +133,13 @@ class FaceRecognizer:
             return cv2.resize(face_crop, self.input_size)
 
     def _preprocess_image(self, aligned_face: np.ndarray) -> np.ndarray:
-        """
-        Preprocess aligned face for face recognizer model
-
-        Args:
-            aligned_face: Aligned face image (112x112)
-
-        Returns:
-            Preprocessed tensor ready for inference
-        """
         try:
-            # Convert BGR to RGB
             rgb_image = cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB)
-
-            # Normalize to [-1, 1] range (face recognizer preprocessing)
             normalized = (
                 rgb_image.astype(np.float32) - self.INPUT_MEAN
             ) / self.INPUT_STD
-
-            # Transpose to CHW format and add batch dimension
-            input_tensor = np.transpose(normalized, (2, 0, 1))  # HWC to CHW
-            input_tensor = np.expand_dims(input_tensor, axis=0)  # Add batch dimension
+            input_tensor = np.transpose(normalized, (2, 0, 1))
+            input_tensor = np.expand_dims(input_tensor, axis=0)
 
             return input_tensor
 
@@ -204,31 +148,14 @@ class FaceRecognizer:
             raise
 
     def _extract_embedding(self, image: np.ndarray, landmarks_5: List) -> np.ndarray:
-        """
-        Extract face embedding from image using face detector landmarks
-
-        Args:
-            image: Input image
-            landmarks_5: 5-point landmarks from face detector (REQUIRED)
-
-        Returns:
-            Normalized face embedding (512-dim)
-        """
         try:
-            # Align face using face detector landmarks
             aligned_face = self._align_face(image, landmarks_5)
-
-            # Preprocess for model
             input_tensor = self._preprocess_image(aligned_face)
-
-            # Run inference
             feeds = {self.session.get_inputs()[0].name: input_tensor}
             outputs = self.session.run(None, feeds)
+            embedding = outputs[0][0]
 
-            # Extract embedding
-            embedding = outputs[0][0]  # Remove batch dimension
-
-            # L2 normalization (critical for cosine similarity)
+            # L2 normalization for cosine similarity
             norm = np.linalg.norm(embedding)
             if norm > 0:
                 embedding = embedding / norm
@@ -242,30 +169,16 @@ class FaceRecognizer:
     def _extract_embeddings_batch(
         self, image: np.ndarray, face_data_list: List[Dict]
     ) -> List[np.ndarray]:
-        """
-        BATCH PROCESSING: Extract embeddings for multiple faces in a single inference call
-
-        Args:
-            image: Input image
-            face_data_list: List of dicts with 'bbox' key
-
-        Returns:
-            List of normalized face embeddings (512-dim each)
-        """
+        """BATCH PROCESSING: Extract embeddings in single inference call"""
         try:
             if not face_data_list:
                 return []
 
-            # Align all faces and collect tensors
             aligned_faces = []
 
             for i, face_data in enumerate(face_data_list):
                 try:
-                    landmarks_5 = face_data.get(
-                        "landmarks_5"
-                    )  # Get face detector landmarks if available
-
-                    # Align face (face detector landmarks preferred)
+                    landmarks_5 = face_data.get("landmarks_5")
                     aligned_face = self._align_face(image, landmarks_5)
                     aligned_faces.append(aligned_face)
                 except Exception as e:
@@ -275,30 +188,23 @@ class FaceRecognizer:
             if not aligned_faces:
                 return []
 
-            # Batch preprocess all faces
             batch_tensors = []
             for aligned_face in aligned_faces:
-                # Preprocess individual face (without batch dimension)
                 rgb_image = cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB)
                 normalized = (
                     rgb_image.astype(np.float32) - self.INPUT_MEAN
                 ) / self.INPUT_STD
-                tensor = np.transpose(normalized, (2, 0, 1))  # HWC to CHW
+                tensor = np.transpose(normalized, (2, 0, 1))
                 batch_tensors.append(tensor)
 
-            # Stack into batch (N, C, H, W)
             batch_input = np.stack(batch_tensors, axis=0)
-
-            # Run batched inference
             feeds = {self.session.get_inputs()[0].name: batch_input}
             outputs = self.session.run(None, feeds)
 
-            # Extract and normalize embeddings
-            embeddings = outputs[0]  # Shape: (N, 512)
+            embeddings = outputs[0]
             normalized_embeddings = []
 
             for embedding in embeddings:
-                # L2 normalization
                 norm = np.linalg.norm(embedding)
                 if norm > 0:
                     embedding = embedding / norm
@@ -308,13 +214,10 @@ class FaceRecognizer:
 
         except Exception as e:
             logger.error(f"Batch embedding extraction failed: {e}")
-            # Fallback to sequential processing
             embeddings = []
             for face_data in face_data_list:
                 try:
-                    landmarks_5 = face_data.get(
-                        "landmarks_5"
-                    )  # Get face detector landmarks if available
+                    landmarks_5 = face_data.get("landmarks_5")
                     emb = self._extract_embedding(image, landmarks_5)
                     embeddings.append(emb)
                 except Exception:
@@ -324,9 +227,7 @@ class FaceRecognizer:
     def _calculate_similarity(
         self, embedding1: np.ndarray, embedding2: np.ndarray
     ) -> float:
-        """Calculate cosine similarity between two embeddings"""
         try:
-            # Cosine similarity (since embeddings are L2 normalized)
             similarity = np.dot(embedding1, embedding2)
             return float(similarity)
 
@@ -337,22 +238,10 @@ class FaceRecognizer:
     def _find_best_match(
         self, embedding: np.ndarray, allowed_person_ids: Optional[List[str]] = None
     ) -> Tuple[Optional[str], float]:
-        """
-        Find best matching person in database using fixed similarity threshold
-        OPTIMIZED: Uses in-memory cache to avoid database queries on every frame
-
-        Args:
-            embedding: Query embedding
-            allowed_person_ids: Optional list of person_ids to restrict matching (for group filtering)
-
-        Returns:
-            Tuple of (person_id, similarity_score)
-        """
+        """OPTIMIZED: In-memory cache prevents database queries on every frame"""
         if not self.db_manager:
             return None, 0.0
 
-        # CRITICAL OPTIMIZATION: Cache database results for 1 second
-        # Prevents SQLite I/O bottleneck (1500-3000 queries/sec → ~1 query/sec)
         current_time = time.time()
 
         if (
@@ -362,13 +251,11 @@ class FaceRecognizer:
             self._persons_cache = self.db_manager.get_all_persons()
             self._cache_timestamp = current_time
 
-        # Use cached data instead of querying database
         all_persons = self._persons_cache
 
         if not all_persons:
             return None, 0.0
 
-        # Apply group filter if provided
         if allowed_person_ids is not None:
             all_persons = {
                 pid: emb
@@ -388,7 +275,6 @@ class FaceRecognizer:
                 best_similarity = similarity
                 best_person_id = person_id
 
-        # Use fixed threshold
         if best_similarity >= self.similarity_threshold:
             logger.info(
                 f"Recognized: {best_person_id} (similarity: {best_similarity:.3f})"
@@ -404,23 +290,8 @@ class FaceRecognizer:
         landmarks_5: List,
         allowed_person_ids: Optional[List[str]] = None,
     ) -> Dict:
-        """
-        Recognize face in image using face detector landmarks
-
-        Args:
-            image: Input image as numpy array (BGR format)
-            bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from face detector (REQUIRED)
-            allowed_person_ids: Optional list of person_ids to restrict matching (for group filtering)
-
-        Returns:
-            Recognition result with person_id and similarity
-        """
         try:
-            # Extract embedding
             embedding = self._extract_embedding(image, landmarks_5)
-
-            # Find best match with optional group filtering
             person_id, similarity = self._find_best_match(embedding, allowed_person_ids)
 
             return {
@@ -445,19 +316,6 @@ class FaceRecognizer:
         landmarks_5: List,
         allowed_person_ids: Optional[List[str]] = None,
     ) -> Dict:
-        """
-        Recognize face in image using face detector landmarks (asynchronous)
-
-        Args:
-            image: Input image as numpy array (BGR format)
-            bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from face detector (REQUIRED)
-            allowed_person_ids: Optional list of person_ids to restrict matching (for group filtering)
-
-        Returns:
-            Recognition result with person_id and similarity
-        """
-        # Run recognition in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None, self.recognize_face, image, bbox, landmarks_5, allowed_person_ids
@@ -466,26 +324,14 @@ class FaceRecognizer:
     def extract_embeddings_for_tracking(
         self, image: np.ndarray, face_detections: List[Dict]
     ) -> List[np.ndarray]:
-        """
-        Extract embeddings for Deep SORT tracking (no recognition, just embeddings)
-
-        Args:
-            image: Input image as numpy array (BGR format)
-            face_detections: List of face detection dicts with 'bbox' key
-
-        Returns:
-            List of normalized face embeddings (512-dim each), aligned with input faces
-        """
         try:
             if not face_detections:
                 return []
 
-            # Prepare face data for batch processing
             face_data_list = []
             for face in face_detections:
                 bbox = face.get("bbox")
 
-                # Convert bbox dict to list if needed
                 if isinstance(bbox, dict):
                     bbox_list = [
                         bbox.get("x", 0),
@@ -501,13 +347,11 @@ class FaceRecognizer:
 
                 face_data = {"bbox": bbox_list}
 
-                # Include face detector landmarks if available (FAST PATH!)
                 if "landmarks_5" in face:
                     face_data["landmarks_5"] = face["landmarks_5"]
 
                 face_data_list.append(face_data)
 
-            # Batch extract embeddings
             embeddings = self._extract_embeddings_batch(image, face_data_list)
 
             return embeddings
@@ -519,29 +363,13 @@ class FaceRecognizer:
     def register_person(
         self, person_id: str, image: np.ndarray, bbox: List[float], landmarks_5: List
     ) -> Dict:
-        """
-        Register a new person in the database using face detector landmarks
-
-        Args:
-            person_id: Unique identifier for the person
-            image: Input image
-            bbox: Bounding box [x, y, width, height] from face detection
-            landmarks_5: 5-point landmarks from face detector (REQUIRED)
-
-        Returns:
-            Registration result
-        """
         try:
-            # Extract embedding
             embedding = self._extract_embedding(image, landmarks_5)
 
-            # Store in SQLite database
             if self.db_manager:
                 save_success = self.db_manager.add_person(person_id, embedding)
                 stats = self.db_manager.get_stats()
                 total_persons = stats.get("total_persons", 0)
-
-                # OPTIMIZATION: Invalidate cache after registration
                 self._invalidate_cache()
             else:
                 save_success = False
@@ -562,30 +390,18 @@ class FaceRecognizer:
     async def register_person_async(
         self, person_id: str, image: np.ndarray, bbox: List[float], landmarks_5: List
     ) -> Dict:
-        """Register person asynchronously using face detector landmarks"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None, self.register_person, person_id, image, bbox, landmarks_5
         )
 
     def remove_person(self, person_id: str) -> Dict:
-        """
-        Remove person from database
-
-        Args:
-            person_id: Person to remove
-
-        Returns:
-            Removal result
-        """
         try:
             if self.db_manager:
                 remove_success = self.db_manager.remove_person(person_id)
 
                 if remove_success:
-                    # OPTIMIZATION: Invalidate cache after removal
                     self._invalidate_cache()
-
                     stats = self.db_manager.get_stats()
                     total_persons = stats.get("total_persons", 0)
 
@@ -613,23 +429,19 @@ class FaceRecognizer:
             return {"success": False, "error": str(e), "person_id": person_id}
 
     def get_all_persons(self) -> List[str]:
-        """Get list of all registered persons"""
         if self.db_manager:
             all_persons = self.db_manager.get_all_persons()
             return list(all_persons.keys())
         return []
 
     def update_person_id(self, old_person_id: str, new_person_id: str) -> Dict:
-        """Update a person's ID in the database"""
         try:
             if self.db_manager:
                 updated_count = self.db_manager.update_person_id(
                     old_person_id, new_person_id
                 )
                 if updated_count > 0:
-                    # OPTIMIZATION: Invalidate cache after update
                     self._invalidate_cache()
-
                     return {
                         "success": True,
                         "message": f"Person '{old_person_id}' renamed to '{new_person_id}' successfully",
@@ -653,34 +465,26 @@ class FaceRecognizer:
             return {"success": False, "error": str(e), "updated_records": 0}
 
     def get_stats(self) -> Dict:
-        """Get database statistics"""
         total_persons = 0
         persons = []
 
         if self.db_manager:
-            # Get basic stats
             stats = self.db_manager.get_stats()
             total_persons = stats.get("total_persons", 0)
-
-            # Get detailed person information
             persons = self.db_manager.get_all_persons_with_details()
 
         return {"total_persons": total_persons, "persons": persons}
 
     def set_similarity_threshold(self, threshold: float):
-        """Set similarity threshold for recognition"""
         self.similarity_threshold = threshold
 
     def clear_database(self) -> Dict:
-        """Clear all persons from database"""
         try:
             if self.db_manager:
                 clear_success = self.db_manager.clear_database()
 
                 if clear_success:
-                    # OPTIMIZATION: Invalidate cache after clearing
                     self._invalidate_cache()
-
                     return {"success": True, "database_saved": True, "total_persons": 0}
                 else:
                     return {"success": False, "error": "Failed to clear database"}
@@ -692,21 +496,6 @@ class FaceRecognizer:
             return {"success": False, "error": str(e)}
 
     def _invalidate_cache(self):
-        """
-        OPTIMIZATION: Invalidate the database cache
-        Call this after any database modification (add/remove/update/clear)
-        """
+        """Invalidate cache after database modifications"""
         self._persons_cache = None
         self._cache_timestamp = 0
-
-    def get_model_info(self) -> Dict:
-        """Get model information"""
-        return {
-            "model_path": self.model_path,
-            "input_size": self.input_size,
-            "embedding_dimension": self.EMBEDDING_DIM,
-            "similarity_threshold": self.similarity_threshold,
-            "providers": self.providers,
-            "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
-            "landmark_count": 5,
-        }
