@@ -6,19 +6,17 @@ from typing import List, Tuple
 # Reference points for face alignment (112x112 standard)
 REFERENCE_POINTS = np.array(
     [
-        [38.2946, 51.6963],
-        [73.5318, 51.5014],
-        [56.0252, 71.7366],
-        [41.5493, 92.3655],
-        [70.7299, 92.2041],
+        [38.2946, 51.6963], # left eye
+        [73.5318, 51.5014], # right eye
+        [56.0252, 71.7366], # nose
+        [41.5493, 92.3655], # left mouth
+        [70.7299, 92.2041], # right mouth
     ],
     dtype=np.float32,
 )
 
 
-def align_face(
-    image: np.ndarray, landmarks: np.ndarray, input_size: Tuple[int, int]
-) -> np.ndarray:
+def align_face(image: np.ndarray, landmarks: np.ndarray, input_size: Tuple[int, int]) -> np.ndarray:
     """
     Align face using similarity transformation based on 5 landmarks.
 
@@ -30,47 +28,30 @@ def align_face(
     Returns:
         Aligned face image
     """
-    try:
-        tform, _ = cv2.estimateAffinePartial2D(
-            landmarks,
-            REFERENCE_POINTS,
-            method=cv2.LMEDS,
-            maxIters=1,
-            refineIters=0,
-        )
+    tform, _ = cv2.estimateAffinePartial2D(
+        landmarks,
+        REFERENCE_POINTS,
+        method=cv2.LMEDS,
+        maxIters=1,
+        refineIters=0,
+    )
 
-        if tform is None:
-            raise ValueError("Failed to compute similarity transformation matrix")
+    if tform is None:
+        raise ValueError("Failed to compute similarity transformation matrix")
 
-        aligned_face = cv2.warpAffine(
-            image,
-            tform,
-            input_size,
-            flags=cv2.INTER_CUBIC,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0,
-        )
+    aligned_face = cv2.warpAffine(
+        image,
+        tform,
+        input_size,
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
 
-        return aligned_face
-
-    except Exception:
-        # Fallback: center crop and resize
-        h, w = image.shape[:2]
-        center_x, center_y = w // 2, h // 2
-        size = min(w, h) // 2
-
-        x1 = max(0, center_x - size)
-        y1 = max(0, center_y - size)
-        x2 = min(w, center_x + size)
-        y2 = min(h, center_y + size)
-
-        face_crop = image[y1:y2, x1:x2]
-        return cv2.resize(face_crop, input_size)
+    return aligned_face
 
 
-def preprocess_image(
-    aligned_face: np.ndarray, input_mean: float = 127.5, input_std: float = 127.5
-) -> np.ndarray:
+def preprocess_image(aligned_face: np.ndarray, input_mean: float = 127.5, input_std: float = 127.5) -> np.ndarray:
     """
     Preprocess aligned face for model inference.
 
