@@ -174,87 +174,71 @@ class FaceRecognizer:
         landmarks_5: List,
         allowed_person_ids: Optional[List[str]] = None,
     ) -> Dict:
-        """Async wrapper for face recognition"""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, self._recognize_face_sync, image, landmarks_5, allowed_person_ids
-        )
-
-    def _recognize_face_sync(
-        self,
-        image: np.ndarray,
-        landmarks_5: List,
-        allowed_person_ids: Optional[List[str]] = None,
-    ) -> Dict:
         """
-        Synchronous face recognition.
+        Recognize a face asynchronously.
 
         Full pipeline: Extract Embedding -> Find Match -> Return Result
         """
-        try:
-            embedding = self._extract_embedding(image, landmarks_5)
-            person_id, similarity = self._find_best_match(embedding, allowed_person_ids)
+        loop = asyncio.get_event_loop()
 
-            if person_id:
-                logger.info(
-                    f"Recognized: {person_id} (similarity: {similarity:.3f})"
-                )
+        def _recognize():
+            try:
+                embedding = self._extract_embedding(image, landmarks_5)
+                person_id, similarity = self._find_best_match(embedding, allowed_person_ids)
 
-            return {
-                "person_id": person_id,
-                "similarity": similarity,
-                "success": True,
-            }
+                return {
+                    "person_id": person_id,
+                    "similarity": similarity,
+                    "success": True,
+                }
 
-        except Exception as e:
-            logger.error(f"Face recognition error: {e}")
-            return {
-                "person_id": None,
-                "similarity": 0.0,
-                "success": False,
-                "error": str(e),
-            }
+            except Exception as e:
+                logger.error(f"Face recognition error: {e}")
+                return {
+                    "person_id": None,
+                    "similarity": 0.0,
+                    "success": False,
+                    "error": str(e),
+                }
+
+        return await loop.run_in_executor(None, _recognize)
 
     async def register_person(
         self, person_id: str, image: np.ndarray, landmarks_5: List
     ) -> Dict:
-        """Async wrapper for person registration"""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, self._register_person_sync, person_id, image, landmarks_5
-        )
-
-    def _register_person_sync(
-        self, person_id: str, image: np.ndarray, landmarks_5: List
-    ) -> Dict:
         """
-        Register a new person in the database.
+        Register a new person in the database asynchronously.
 
         Pipeline: Extract Embedding -> Save to Database -> Refresh Cache
         """
-        try:
-            embedding = self._extract_embedding(image, landmarks_5)
+        loop = asyncio.get_event_loop()
 
-            if self.db_manager:
-                save_success = self.db_manager.add_person(person_id, embedding)
-                stats = self.db_manager.get_stats()
-                total_persons = stats.get("total_persons", 0)
-                self._refresh_cache()
-            else:
-                save_success = False
-                total_persons = 0
-                logger.warning("No database manager available for registration")
+        def _register():
+            try:
+                embedding = self._extract_embedding(image, landmarks_5)
 
-            return {
-                "success": True,
-                "person_id": person_id,
-                "database_saved": save_success,
-                "total_persons": total_persons,
-            }
+                if self.db_manager:
+                    save_success = self.db_manager.add_person(person_id, embedding)
+                    stats = self.db_manager.get_stats()
+                    total_persons = stats.get("total_persons", 0)
+                    self._refresh_cache()
+                else:
+                    save_success = False
+                    total_persons = 0
+                    logger.warning("No database manager available for registration")
 
-        except Exception as e:
-            logger.error(f"Person registration failed: {e}")
-            return {"success": False, "error": str(e), "person_id": person_id}
+                return {
+                    "success": True,
+                    "person_id": person_id,
+                    "database_saved": save_success,
+                    "total_persons": total_persons,
+                }
+
+            except Exception as e:
+                logger.error(f"Person registration failed: {e}")
+                return {"success": False, "error": str(e), "person_id": person_id}
+
+        return await loop.run_in_executor(None, _register)
 
     def extract_embeddings_for_tracking(
         self, image: np.ndarray, face_detections: List[Dict]
