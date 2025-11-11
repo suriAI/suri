@@ -562,7 +562,7 @@ export function FaceCapture({
       <div className="flex-1 overflow-hidden min-h-0">
         {/* Show member list only when no member selected */}
         {!selectedMemberId && (
-          <div className="space-y-3 flex flex-col overflow-hidden min-h-0 h-full">
+          <div className="space-y-3 flex flex-col overflow-hidden min-h-0 h-full p-6">
             {/* Header Row with Search and Back Button */}
             <div className="flex items-center gap-3 flex-shrink-0">
               {/* Search Bar */}
@@ -692,7 +692,7 @@ export function FaceCapture({
 
         {/* Registration Panel - Show only when member selected */}
         {selectedMemberId && (
-          <div className="space-y-4 overflow-y-auto custom-scroll overflow-x-hidden min-h-0 pr-2 h-full">
+          <div className="space-y-4 overflow-y-auto custom-scroll overflow-x-hidden min-h-0 p-6 h-full">
             {/* Header with Change Member button */}
             <div className="rounded-xl border border-white/10 bg-white/5 p-1.5">
               <div className="flex items-center gap-3">
