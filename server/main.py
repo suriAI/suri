@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from core.lifespan import lifespan
-from api.endpoints import router as api_router
+from api.endpoints import router
 from middleware.cors import setup_cors
 
 if not logging.getLogger().handlers:
@@ -23,7 +23,7 @@ app = FastAPI(
 setup_cors(app)
 
 # Include API router
-app.include_router(api_router)
+app.include_router(router)
 
 
 @app.get("/")
