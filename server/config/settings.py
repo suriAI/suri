@@ -173,7 +173,7 @@ MODEL_CONFIGS = {
     },
     "liveness_detector": {
         "model_path": WEIGHTS_DIR / "antispoof.onnx",
-        "confidence_threshold": 0.70,  # 0.95 default
+        "confidence_threshold": 0.90,  # 0.95 default
         "bbox_inc": 1.5,  # Bbox expansion factor (matches model training: 1.5_128.onnx)
         "model_img_size": 128,
         "min_face_size": 80,  # Faces smaller than this are skipped from anti-spoof processing.
