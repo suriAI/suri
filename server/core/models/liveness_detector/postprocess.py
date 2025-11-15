@@ -72,7 +72,7 @@ def process_prediction(
     spoof_score = print_score + replay_score
     max_confidence = max(live_score, spoof_score)
 
-    is_real = live_score > spoof_score and live_score >= confidence_threshold
+    is_real = live_score >= confidence_threshold
 
     result = {
         "is_real": bool(is_real),
