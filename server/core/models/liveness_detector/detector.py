@@ -41,7 +41,7 @@ class LivenessDetector:
         return preprocess_image(img, self.model_img_size)
 
     def postprocessing(self, prediction: np.ndarray) -> np.ndarray:
-        """Apply softmax to prediction (supports both single and batch predictions)"""
+        """Apply softmax to prediction (expects batch size 1: [1, 3])"""
         return softmax(prediction)
 
     def increased_crop(

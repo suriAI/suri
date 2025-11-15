@@ -77,7 +77,7 @@ def crop_with_margin(img: np.ndarray, bbox: tuple, bbox_inc: float) -> np.ndarra
 def extract_bbox_coordinates(detection: Dict) -> Optional[Tuple[int, int, int, int]]:
     """Extract bbox coordinates from detection (expects dict format)."""
     bbox = detection.get("bbox", {})
-    if not bbox or not isinstance(bbox, dict):
+    if not isinstance(bbox, dict):
         return None
 
     x = int(bbox.get("x", 0))

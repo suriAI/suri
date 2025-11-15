@@ -93,7 +93,7 @@ def validate_detection(
         return False, None
 
     bbox = detection.get("bbox", {})
-    if not bbox or not isinstance(bbox, dict):
+    if not isinstance(bbox, dict):
         return False, None
 
     w = int(bbox.get("width", 0))
