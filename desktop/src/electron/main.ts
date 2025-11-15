@@ -539,13 +539,13 @@ function createWindow(): void {
   });
 
   // Handle renderer process crash or reload
-  mainWindow.webContents.on("render-process-gone", (event, details) => {
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
     console.log("[Main] Renderer process gone:", details.reason);
     // WebSocket connections will be automatically closed when renderer process dies
   });
 
   // Handle navigation
-  mainWindow.webContents.on("did-start-navigation", (event, navigationUrl) => {
+  mainWindow.webContents.on("did-start-navigation", (_event, navigationUrl) => {
     if (navigationUrl && navigationUrl !== mainWindow.webContents.getURL()) {
       console.log("[Main] Navigation started to:", navigationUrl);
     }

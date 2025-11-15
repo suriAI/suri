@@ -20,6 +20,8 @@ import {
   areRecognitionMapsEqual,
   type ExtendedFaceRecognitionResponse,
 } from "./utils/recognitionHelpers";
+
+export type { ExtendedFaceRecognitionResponse };
 import type {
   DetectionResult,
   WebSocketFaceData,
