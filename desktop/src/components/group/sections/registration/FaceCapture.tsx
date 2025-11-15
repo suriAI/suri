@@ -32,9 +32,152 @@ interface FaceCaptureProps {
   members: AttendanceMember[];
   onRefresh?: () => Promise<void> | void;
   onBack?: () => void;
+  initialSource?: CaptureSource;
 }
 
 const REQUIRED_ANGLE = "Front";
+
+function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [bboxStyle, setBboxStyle] = useState<{
+    left: string;
+    top: string;
+    width: string;
+    height: string;
+  } | null>(null);
+  const lastBboxStyleRef = useRef<string>("");
+
+  useEffect(() => {
+    if (
+      !frame.bbox ||
+      !frame.width ||
+      !frame.height ||
+      !containerRef.current
+    ) {
+      setBboxStyle(null);
+      lastBboxStyleRef.current = "";
+      return;
+    }
+
+    const calculateBbox = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+
+      if (containerWidth === 0 || containerHeight === 0) {
+        return;
+      }
+
+      const imageAspectRatio = frame.width / frame.height;
+      const containerAspectRatio = containerWidth / containerHeight;
+
+      // Calculate how the image is displayed with object-contain
+      let displayedWidth: number;
+      let displayedHeight: number;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (imageAspectRatio > containerAspectRatio) {
+        // Image is wider - fits to container width
+        displayedWidth = containerWidth;
+        displayedHeight = containerWidth / imageAspectRatio;
+        offsetY = (containerHeight - displayedHeight) / 2;
+      } else {
+        // Image is taller - fits to container height
+        displayedHeight = containerHeight;
+        displayedWidth = containerHeight * imageAspectRatio;
+        offsetX = (containerWidth - displayedWidth) / 2;
+      }
+
+      const bbox = frame.bbox;
+      if (!bbox) {
+        return;
+      }
+
+      // Calculate bbox position in pixels relative to displayed image
+      const scaleX = displayedWidth / frame.width;
+      const scaleY = displayedHeight / frame.height;
+
+      const bboxLeft = bbox[0] * scaleX + offsetX;
+      const bboxTop = bbox[1] * scaleY + offsetY;
+      const bboxWidth = bbox[2] * scaleX;
+      const bboxHeight = bbox[3] * scaleY;
+
+      const newStyle = {
+        left: `${bboxLeft}px`,
+        top: `${bboxTop}px`,
+        width: `${bboxWidth}px`,
+        height: `${bboxHeight}px`,
+      };
+
+      // Only update if values actually changed to prevent blinking
+      const styleKey = `${bboxLeft.toFixed(2)},${bboxTop.toFixed(
+        2,
+      )},${bboxWidth.toFixed(2)},${bboxHeight.toFixed(2)}`;
+      if (lastBboxStyleRef.current !== styleKey) {
+        lastBboxStyleRef.current = styleKey;
+        setBboxStyle(newStyle);
+      }
+    };
+
+    // Debounce resize calculations
+    let timeoutId: NodeJS.Timeout;
+    const debouncedCalculate = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(calculateBbox, 16); // ~60fps
+    };
+
+    calculateBbox();
+
+    // Recalculate on resize with debouncing
+    const resizeObserver = new ResizeObserver(debouncedCalculate);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+    };
+  }, [frame.bbox, frame.width, frame.height]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 min-h-0 relative rounded-lg overflow-hidden bg-black"
+    >
+      <img
+        src={frame.dataUrl}
+        alt={frame.label}
+        className="w-full h-full object-contain"
+      />
+      {frame.status === "processing" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-6 w-6 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
+            <span className="text-xs text-white/60">Analyzing...</span>
+          </div>
+        </div>
+      )}
+      {frame.status === "error" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 p-3 text-center">
+          <div className="space-y-1">
+            <div className="text-xl">⚠️</div>
+            <div className="text-xs text-red-200">{frame.error || "Failed"}</div>
+          </div>
+        </div>
+      )}
+      {frame.status !== "error" && bboxStyle && (
+        <div
+          className="absolute border-2 border-cyan-400 shadow-lg shadow-cyan-400/50"
+          style={bboxStyle}
+        />
+      )}
+    </div>
+  );
+}
 
 const makeId = () => {
   if (
@@ -73,8 +216,9 @@ export function FaceCapture({
   members,
   onRefresh,
   onBack,
+  initialSource,
 }: FaceCaptureProps) {
-  const [source, setSource] = useState<CaptureSource>("upload");
+  const [source, setSource] = useState<CaptureSource>(initialSource ?? "upload");
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [frames, setFrames] = useState<CapturedFrame[]>([]);
@@ -692,218 +836,158 @@ export function FaceCapture({
 
         {/* Registration Panel - Show only when member selected */}
         {selectedMemberId && (
-          <div className="space-y-4 overflow-y-auto custom-scroll overflow-x-hidden min-h-0 p-6 h-full">
-            {/* Header with Change Member button */}
-            <div className="rounded-xl border border-white/10 bg-white/5 p-1.5">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white truncate">
-                    {
-                      membersWithDisplayNames.find(
-                        (m) => m.person_id === selectedMemberId,
-                      )?.displayName
-                    }
-                  </div>
+          <div className="flex flex-col h-full overflow-hidden p-6">
+
+            {/* Content Area - Takes available space */}
+            <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
+              {/* Only show source toggle if no initialSource was provided (direct access) */}
+              {!initialSource && (
+                <div className="flex gap-2 flex-shrink-0">
+                  {(["upload", "live"] as CaptureSource[]).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => setSource(option)}
+                      disabled={!!frames.find((f) => f.angle === REQUIRED_ANGLE)}
+                      className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                        source === option
+                          ? "bg-white/10 text-white border border-white/20"
+                          : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white/60"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {option === "upload" ? "Upload" : "Camera"}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedMemberId("");
-                    resetFrames();
-                  }}
-                  className="rounded-lg px-3 py-1.5 text-xs text-white/60 border border-white/10 bg-white/5 hover:bg-white/10 hover:text-white transition-all"
-                >
-                  Change
-                </button>
-              </div>
-            </div>
+              )}
 
-            <div className="flex gap-2">
-              {(["upload", "live"] as CaptureSource[]).map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setSource(option)}
-                  disabled={!!frames.find((f) => f.angle === REQUIRED_ANGLE)}
-                  className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                    source === option
-                      ? "bg-white/10 text-white border border-white/20"
-                      : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white/60"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {option === "upload" ? "Upload" : "Camera"}
-                </button>
-              ))}
-            </div>
-
-            {/* Capture Area */}
-            {source === "live"
-              ? // Camera mode - only show camera if no frame exists
-                !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
-                  <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`h-2 w-2 rounded-full ${cameraReady ? "bg-emerald-400 animate-pulse" : "bg-yellow-400"}`}
-                          />
-                          <span className="text-xs text-white/60">
-                            {cameraReady ? "Ready" : "Initializing..."}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="relative overflow-hidden rounded-xl border border-white/20 bg-black aspect-video">
-                        <video
-                          ref={videoRef}
-                          className="w-full h-full object-cover scale-x-[-1]"
-                          playsInline
-                          muted
-                        />
-                        {!cameraReady && !cameraError && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="h-12 w-12 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
-                              <span className="text-xs text-white/40">
-                                Loading...
+              {/* Capture/Preview Area - Takes remaining space */}
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {source === "live"
+                  ? // Camera mode - only show camera if no frame exists
+                    !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
+                      <div className="h-full flex flex-col rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
+                        <div className="p-4 space-y-3 flex-shrink-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`h-2 w-2 rounded-full ${cameraReady ? "bg-emerald-400 animate-pulse" : "bg-yellow-400"}`}
+                              />
+                              <span className="text-xs text-white/60">
+                                {cameraReady ? "Ready" : "Initializing..."}
                               </span>
                             </div>
                           </div>
-                        )}
-                        {cameraError && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-4 text-center">
-                            <div className="space-y-2">
-                              <div className="text-xs text-red-300">
-                                {cameraError}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => void captureFromCamera(REQUIRED_ANGLE)}
-                        disabled={!cameraReady || !!cameraError}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/20 py-4 text-sm font-medium text-white hover:bg-white/15 disabled:bg-white/5 disabled:border-white/10 disabled:text-white/30 transition-all"
-                      >
-                        Capture Face
-                      </button>
-                    </div>
-                  </div>
-                )
-              : // Upload mode - only show upload area if no frame exists
-                !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
-                  <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
-                    <label className="flex h-96 cursor-pointer flex-col items-center justify-center p-8 text-center hover:bg-white/5 transition-all group">
-                      <div className="flex flex-col items-center gap-4">
-                        <div>
-                          <div className="text-sm text-white/60 mb-1">
-                            Drop image or click to browse
-                          </div>
-                          <div className="text-xs text-white/30">
-                            PNG, JPG up to 10MB
-                          </div>
                         </div>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          void handleFileSelected(
-                            REQUIRED_ANGLE,
-                            e.target.files,
-                          );
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                  </div>
-                )}
-
-            {/* Face Preview - Only show when frame exists */}
-            {frames.find((f) => f.angle === REQUIRED_ANGLE) && (
-              <div className="space-y-3">
-                {/* Preview */}
-                <div className="rounded-xl border border-white/10 bg-black/20 overflow-hidden">
-                  <div className="p-3">
-                    {frames
-                      .filter((f) => f.angle === REQUIRED_ANGLE)
-                      .map((frame) => {
-                        const left = frame.bbox
-                          ? (frame.bbox[0] / frame.width) * 100
-                          : 0;
-                        const top = frame.bbox
-                          ? (frame.bbox[1] / frame.height) * 100
-                          : 0;
-                        const width = frame.bbox
-                          ? (frame.bbox[2] / frame.width) * 100
-                          : 0;
-                        const height = frame.bbox
-                          ? (frame.bbox[3] / frame.height) * 100
-                          : 0;
-
-                        return (
-                          <div key={frame.id} className="space-y-2">
-                            <div className="relative rounded-lg overflow-hidden bg-black">
-                              <img
-                                src={frame.dataUrl}
-                                alt={frame.label}
-                                className="w-full"
-                              />
-                              {frame.status === "processing" && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                                  <div className="flex flex-col items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
-                                    <span className="text-xs text-white/60">
-                                      Analyzing...
-                                    </span>
+                        <div className="flex-1 min-h-0 flex flex-col p-4 pt-0">
+                          <div className="flex-1 relative overflow-hidden rounded-xl border border-white/20 bg-black">
+                            <video
+                              ref={videoRef}
+                              className="w-full h-full object-cover scale-x-[-1]"
+                              playsInline
+                              muted
+                            />
+                            {!cameraReady && !cameraError && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div className="h-12 w-12 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
+                                  <span className="text-xs text-white/40">
+                                    Loading...
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {cameraError && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-4 text-center">
+                                <div className="space-y-2">
+                                  <div className="text-xs text-red-300">
+                                    {cameraError}
                                   </div>
                                 </div>
-                              )}
-                              {frame.status === "error" && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 p-3 text-center">
-                                  <div className="space-y-1">
-                                    <div className="text-xl">⚠️</div>
-                                    <div className="text-xs text-red-200">
-                                      {frame.error || "Failed"}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              {frame.status !== "error" && frame.bbox && (
-                                <div
-                                  className="absolute border-2 border-cyan-400 shadow-lg shadow-cyan-400/50"
-                                  style={{
-                                    left: `${left}%`,
-                                    top: `${top}%`,
-                                    width: `${width}%`,
-                                    height: `${height}%`,
-                                  }}
-                                />
-                              )}
-                            </div>
-                            {frame.confidence && (
-                              <div className="flex items-center gap-2 text-xs">
-                                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400"
-                                    style={{
-                                      width: `${frame.confidence * 100}%`,
-                                    }}
-                                  />
-                                </div>
-                                <span className="text-emerald-300">
-                                  {(frame.confidence * 100).toFixed(0)}%
-                                </span>
                               </div>
                             )}
                           </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              </div>
-            )}
+                          <button
+                            onClick={() => void captureFromCamera(REQUIRED_ANGLE)}
+                            disabled={!cameraReady || !!cameraError}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/20 py-4 text-sm font-medium text-white hover:bg-white/15 disabled:bg-white/5 disabled:border-white/10 disabled:text-white/30 transition-all mt-3 flex-shrink-0"
+                          >
+                            Capture Face
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  : // Upload mode - only show upload area if no frame exists
+                    !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
+                      <div className="h-full rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
+                        <label className="h-full flex cursor-pointer flex-col items-center justify-center p-8 text-center hover:bg-white/5 transition-all group">
+                          <div className="flex flex-col items-center gap-4">
+                            <div>
+                              <div className="text-sm text-white/60 mb-1">
+                                Drop image or click to browse
+                              </div>
+                              <div className="text-xs text-white/30">
+                                PNG, JPG up to 10MB
+                              </div>
+                            </div>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              void handleFileSelected(
+                                REQUIRED_ANGLE,
+                                e.target.files,
+                              );
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
 
-            {/* Actions */}
-            <div className="flex gap-2">
+                {/* Face Preview - Only show when frame exists */}
+                {frames.find((f) => f.angle === REQUIRED_ANGLE) && (
+                  <div className="h-full flex flex-col rounded-xl border border-white/10 bg-black/20 overflow-hidden">
+                    <div className="flex-1 min-h-0 p-3 flex flex-col">
+                      {frames
+                        .filter((f) => f.angle === REQUIRED_ANGLE)
+                        .map((frame) => (
+                          <div key={frame.id} className="flex-1 min-h-0 flex flex-col space-y-2">
+                            <ImagePreviewWithBbox frame={frame} />
+                            {/* Name and Change button container */}
+                            <div className="flex-shrink-0 rounded-xl border border-white/10 bg-white/5 p-1.5">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-white truncate">
+                                    {
+                                      membersWithDisplayNames.find(
+                                        (m) => m.person_id === selectedMemberId,
+                                      )?.displayName
+                                    }
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setSelectedMemberId("");
+                                    resetFrames();
+                                  }}
+                                  className="rounded-lg px-3 py-1.5 text-xs text-white/60 border border-white/10 bg-white/5 hover:bg-white/10 hover:text-white transition-all"
+                                >
+                                  Change
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions - Fixed at bottom */}
+            <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={resetWorkflow}
                 className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white/50 hover:bg-white/10 hover:text-white/70 transition-all"
