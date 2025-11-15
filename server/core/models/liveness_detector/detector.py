@@ -89,10 +89,21 @@ class LivenessDetector:
             )
         )
 
+        # Mark skipped detections (failed cropping) as error to prevent bypass
+        for skipped in skipped_results:
+            if "liveness" not in skipped:
+                skipped["liveness"] = {
+                    "is_real": False,
+                    "live_score": 0.0,
+                    "spoof_score": 1.0,
+                    "confidence": 0.0,
+                    "status": "error",
+                }
         results.extend(skipped_results)
 
         if not face_crops:
-            return results if results else face_detections
+            # Return results (should never be empty, but fail-safe if it is)
+            return results
 
         # Run batch inference
         raw_predictions = run_batch_inference(
