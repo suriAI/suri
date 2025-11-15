@@ -191,7 +191,7 @@ MODEL_CONFIGS = {
     },
     "face_tracker": {
         "max_age": 30,  # Maximum frames to keep track alive without detection
-        "n_init": 3,  # OPTIMIZED: Reduced from 3 to 2 (faster track confirmation)
+        "n_init": 2,  # OPTIMIZED: Reduced from 3 to 2 (faster track confirmation)
         "max_iou_distance": 0.7,  # OPTIMIZED: Reduced from 0.7 to 0.6 (stricter motion gating)
         "max_cosine_distance": 0.3,  # OPTIMIZED: Reduced from 0.3 to 0.25 (stricter appearance gating)
         "nn_budget": 30,  # OPTIMIZED: Reduced from 100 to 30 (faster matching, less memory)

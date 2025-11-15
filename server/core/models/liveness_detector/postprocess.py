@@ -3,13 +3,7 @@ from typing import Dict, List, Tuple, Optional
 
 
 def softmax(prediction: np.ndarray) -> np.ndarray:
-    """Apply softmax to prediction (supports both single and batch predictions)"""
-    # Handle both single prediction [1, 3] and batch predictions [N, 3]
-    if len(prediction.shape) == 1:
-        prediction = prediction.reshape(1, -1)
-
-    # Apply softmax along the last dimension (axis=-1) for each sample
-    # Subtract max for numerical stability
+    """Apply softmax to prediction"""
     exp_pred = np.exp(prediction - np.max(prediction, axis=-1, keepdims=True))
     return exp_pred / np.sum(exp_pred, axis=-1, keepdims=True)
 
@@ -163,12 +157,7 @@ def run_batch_inference(
             onnx_results = ort_session.run([], {input_name: single_input})
             logits = onnx_results[0]  # Shape: [1, 3]
 
-            # Validate output shape
-            if logits.shape[1] != 3:
-                raw_predictions.append(None)
-                continue
-
-            # Apply postprocessing (softmax)
+            # Apply postprocessing (softmax) and extract single prediction
             prediction = postprocess_fn(logits)  # Shape: [1, 3]
             raw_pred = prediction[0]  # Shape: [3]
             raw_predictions.append(raw_pred)

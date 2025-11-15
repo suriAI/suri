@@ -61,39 +61,5 @@ def process_detection(
                 "is_real": False,
                 "status": "too_small",
             }
-        else:
-            # Calculate visibility and edge detection only when needed
-            original_width = x2_unclipped - x1_unclipped
-            original_height = y2_unclipped - y1_unclipped
-            original_area = original_width * original_height
-            clipped_area = face_width_orig * face_height_orig
-            visibility_ratio = clipped_area / (original_area + 1e-6)
-
-            edge_threshold_x = max(orig_width * 0.05, 10)
-            edge_threshold_y = max(orig_height * 0.05, 10)
-            is_near_edge = (
-                x1_orig < edge_threshold_x
-                or y1_orig < edge_threshold_y
-                or x2_orig > (orig_width - edge_threshold_x)
-                or y2_orig > (orig_height - edge_threshold_y)
-            )
-
-            landmarks_near_edge = np.any(
-                (landmarks_5[:, 0] < edge_threshold_x)
-                | (landmarks_5[:, 1] < edge_threshold_y)
-                | (landmarks_5[:, 0] > orig_width - edge_threshold_x)
-                | (landmarks_5[:, 1] > orig_height - edge_threshold_y)
-            )
-
-            if visibility_ratio < 0.50:
-                detection["liveness"] = {
-                    "is_real": False,
-                    "status": "spoof",
-                }
-            elif is_near_edge or landmarks_near_edge:
-                detection["liveness"] = {
-                    "is_real": False,
-                    "status": "spoof",
-                }
-
+            
     return detection
