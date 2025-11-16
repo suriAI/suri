@@ -2,7 +2,6 @@ import numpy as np
 import logging as log
 from typing import List
 from .session_utils import init_face_detector_session
-from .preprocess import clip_landmarks
 from .postprocess import process_detection
 
 logger = log.getLogger(__name__)
@@ -52,10 +51,7 @@ class FaceDetector:
         for face in faces:
             landmarks_5 = face[4:14].reshape(5, 2)
 
-            # Clip landmarks to image boundaries
-            landmarks_5 = clip_landmarks(landmarks_5, orig_width, orig_height)
-
-            # Process detection
+            # Process detection (no clipping - handled in frontend for UI)
             detection = process_detection(
                 face,
                 orig_width,

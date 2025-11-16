@@ -27,7 +27,7 @@ def preprocess_image(img: np.ndarray, model_img_size: int) -> np.ndarray:
 
 
 def crop_with_margin(img: np.ndarray, bbox: tuple, bbox_inc: float) -> np.ndarray:
-    """Crop face with expanded bounding box"""
+    """Crop face with expanded bounding box (no clipping - pad image first if needed)"""
     real_h, real_w = img.shape[:2]
     x, y, w, h = bbox
 
@@ -38,38 +38,37 @@ def crop_with_margin(img: np.ndarray, bbox: tuple, bbox_inc: float) -> np.ndarra
     xc = x + w / 2
     yc = y + h / 2
 
-    x = int(xc - max_dimension * bbox_inc / 2)
-    y = int(yc - max_dimension * bbox_inc / 2)
+    # Calculate desired crop boundaries (may extend beyond image)
+    x1 = int(xc - max_dimension * bbox_inc / 2)
+    y1 = int(yc - max_dimension * bbox_inc / 2)
+    x2 = x1 + int(max_dimension * bbox_inc)
+    y2 = y1 + int(max_dimension * bbox_inc)
 
-    x1 = 0 if x < 0 else x
-    y1 = 0 if y < 0 else y
-    x2 = (
-        real_w
-        if x + max_dimension * bbox_inc > real_w
-        else x + int(max_dimension * bbox_inc)
-    )
-    y2 = (
-        real_h
-        if y + max_dimension * bbox_inc > real_h
-        else y + int(max_dimension * bbox_inc)
-    )
+    # Calculate padding needed (if crop extends beyond image boundaries)
+    pad_top = max(0, -y1)
+    pad_bottom = max(0, y2 - real_h)
+    pad_left = max(0, -x1)
+    pad_right = max(0, x2 - real_w)
 
+    # Pad image first if needed (expand canvas, no coordinate clipping)
+    if pad_top > 0 or pad_bottom > 0 or pad_left > 0 or pad_right > 0:
+        img = cv2.copyMakeBorder(
+            img,
+            pad_top,
+            pad_bottom,
+            pad_left,
+            pad_right,
+            cv2.BORDER_CONSTANT,
+            value=[0, 0, 0],
+        )
+        # Adjust crop coordinates to account for padding
+        x1 += pad_left
+        y1 += pad_top
+        x2 += pad_left
+        y2 += pad_top
+
+    # Now crop from (possibly padded) image - coordinates are guaranteed to be valid
     img = img[y1:y2, x1:x2, :]
-
-    pad_top = y1 - y
-    pad_bottom = int(max_dimension * bbox_inc - y2 + y)
-    pad_left = x1 - x
-    pad_right = int(max_dimension * bbox_inc - x2 + x)
-
-    img = cv2.copyMakeBorder(
-        img,
-        pad_top,
-        pad_bottom,
-        pad_left,
-        pad_right,
-        cv2.BORDER_CONSTANT,
-        value=[0, 0, 0],
-    )
 
     return img
 
