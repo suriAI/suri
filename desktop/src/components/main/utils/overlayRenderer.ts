@@ -12,8 +12,8 @@ export const getFaceColor = (
 ) => {
   const isRecognized = recognitionEnabled && recognitionResult?.person_id;
 
-  if (isRecognized) return "#22d3ee"; // Cyan-400 for recognized faces (consistent accent)
-  return "#ef4444"; // Red-500 for unknown faces (semantic error)
+  if (isRecognized) return "#00ff41"; // Green for recognized faces
+  return "#ff0000"; // Red for all unknown faces
 };
 
 // Helper to draw rounded rectangle (manual implementation for compatibility)
