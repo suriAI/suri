@@ -119,7 +119,7 @@ export class BackendService {
       // In production, use PyInstaller executable
       const platform = process.platform;
       const executableName =
-        platform === "win32" ? "suri-backend.exe" : "suri-backend";
+        platform === "win32" ? "server.exe" : "server";
 
       // Try multiple possible locations
       const possiblePaths = [
@@ -379,15 +379,15 @@ export class BackendService {
 
   /**
    * Stop the backend process (async version)
-   * Kills ALL suri-backend processes (bootloader + Python child)
+   * Kills ALL server processes (bootloader + Python child)
    */
   async stop(): Promise<void> {
     try {
       if (process.platform === "win32") {
-        // Windows: Kill ALL suri-backend.exe processes (multiple attempts)
+        // Windows: Kill ALL server.exe processes (multiple attempts)
         for (let i = 0; i < 3; i++) {
           try {
-            await execAsync("taskkill /F /IM suri-backend.exe /T");
+            await execAsync("taskkill /F /IM server.exe /T");
             await sleep(200); // Wait between attempts
           } catch (error: unknown) {
             // Process not found = all killed
@@ -401,11 +401,11 @@ export class BackendService {
           }
         }
       } else {
-        // Unix/Mac: Kill all suri-backend processes with verification
+        // Unix/Mac: Kill all server processes with verification
         for (let i = 0; i < 3; i++) {
           try {
             // Check if processes exist
-            const checkResult = await execAsync("pgrep -f suri-backend");
+            const checkResult = await execAsync("pgrep -f server");
 
             // If empty, all killed
             if (!checkResult.stdout.trim()) {
@@ -413,7 +413,7 @@ export class BackendService {
             }
 
             // Kill all
-            await execAsync("pkill -9 suri-backend");
+            await execAsync("pkill -9 server");
             await sleep(200);
           } catch {
             // pgrep error = no processes = success
@@ -441,7 +441,7 @@ export class BackendService {
    */
   private killAllBackendProcesses(): void {
     if (process.platform !== "win32") {
-      // Unix/Mac: Kill all suri-backend processes with verification
+      // Unix/Mac: Kill all server processes with verification
       let attempts = 0;
       const maxAttempts = 3;
 
@@ -450,7 +450,7 @@ export class BackendService {
 
         try {
           // Check if any processes exist
-          const checkResult = execSync("pgrep -f suri-backend", {
+          const checkResult = execSync("pgrep -f server", {
             encoding: "utf8",
             timeout: 2000,
           });
@@ -461,7 +461,7 @@ export class BackendService {
           }
 
           // Processes exist - kill them
-          execSync("pkill -9 suri-backend", { stdio: "ignore", timeout: 2000 });
+          execSync("pkill -9 server", { stdio: "ignore", timeout: 2000 });
 
           // Wait for processes to die
           const start = Date.now();
@@ -487,7 +487,7 @@ export class BackendService {
       try {
         // Check if any processes exist
         const checkResult = execSync(
-          'tasklist /FI "IMAGENAME eq suri-backend.exe" /NH',
+          'tasklist /FI "IMAGENAME eq server.exe" /NH',
           {
             encoding: "utf8",
             timeout: 2000,
@@ -497,7 +497,7 @@ export class BackendService {
         // If no processes found, we're done
         if (
           checkResult.includes("INFO: No tasks") ||
-          !checkResult.includes("suri-backend.exe")
+          !checkResult.includes("server.exe")
         ) {
           return;
         }
@@ -505,7 +505,7 @@ export class BackendService {
         // Processes exist - kill them ALL
         // Strategy 1: Kill by image name
         try {
-          execSync("taskkill /F /IM suri-backend.exe /T", {
+          execSync("taskkill /F /IM server.exe /T", {
             stdio: "ignore",
             timeout: 2000,
           });
@@ -516,7 +516,7 @@ export class BackendService {
         // Strategy 2: Kill each PID individually
         try {
           const pidsOutput = execSync(
-            'tasklist /FI "IMAGENAME eq suri-backend.exe" /NH /FO CSV',
+            'tasklist /FI "IMAGENAME eq server.exe" /NH /FO CSV',
             {
               encoding: "utf8",
               timeout: 2000,
@@ -525,7 +525,7 @@ export class BackendService {
 
           const lines = pidsOutput.split("\n");
           for (const line of lines) {
-            if (line.includes("suri-backend.exe")) {
+            if (line.includes("server.exe")) {
               const match = line.match(/"(\d+)"/);
               if (match && match[1]) {
                 const pid = match[1];
@@ -573,7 +573,7 @@ export class BackendService {
 
         try {
           // Check if any processes exist
-          const checkResult = execSync("pgrep -f suri-backend", {
+          const checkResult = execSync("pgrep -f server", {
             encoding: "utf8",
             timeout: 2000,
           });
@@ -584,7 +584,7 @@ export class BackendService {
           }
 
           // Processes still exist - kill them
-          execSync("pkill -9 suri-backend", { stdio: "ignore", timeout: 2000 });
+          execSync("pkill -9 server", { stdio: "ignore", timeout: 2000 });
 
           // Wait for processes to die
           const start = Date.now();
@@ -615,7 +615,7 @@ export class BackendService {
       try {
         // Check if any backend processes still exist
         const checkResult = execSync(
-          'tasklist /FI "IMAGENAME eq suri-backend.exe" /NH',
+          'tasklist /FI "IMAGENAME eq server.exe" /NH',
           {
             encoding: "utf8",
             timeout: 2000,
@@ -625,7 +625,7 @@ export class BackendService {
         // No processes found = success
         if (
           checkResult.includes("INFO: No tasks") ||
-          !checkResult.includes("suri-backend.exe")
+          !checkResult.includes("server.exe")
         ) {
           break;
         }
@@ -633,7 +633,7 @@ export class BackendService {
         // Processes still exist - kill them
         // Strategy 1: Kill by image name with tree
         try {
-          execSync("taskkill /F /IM suri-backend.exe /T", {
+          execSync("taskkill /F /IM server.exe /T", {
             stdio: "ignore",
             timeout: 2000,
           });
@@ -644,7 +644,7 @@ export class BackendService {
         // Strategy 2: Find all PIDs and kill each individually
         try {
           const pidsOutput = execSync(
-            'tasklist /FI "IMAGENAME eq suri-backend.exe" /NH /FO CSV',
+            'tasklist /FI "IMAGENAME eq server.exe" /NH /FO CSV',
             {
               encoding: "utf8",
               timeout: 2000,
@@ -654,7 +654,7 @@ export class BackendService {
           // Parse PIDs from CSV output
           const lines = pidsOutput.split("\n");
           for (const line of lines) {
-            if (line.includes("suri-backend.exe")) {
+            if (line.includes("server.exe")) {
               const match = line.match(/"(\d+)"/);
               if (match && match[1]) {
                 const pid = match[1];

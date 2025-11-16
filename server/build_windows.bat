@@ -46,7 +46,7 @@ echo ========================================
 echo Build completed successfully!
 echo ========================================
 echo.
-echo The executable is located in: dist\suri-backend.exe
+echo The executable is located in: dist\server.exe
 echo You can now integrate it with your Electron app.
 echo.
 

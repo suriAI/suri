@@ -75,5 +75,5 @@ echo "The packaged application can be found in:"
 echo "  desktop/dist/"
 echo
 echo "Backend executable location:"
-echo "  backend/dist/suri-backend"
+echo "  backend/dist/server"
 echo

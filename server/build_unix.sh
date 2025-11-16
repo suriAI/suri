@@ -49,7 +49,7 @@ echo "========================================"
 echo "Build completed successfully!"
 echo "========================================"
 echo ""
-echo "The executable is located in: dist/suri-backend"
+echo "The executable is located in: dist/server"
 echo "You can now integrate it with your Electron app."
 echo ""
 

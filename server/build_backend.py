@@ -173,9 +173,9 @@ def test_executable():
     platform_name, _ = get_platform_info()
 
     if platform_name == "win":
-        exe_path = Path("dist/suri-backend.exe")
+        exe_path = Path("dist/server.exe")
     else:
-        exe_path = Path("dist/suri-backend")
+        exe_path = Path("dist/server")
 
     if not exe_path.exists():
         print("[ERROR] Executable not found")
