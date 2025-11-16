@@ -25,7 +25,6 @@ class FaceDetector:
         self.set_top_k(top_k)
         self.set_min_face_size(min_face_size)
 
-        # Initialize detector session
         self.detector = init_face_detector_session(
             model_path,
             input_size,

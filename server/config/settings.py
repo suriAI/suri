@@ -167,9 +167,6 @@ MODEL_CONFIGS = {
         "nms_threshold": 0.3,
         "top_k": 5000,
         "min_face_size": 80,  # Faces smaller are marked as "too_small" for UI feedback.
-        "backend_id": 0,
-        "target_id": 0,
-        "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
     },
     "liveness_detector": {
         "model_path": WEIGHTS_DIR / "antispoof.onnx",
@@ -184,7 +181,6 @@ MODEL_CONFIGS = {
         "similarity_threshold": 0.4,
         "providers": OPTIMIZED_PROVIDERS,  # Use optimized providers
         "session_options": OPTIMIZED_SESSION_OPTIONS,
-        "supported_formats": ["jpg", "jpeg", "png", "bmp", "webp"],
         "embedding_dimension": 512,  # Face embedding dimension
         "database_path": DATA_DIR
         / "face_database.db",  # SQLite database storage (auto-handles dev/prod)

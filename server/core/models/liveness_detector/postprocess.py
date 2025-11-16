@@ -49,9 +49,7 @@ def deduplicate_detections(face_detections: List[Dict]) -> List[Dict]:
     return deduplicated_detections
 
 
-def process_prediction(
-    raw_pred: np.ndarray, confidence_threshold: float
-) -> Dict:
+def process_prediction(raw_pred: np.ndarray, confidence_threshold: float) -> Dict:
     """Process raw prediction into liveness result"""
     live_score = float(raw_pred[0])
     print_score = float(raw_pred[1])
@@ -174,9 +172,7 @@ def assemble_liveness_results(
             results.append(detection)
             continue
 
-        prediction = process_prediction(
-            raw_pred, confidence_threshold
-        )
+        prediction = process_prediction(raw_pred, confidence_threshold)
 
         detection["liveness"] = {
             "is_real": prediction["is_real"],

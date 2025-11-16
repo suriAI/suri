@@ -22,16 +22,16 @@ def init_face_detector_session(
     try:
         detector = cv.FaceDetectorYN.create(
             model_path,
-            "",  # Empty for ONNX - params passed directly
+            "",
             input_size,
             conf_threshold,
             nms_threshold,
             top_k,
         )
+
         if detector is None:
             raise RuntimeError("Failed to create FaceDetectorYN instance")
-        logger.info(f"Face detector model loaded successfully from {model_path}")
         return detector
     except Exception as e:
         logger.error(f"Error loading face detector model: {e}")
-        raise  # Re-raise to prevent server from starting with broken model
+        raise

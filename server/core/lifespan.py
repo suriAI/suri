@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
         logger.info("Starting up backend server...")
         face_detector = FaceDetector(
             model_path=str(FACE_DETECTOR_MODEL_PATH),
-            input_size=tuple(FACE_DETECTOR_CONFIG["input_size"]),
+            input_size=FACE_DETECTOR_CONFIG["input_size"],
             conf_threshold=FACE_DETECTOR_CONFIG["score_threshold"],
             nms_threshold=FACE_DETECTOR_CONFIG["nms_threshold"],
             top_k=FACE_DETECTOR_CONFIG["top_k"],
