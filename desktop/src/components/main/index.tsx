@@ -224,7 +224,7 @@ export default function Main() {
   const [enableSpoofDetection, setEnableSpoofDetection] = useState<boolean>(
     () => {
       const saved = localStorage.getItem("suri_enable_spoof_detection");
-      return saved !== null ? saved === "true" : false;
+      return saved !== null ? saved === "true" : true;
     },
   );
   const [trackedFaces, setTrackedFaces] = useState<Map<string, TrackedFace>>(
