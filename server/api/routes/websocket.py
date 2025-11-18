@@ -41,11 +41,16 @@ async def handle_websocket_detect(websocket: WebSocket, client_id: str):
     # Initialize min_face_size based on default enable_liveness_detection state
     # This ensures correct face size limiting from the first frame
     # Using config as single source of truth
-    from core.lifespan import face_detector
+    from core.lifespan import face_detector, face_tracker
 
     if face_detector:
         default_min_size = FACE_DETECTOR_CONFIG["min_face_size"]
         face_detector.set_min_face_size(default_min_size)
+    
+   # Reset face tracker on new WebSocket connection
+    if face_tracker:
+        logger.info(f"[WebSocket] Resetting face tracker for client {client_id} (fresh tracking state)")
+        face_tracker.reset()
 
     try:
         await websocket.send_text(
