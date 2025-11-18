@@ -264,7 +264,7 @@ export const Sidebar = memo(function Sidebar({
 
         {/* Header - Minimal Design */}
         <div
-          className={`px-3 py-2.5 border-b border-white/[0.08] transition-opacity duration-200 ${isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+          className={`px-3 py-1 border-b border-white/[0.08] transition-opacity duration-200 ${isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
           <div className="flex items-center justify-between gap-2">
             {/* Collapse Button - Top Left */}
@@ -303,8 +303,20 @@ export const Sidebar = memo(function Sidebar({
         <div
           className={`sidebar h-screen max-h-screen flex flex-col overflow-hidden transition-opacity duration-200 ${isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
+          {/* Attendance Management or Recent Logs - Using AttendancePanel Component */}
+          <AttendancePanel
+            attendanceEnabled={attendanceEnabled}
+            attendanceGroups={attendanceGroups}
+            currentGroup={currentGroup}
+            recentAttendance={recentAttendance}
+            groupMembers={groupMembers}
+            handleSelectGroup={handleSelectGroup}
+            setShowGroupManagement={setShowGroupManagement}
+            onOpenSettingsForRegistration={onOpenSettingsForRegistration}
+          />
+
           {/* Face Detection Display - Half of remaining space */}
-          <div className="flex-1 border-b border-white/[0.08] flex flex-col min-h-0 bg-black">
+          <div className="flex-1 border-t border-white/[0.08] flex flex-col min-h-0 bg-black">
             <div className="flex-1 overflow-y-auto custom-scroll flex flex-col min-h-0 bg-black">
               {/* Active Cooldowns - Only show in Auto mode */}
               <CooldownList
@@ -324,23 +336,11 @@ export const Sidebar = memo(function Sidebar({
               </div>
             </div>
           </div>
-
-          {/* Attendance Management or Recent Logs - Using AttendancePanel Component */}
-          <AttendancePanel
-            attendanceEnabled={attendanceEnabled}
-            attendanceGroups={attendanceGroups}
-            currentGroup={currentGroup}
-            recentAttendance={recentAttendance}
-            groupMembers={groupMembers}
-            handleSelectGroup={handleSelectGroup}
-            setShowGroupManagement={setShowGroupManagement}
-            onOpenSettingsForRegistration={onOpenSettingsForRegistration}
-          />
         </div>
 
         {/* Collapsed State - Minimalist Icon Bar */}
         {isCollapsed && (
-          <div className="absolute inset-0 flex flex-col items-center py-6 gap-3">
+          <div className="absolute inset-0 flex flex-col items-center py-3 gap-3">
             {/* Expand Button - Top */}
             <button
               onClick={toggleSidebar}
