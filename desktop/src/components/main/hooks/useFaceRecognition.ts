@@ -1,22 +1,21 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { startTransition } from "react";
 import { attendanceManager } from "../../../services/AttendanceManager";
 import type { BackendService } from "../../../services/BackendService";
 import type { AttendanceGroup, AttendanceMember } from "../../../types/recognition";
-import type { DetectionResult, TrackedFace, CooldownInfo } from "../types";
+import type { DetectionResult } from "../types";
 import type { ExtendedFaceRecognitionResponse } from "../utils/recognitionHelpers";
 import { trimTrackingHistory, areRecognitionMapsEqual } from "../utils/recognitionHelpers";
 import { NON_LOGGING_ANTISPOOF_STATUSES } from "../constants";
 import { getMemberFromCache } from "../utils/memberCacheHelpers";
+import { useDetectionStore } from "../stores/detectionStore";
+import { useAttendanceStore } from "../stores/attendanceStore";
+import { useUIStore } from "../stores/uiStore";
 
 interface UseFaceRecognitionOptions {
   backendServiceRef: React.MutableRefObject<BackendService | null>;
   currentGroupRef: React.MutableRefObject<AttendanceGroup | null>;
   memberCacheRef: React.MutableRefObject<Map<string, AttendanceMember | null>>;
-  trackingMode: "auto" | "manual";
-  attendanceCooldownSeconds: number;
-  attendanceEnabled: boolean;
-  setTrackedFaces: React.Dispatch<React.SetStateAction<Map<string, TrackedFace>>>;
   calculateAngleConsistencyRef: React.MutableRefObject<
     (
       history: Array<{
@@ -26,9 +25,7 @@ interface UseFaceRecognitionOptions {
       }>,
     ) => number
   >;
-  persistentCooldownsRef: React.MutableRefObject<Map<string, CooldownInfo>>;
-  setPersistentCooldowns: React.Dispatch<React.SetStateAction<Map<string, CooldownInfo>>>;
-  setError: (error: string | null) => void;
+  persistentCooldownsRef: React.MutableRefObject<Map<string, import("../types").CooldownInfo>>;
   loadAttendanceDataRef: React.MutableRefObject<() => Promise<void>>;
 }
 
@@ -37,20 +34,17 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
     backendServiceRef,
     currentGroupRef,
     memberCacheRef,
-    trackingMode,
-    attendanceCooldownSeconds,
-    attendanceEnabled,
-    setTrackedFaces,
     calculateAngleConsistencyRef,
     persistentCooldownsRef,
-    setPersistentCooldowns,
-    setError,
     loadAttendanceDataRef,
   } = options;
 
-  const [currentRecognitionResults, setCurrentRecognitionResults] = useState<
-    Map<number, ExtendedFaceRecognitionResponse>
-  >(new Map());
+  // Zustand stores
+  const { currentRecognitionResults, setCurrentRecognitionResults, setTrackedFaces } = useDetectionStore();
+  const { trackingMode, attendanceCooldownSeconds, setPersistentCooldowns } = useAttendanceStore();
+  const { setError } = useUIStore();
+  
+  const attendanceEnabled = true;
 
   const performFaceRecognition = useCallback(
     async (detectionResult: DetectionResult, frameData: ArrayBuffer | null) => {
@@ -253,14 +247,15 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                         startTransition(() => {
                           setPersistentCooldowns((prev) => {
                             const newPersistent = new Map(prev);
-                            newPersistent.set(cooldownKey, {
+                            const cooldownData = {
                               personId: response.person_id!,
                               startTime: logTime,
                               memberName: memberName,
                               lastKnownBbox: face.bbox,
                               cooldownDurationSeconds:
                                 attendanceCooldownSeconds,
-                            });
+                            };
+                            newPersistent.set(cooldownKey, cooldownData);
                             persistentCooldownsRef.current = newPersistent;
                             return newPersistent;
                           });
@@ -438,7 +433,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
         console.error("❌ Face recognition processing failed:", error);
       }
     },
-    [trackingMode, attendanceCooldownSeconds, attendanceEnabled],
+    [trackingMode, attendanceCooldownSeconds, attendanceEnabled, backendServiceRef, calculateAngleConsistencyRef, currentGroupRef, loadAttendanceDataRef, memberCacheRef, persistentCooldownsRef, setCurrentRecognitionResults, setError, setPersistentCooldowns, setTrackedFaces],
   );
 
   return {

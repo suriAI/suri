@@ -1,13 +1,8 @@
 import { useRef, useCallback, useEffect } from "react";
-import type { TrackedFace } from "../types";
+import { useDetectionStore } from "../stores/detectionStore";
 
-interface UseFaceTrackingOptions {
-  trackedFaces: Map<string, TrackedFace>;
-  setTrackedFaces: React.Dispatch<React.SetStateAction<Map<string, TrackedFace>>>;
-}
-
-export function useFaceTracking(options: UseFaceTrackingOptions) {
-  const { trackedFaces, setTrackedFaces } = options;
+export function useFaceTracking() {
+  const { setTrackedFaces } = useDetectionStore();
 
   const calculateAngleConsistencyRef = useRef<
     (

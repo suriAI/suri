@@ -1,37 +1,46 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { attendanceManager } from "../../../services/AttendanceManager";
-import type { AttendanceGroup, AttendanceMember, AttendanceRecord } from "../../../types/recognition";
+import type { AttendanceGroup, AttendanceMember } from "../../../types/recognition";
+import { useAttendanceStore } from "../stores/attendanceStore";
+import { useUIStore } from "../stores/uiStore";
 
-interface UseAttendanceGroupsOptions {
-  setError: (error: string | null) => void;
-  setAttendanceCooldownSeconds: (seconds: number) => void;
-}
+export function useAttendanceGroups() {
+  // Zustand stores
+  const {
+    currentGroup,
+    setCurrentGroup,
+    attendanceGroups,
+    setAttendanceGroups,
+    groupMembers,
+    setGroupMembers,
+    recentAttendance,
+    setRecentAttendance,
+    showGroupManagement,
+    setShowGroupManagement,
+    showDeleteConfirmation,
+    setShowDeleteConfirmation,
+    groupToDelete,
+    setGroupToDelete,
+    newGroupName,
+    setNewGroupName,
+    setAttendanceCooldownSeconds,
+  } = useAttendanceStore();
+  const { setError } = useUIStore();
 
-export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
-  const { setError, setAttendanceCooldownSeconds } = options;
-
-  const [currentGroup, setCurrentGroupInternal] = useState<AttendanceGroup | null>(null);
   const currentGroupRef = useRef<AttendanceGroup | null>(null);
   const memberCacheRef = useRef<Map<string, AttendanceMember | null>>(new Map());
-  const [attendanceGroups, setAttendanceGroups] = useState<AttendanceGroup[]>([]);
-  const [groupMembers, setGroupMembers] = useState<AttendanceMember[]>([]);
-  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
-  const [showGroupManagement, setShowGroupManagement] = useState(false);
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [groupToDelete, setGroupToDelete] = useState<AttendanceGroup | null>(null);
-  const [newGroupName, setNewGroupName] = useState("");
   const loadAttendanceDataRef = useRef<() => Promise<void>>(async () => {});
 
-  const setCurrentGroup = useCallback((group: AttendanceGroup | null) => {
-    setCurrentGroupInternal(group);
-    currentGroupRef.current = group;
+  // Sync ref with store
+  useEffect(() => {
+    currentGroupRef.current = currentGroup;
+  }, [currentGroup]);
+
+  // Enhanced setCurrentGroup that also clears cache
+  const setCurrentGroupWithCache = useCallback((group: AttendanceGroup | null) => {
+    setCurrentGroup(group);
     memberCacheRef.current.clear();
-    if (group) {
-      localStorage.setItem("suri_selected_group_id", group.id);
-    } else {
-      localStorage.removeItem("suri_selected_group_id");
-    }
-  }, []);
+  }, [setCurrentGroup]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -62,7 +71,7 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
               (group) => group.id === currentGroupValue.id,
             );
             if (stillMissing) {
-              setCurrentGroup(null);
+              setCurrentGroupWithCache(null);
               setGroupMembers([]);
               setRecentAttendance([]);
             }
@@ -85,7 +94,7 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
     } catch (error) {
       console.error("❌ Failed to load attendance data:", error);
     }
-  }, [setCurrentGroup]);
+  }, [setGroupMembers, setRecentAttendance, setAttendanceGroups, setCurrentGroupWithCache]);
 
   useEffect(() => {
     loadAttendanceDataRef.current = loadAttendanceData;
@@ -93,7 +102,7 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
 
   const handleSelectGroup = useCallback(
     async (group: AttendanceGroup) => {
-      setCurrentGroup(group);
+      setCurrentGroupWithCache(group);
 
       try {
         const [members, , records] = await Promise.all([
@@ -111,7 +120,7 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
         console.error("❌ Failed to load data for selected group:", error);
       }
     },
-    [setCurrentGroup],
+    [setCurrentGroupWithCache, setGroupMembers, setRecentAttendance],
   );
 
   const handleCreateGroup = useCallback(async () => {
@@ -128,12 +137,12 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
       console.error("❌ Failed to create group:", error);
       setError("Failed to create group");
     }
-  }, [newGroupName, loadAttendanceData, handleSelectGroup, setError]);
+  }, [newGroupName, loadAttendanceData, handleSelectGroup, setError, setNewGroupName, setShowGroupManagement]);
 
   const handleDeleteGroup = useCallback((group: AttendanceGroup) => {
     setGroupToDelete(group);
     setShowDeleteConfirmation(true);
-  }, []);
+  }, [setGroupToDelete, setShowDeleteConfirmation]);
 
   const confirmDeleteGroup = useCallback(async () => {
     if (!groupToDelete) return;
@@ -142,7 +151,7 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
       const success = await attendanceManager.deleteGroup(groupToDelete.id);
       if (success) {
         if (currentGroup?.id === groupToDelete.id) {
-          setCurrentGroup(null);
+          setCurrentGroupWithCache(null);
           setGroupMembers([]);
           setRecentAttendance([]);
         }
@@ -158,12 +167,12 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
       setShowDeleteConfirmation(false);
       setGroupToDelete(null);
     }
-  }, [groupToDelete, currentGroup, loadAttendanceData, setCurrentGroup, setError]);
+  }, [groupToDelete, currentGroup, loadAttendanceData, setCurrentGroupWithCache, setError, setGroupMembers, setGroupToDelete, setRecentAttendance, setShowDeleteConfirmation]);
 
   const cancelDeleteGroup = useCallback(() => {
     setShowDeleteConfirmation(false);
     setGroupToDelete(null);
-  }, []);
+  }, [setGroupToDelete, setShowDeleteConfirmation]);
 
   useEffect(() => {
     const initializeAttendance = async () => {
@@ -173,7 +182,7 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
         setAttendanceGroups(groups);
 
         if (groups.length === 0) {
-          setCurrentGroup(null);
+          setCurrentGroupWithCache(null);
         } else if (!currentGroup) {
           const savedGroupId = localStorage.getItem("suri_selected_group_id");
           let groupToSelect = null;
@@ -197,11 +206,11 @@ export function useAttendanceGroups(options: UseAttendanceGroupsOptions) {
     initializeAttendance().catch((error) => {
       console.error("Error in initializeAttendance:", error);
     });
-  }, [handleSelectGroup, loadSettings, currentGroup, setCurrentGroup, setError]);
+  }, [handleSelectGroup, loadSettings, currentGroup, setCurrentGroupWithCache, setError, setAttendanceGroups]);
 
   return {
     currentGroup,
-    setCurrentGroup,
+    setCurrentGroup: setCurrentGroupWithCache,
     currentGroupRef,
     memberCacheRef,
     attendanceGroups,

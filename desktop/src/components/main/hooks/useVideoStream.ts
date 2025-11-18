@@ -1,13 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { useCameraStore } from "../stores/cameraStore";
+import { useUIStore } from "../stores/uiStore";
 
 interface UseVideoStreamOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   isStreamingRef: React.MutableRefObject<boolean>;
   isScanningRef: React.MutableRefObject<boolean>;
-  setIsStreaming: (value: boolean) => void;
-  setError: (error: string | null) => void;
-  setCameraActive: (value: boolean | ((prev: boolean) => boolean)) => void;
   videoRectRef: React.MutableRefObject<DOMRect | null>;
   lastVideoRectUpdateRef: React.MutableRefObject<number>;
   isStartingRef: React.MutableRefObject<boolean>;
@@ -19,15 +18,14 @@ export function useVideoStream(options: UseVideoStreamOptions) {
     canvasRef,
     isStreamingRef,
     isScanningRef,
-    setIsStreaming,
-    setError,
-    setCameraActive,
     videoRectRef,
     lastVideoRectUpdateRef,
     isStartingRef,
   } = options;
-  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCamera, setSelectedCamera] = useState<string>("");
+  
+  // Zustand stores
+  const { cameraDevices, selectedCamera, setCameraDevices, setSelectedCamera, setIsStreaming, setCameraActive } = useCameraStore();
+  const { setError } = useUIStore();
 
   useEffect(() => {
     const video = videoRef.current;
@@ -151,7 +149,7 @@ export function useVideoStream(options: UseVideoStreamOptions) {
     } catch {
       setError("Failed to get camera devices");
     }
-  }, [selectedCamera, setError]);
+  }, [selectedCamera, setError, setCameraDevices, setSelectedCamera]);
 
   useEffect(() => {
     getCameraDevices();

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { startTransition } from "react";
 import { BackendService } from "../../../services/BackendService";
 import type {
@@ -9,24 +9,20 @@ import type {
   WebSocketFaceData,
 } from "../types";
 import { cleanupStream, cleanupVideo, cleanupAnimationFrame } from "../utils/cleanupHelpers";
+import { useCameraStore } from "../stores/cameraStore";
+import { useDetectionStore } from "../stores/detectionStore";
+import { useAttendanceStore } from "../stores/attendanceStore";
+import { useUIStore } from "../stores/uiStore";
 
 interface UseBackendServiceOptions {
   backendServiceRef: React.MutableRefObject<BackendService | null>;
   isStreamingRef: React.MutableRefObject<boolean>;
   isScanningRef: React.MutableRefObject<boolean>;
   isStartingRef: React.MutableRefObject<boolean>;
-  setError: (error: string | null) => void;
-  setIsStreaming: (value: boolean) => void;
-  setIsVideoLoading: (value: boolean) => void;
-  setCameraActive: (value: boolean) => void;
-  enableSpoofDetection: boolean;
-  recognitionEnabled: boolean;
   performFaceRecognition: (
     detectionResult: DetectionResult,
     frameData: ArrayBuffer | null,
   ) => Promise<void>;
-  setCurrentDetections: React.Dispatch<React.SetStateAction<DetectionResult | null>>;
-  setDetectionFps: (fps: number) => void;
   lastDetectionFrameRef: React.MutableRefObject<ArrayBuffer | null>;
   lastFrameTimestampRef: React.MutableRefObject<number>;
   lastDetectionRef: React.MutableRefObject<DetectionResult | null>;
@@ -50,15 +46,7 @@ export function useBackendService(options: UseBackendServiceOptions) {
     isStreamingRef,
     isScanningRef,
     isStartingRef,
-    setError,
-    setIsStreaming,
-    setIsVideoLoading,
-    setCameraActive,
-    enableSpoofDetection,
-    recognitionEnabled,
     performFaceRecognition,
-    setCurrentDetections,
-    setDetectionFps,
     lastDetectionFrameRef,
     lastFrameTimestampRef,
     lastDetectionRef,
@@ -72,9 +60,13 @@ export function useBackendService(options: UseBackendServiceOptions) {
     backendServiceReadyRef,
   } = options;
 
-  const [websocketStatus, setWebsocketStatus] = useState<
-    "disconnected" | "connecting" | "connected"
-  >("disconnected");
+  // Zustand stores
+  const { setIsStreaming, setIsVideoLoading, setCameraActive, websocketStatus, setWebsocketStatus } = useCameraStore();
+  const { setCurrentDetections, setDetectionFps } = useDetectionStore();
+  const { enableSpoofDetection } = useAttendanceStore();
+  const { setError } = useUIStore();
+  
+  const recognitionEnabled = true;
   const initializationRef = useRef<{
     initialized: boolean;
     isInitializing: boolean;
@@ -307,7 +299,24 @@ export function useBackendService(options: UseBackendServiceOptions) {
         requestAnimationFrame(() => processCurrentFrameRef.current());
       },
     );
-  }, [recognitionEnabled, performFaceRecognition]);
+  }, [
+    recognitionEnabled,
+    performFaceRecognition,
+    backendServiceRef,
+    isStreamingRef,
+    isScanningRef,
+    lastFrameTimestampRef,
+    fpsTrackingRef,
+    skipFramesRef,
+    lastDetectionRef,
+    backendServiceReadyRef,
+    lastDetectionFrameRef,
+    processCurrentFrameRef,
+    setCurrentDetections,
+    setDetectionFps,
+    setWebsocketStatus,
+    setError,
+  ]);
 
   const initializeWebSocket = useCallback(async () => {
     try {
@@ -370,7 +379,13 @@ export function useBackendService(options: UseBackendServiceOptions) {
       }
       throw error;
     }
-  }, [waitForBackendReady, registerWebSocketHandlers]);
+  }, [
+    waitForBackendReady,
+    registerWebSocketHandlers,
+    backendServiceRef,
+    isStartingRef,
+    setError,
+  ]);
 
   useEffect(() => {
     isStreamingRef.current = false;
@@ -425,6 +440,7 @@ export function useBackendService(options: UseBackendServiceOptions) {
     const cleanupTimeout = initializationRef.current.cleanupTimeout;
     const wasInitialized = initializationRef.current.initialized;
     const wasInitializing = initializationRef.current.isInitializing;
+    const stopCameraFn = stopCamera.current;
 
     return () => {
       if (cleanupTimeout) {
@@ -433,8 +449,8 @@ export function useBackendService(options: UseBackendServiceOptions) {
 
       if (wasInitialized || wasInitializing) {
         if (isStreamingRef.current) {
-          if (stopCamera.current) {
-            stopCamera.current(false);
+          if (stopCameraFn) {
+            stopCameraFn(false);
           }
         } else if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
@@ -448,7 +464,23 @@ export function useBackendService(options: UseBackendServiceOptions) {
         }, 50);
       }
     };
-  }, [initializeWebSocket, registerWebSocketHandlers]);
+  }, [
+    initializeWebSocket,
+    registerWebSocketHandlers,
+    stopCamera,
+    isStreamingRef,
+    isScanningRef,
+    animationFrameRef,
+    backendServiceReadyRef,
+    backendServiceRef,
+    setIsStreaming,
+    setIsVideoLoading,
+    setCameraActive,
+    setError,
+    setWebsocketStatus,
+    streamRef,
+    videoRef,
+  ]);
 
   useEffect(() => {
     if (!backendServiceRef.current) return;
@@ -467,7 +499,7 @@ export function useBackendService(options: UseBackendServiceOptions) {
     return () => {
       clearInterval(statusInterval);
     };
-  }, [websocketStatus, backendServiceRef]);
+  }, [websocketStatus, backendServiceRef, setWebsocketStatus]);
 
   useEffect(() => {
     if (
@@ -482,8 +514,6 @@ export function useBackendService(options: UseBackendServiceOptions) {
   }, [websocketStatus, isScanningRef, isStreamingRef, backendServiceRef, processCurrentFrameRef]);
 
   return {
-    websocketStatus,
-    setWebsocketStatus,
     backendServiceReadyRef,
     initializeWebSocket,
     registerWebSocketHandlers,

@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import type { BackendService } from "../../../services/BackendService";
 import type { DetectionResult } from "../types";
+import { useDetectionStore } from "../stores/detectionStore";
 
 interface UseFaceDetectionOptions {
   backendServiceRef: React.MutableRefObject<BackendService | null>;
@@ -21,10 +22,10 @@ interface UseFaceDetectionOptions {
 }
 
 export function useFaceDetection(options: UseFaceDetectionOptions) {
-  const { backendServiceRef, isScanningRef, isStreamingRef, captureFrame, lastDetectionFrameRef, frameCounterRef, skipFramesRef, lastFrameTimestampRef, lastDetectionRef, processCurrentFrameRef, fpsTrackingRef } = options;
+  const { backendServiceRef, isScanningRef, isStreamingRef, captureFrame, lastDetectionFrameRef, frameCounterRef, skipFramesRef, processCurrentFrameRef } = options;
 
-  const [detectionFps, setDetectionFps] = useState<number>(0);
-  const [currentDetections, setCurrentDetections] = useState<DetectionResult | null>(null);
+  // Zustand store
+  const { detectionFps, currentDetections, setDetectionFps, setCurrentDetections } = useDetectionStore();
 
   const processCurrentFrame = useCallback(async () => {
     if (
@@ -61,11 +62,11 @@ export function useFaceDetection(options: UseFaceDetectionOptions) {
       console.error("❌ Frame capture failed:", error);
       requestAnimationFrame(() => processCurrentFrameRef.current());
     }
-  }, [captureFrame, backendServiceRef, isScanningRef, isStreamingRef]);
+  }, [captureFrame, backendServiceRef, isScanningRef, isStreamingRef, frameCounterRef, lastDetectionFrameRef, processCurrentFrameRef, skipFramesRef]);
 
   useEffect(() => {
     processCurrentFrameRef.current = processCurrentFrame;
-  }, [processCurrentFrame]);
+  }, [processCurrentFrame, processCurrentFrameRef]);
 
   return {
     detectionFps,

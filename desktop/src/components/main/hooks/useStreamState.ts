@@ -1,7 +1,7 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { useCameraStore } from "../stores/cameraStore";
 
 interface UseStreamStateOptions {
-  setIsStreaming: (value: boolean) => void;
   isProcessingRef: React.MutableRefObject<boolean>;
   animationFrameRef: React.MutableRefObject<number | undefined>;
   isScanningRef: React.MutableRefObject<boolean>;
@@ -13,7 +13,8 @@ interface UseStreamStateOptions {
 }
 
 export function useStreamState(options: UseStreamStateOptions) {
-  const { setIsStreaming, isProcessingRef, animationFrameRef, isScanningRef, isStreamingRef, isStartingRef, isStoppingRef, lastStartTimeRef, lastStopTimeRef } = options;
+  const { isProcessingRef, animationFrameRef, isScanningRef, isStreamingRef, isStartingRef, isStoppingRef, lastStartTimeRef, lastStopTimeRef } = options;
+  const { setIsStreaming } = useCameraStore();
 
   const emergencyRecovery = useCallback(() => {
     isStartingRef.current = false;
@@ -31,7 +32,7 @@ export function useStreamState(options: UseStreamStateOptions) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = undefined;
     }
-  }, [setIsStreaming, isProcessingRef, animationFrameRef, isScanningRef]);
+  }, [setIsStreaming, isProcessingRef, animationFrameRef, isScanningRef, isStreamingRef, isStartingRef, isStoppingRef, lastStartTimeRef, lastStopTimeRef]);
 
   useEffect(() => {
     let startTimeout: NodeJS.Timeout | undefined;
@@ -57,6 +58,6 @@ export function useStreamState(options: UseStreamStateOptions) {
       if (startTimeout) clearTimeout(startTimeout);
       if (stopTimeout) clearTimeout(stopTimeout);
     };
-  }, [emergencyRecovery]);
+  }, [emergencyRecovery, isStartingRef, isStoppingRef]);
 }
 

@@ -1,12 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { startTransition } from "react";
-import type { CooldownInfo } from "../types";
+import { useAttendanceStore } from "../stores/attendanceStore";
 
-export function useAttendanceCooldown(attendanceCooldownSeconds: number) {
-  const [persistentCooldowns, setPersistentCooldowns] = useState<
-    Map<string, CooldownInfo>
-  >(new Map());
-  const persistentCooldownsRef = useRef<Map<string, CooldownInfo>>(new Map());
+export function useAttendanceCooldown() {
+  const { persistentCooldowns, setPersistentCooldowns, attendanceCooldownSeconds } = useAttendanceStore();
+  const persistentCooldownsRef = useRef<Map<string, import("../types").CooldownInfo>>(new Map());
 
   useEffect(() => {
     persistentCooldownsRef.current = persistentCooldowns;
@@ -78,11 +76,9 @@ export function useAttendanceCooldown(attendanceCooldownSeconds: number) {
       }
       clearInterval(checkInterval);
     };
-  }, [attendanceCooldownSeconds]);
+  }, [attendanceCooldownSeconds, setPersistentCooldowns]);
 
   return {
-    persistentCooldowns,
-    setPersistentCooldowns,
     persistentCooldownsRef,
   };
 }

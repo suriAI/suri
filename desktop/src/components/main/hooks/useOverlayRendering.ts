@@ -1,19 +1,14 @@
 import { useRef, useCallback } from "react";
+import type { DetectionResult } from "../types";
 import { drawOverlays } from "../utils/overlayRenderer";
-import type { DetectionResult, CooldownInfo } from "../types";
-import type { QuickSettings } from "../../settings";
-import type { ExtendedFaceRecognitionResponse } from "../utils/recognitionHelpers";
+import { useDetectionStore } from "../stores/detectionStore";
+import { useCameraStore } from "../stores/cameraStore";
+import { useAttendanceStore } from "../stores/attendanceStore";
+import { useUIStore } from "../stores/uiStore";
 
 interface UseOverlayRenderingOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   overlayCanvasRef: React.RefObject<HTMLCanvasElement | null>;
-  currentDetections: DetectionResult | null;
-  isStreaming: boolean;
-  currentRecognitionResults: Map<number, ExtendedFaceRecognitionResponse>;
-  recognitionEnabled: boolean;
-  persistentCooldowns: Map<string, CooldownInfo>;
-  attendanceCooldownSeconds: number;
-  quickSettings: QuickSettings;
   animationFrameRef: React.MutableRefObject<number | undefined>;
   videoRectRef: React.MutableRefObject<DOMRect | null>;
   lastVideoRectUpdateRef: React.MutableRefObject<number>;
@@ -23,17 +18,18 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
   const {
     videoRef,
     overlayCanvasRef,
-    currentDetections,
-    isStreaming,
-    currentRecognitionResults,
-    recognitionEnabled,
-    persistentCooldowns,
-    attendanceCooldownSeconds,
-    quickSettings,
     animationFrameRef,
     videoRectRef,
     lastVideoRectUpdateRef,
   } = options;
+
+  // Zustand stores
+  const { currentDetections, currentRecognitionResults } = useDetectionStore();
+  const { isStreaming } = useCameraStore();
+  const { persistentCooldowns, attendanceCooldownSeconds } = useAttendanceStore();
+  const { quickSettings } = useUIStore();
+  
+  const recognitionEnabled = true;
 
   const lastCanvasSizeRef = useRef<{ width: number; height: number }>({
     width: 0,
@@ -205,6 +201,17 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
         recIndex++;
       }
       
+      // Include persistentCooldowns in hash to trigger redraw when cooldowns change
+      // This ensures the "Done" indicator appears/disappears correctly
+      hashSum += persistentCooldowns.size * 10000;
+      let cooldownIndex = 0;
+      for (const [personId, cooldownInfo] of persistentCooldowns) {
+        if (cooldownIndex >= 5) break;
+        hashSum += personId.length * 1000;
+        hashSum += Math.floor(cooldownInfo.startTime / 1000);
+        cooldownIndex++;
+      }
+      
       const simpleHash = String(hashSum);
 
       if (simpleHash !== lastDetectionHashRef.current) {
@@ -231,6 +238,7 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
     handleDrawOverlays,
     currentDetections,
     currentRecognitionResults,
+    persistentCooldowns,
     overlayCanvasRef,
     animationFrameRef,
   ]);

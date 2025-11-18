@@ -1,21 +1,16 @@
 import {
-  useState,
   useEffect,
   useRef,
   useCallback,
 } from "react";
-import { Settings, type QuickSettings } from "../settings";
-import type { GroupSection } from "../group";
+import { Settings } from "../settings";
 import { attendanceManager } from "../../services/AttendanceManager";
 import { ControlBar } from "./components/ControlBar";
 import { VideoCanvas } from "./components/VideoCanvas";
 import { Sidebar } from "./components/Sidebar";
 import { GroupManagementModal } from "./components/GroupManagementModal";
 import { DeleteConfirmationModal } from "./components/DeleteConfirmationModal";
-import type {
-  TrackedFace,
-  DetectionResult,
-} from "./types";
+import type { DetectionResult } from "./types";
 import type { ExtendedFaceRecognitionResponse } from "./utils/recognitionHelpers";
 
 export type { ExtendedFaceRecognitionResponse };
@@ -32,7 +27,13 @@ import { useAttendanceGroups } from "./hooks/useAttendanceGroups";
 import { useBackendService } from "./hooks/useBackendService";
 import { BackendService } from "../../services/BackendService";
 import { cleanupStream, cleanupVideo, cleanupAnimationFrame } from "./utils/cleanupHelpers";
-import { resetDetectionState, resetFrameCounters } from "./utils/stateResetHelpers";
+import { resetFrameCounters, resetLastDetectionRef } from "./utils/stateResetHelpers";
+
+// Stores
+import { useCameraStore } from "./stores/cameraStore";
+import { useDetectionStore } from "./stores/detectionStore";
+import { useAttendanceStore } from "./stores/attendanceStore";
+import { useUIStore } from "./stores/uiStore";
 
 export default function Main() {
   // ===== REFS (Created in main, passed to hooks) =====
@@ -67,45 +68,72 @@ export default function Main() {
   const videoRectRef = useRef<DOMRect | null>(null);
   const lastVideoRectUpdateRef = useRef<number>(0);
 
-  // ===== STATE (UI-related, stays in main) =====
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [, setCameraActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [isSettingsFullScreen, setIsSettingsFullScreen] = useState(false);
-  const [groupInitialSection, setGroupInitialSection] = useState<
-    GroupSection | undefined
-  >(undefined);
-  const [quickSettings, setQuickSettings] = useState<QuickSettings>({
-    cameraMirrored: true,
-    showFPS: false,
-    showPreprocessing: false,
-    showBoundingBoxes: true,
-    showRecognitionNames: true,
-    showLandmarks: true,
-  });
-  const [trackingMode, setTrackingMode] = useState<"auto" | "manual">("auto");
-  const [attendanceCooldownSeconds, setAttendanceCooldownSeconds] =
-    useState<number>(10);
-  const [enableSpoofDetection, setEnableSpoofDetection] = useState<boolean>(
-    () => {
-      const saved = localStorage.getItem("suri_enable_spoof_detection");
-      return saved !== null ? saved === "true" : true;
-    },
-  );
-  const [trackedFaces, setTrackedFaces] = useState<Map<string, TrackedFace>>(
-    new Map(),
-  );
+  // ===== ZUSTAND STORES =====
+  const {
+    isStreaming,
+    isVideoLoading,
+    setIsStreaming,
+    setIsVideoLoading,
+    setCameraActive,
+    cameraDevices,
+    selectedCamera,
+    setSelectedCamera,
+  } = useCameraStore();
+  
+  const {
+    currentDetections,
+    detectionFps,
+    setDetectionFps,
+    trackedFaces,
+    currentRecognitionResults: rawCurrentRecognitionResults,
+  } = useDetectionStore();
+  
+  // Ensure currentRecognitionResults is always a Map
+  const currentRecognitionResults = rawCurrentRecognitionResults instanceof Map 
+    ? rawCurrentRecognitionResults 
+    : new Map();
+  
+  const {
+    currentGroup,
+    setCurrentGroup,
+    attendanceGroups,
+    groupMembers,
+    recentAttendance,
+    showGroupManagement,
+    setShowGroupManagement,
+    showDeleteConfirmation,
+    groupToDelete,
+    newGroupName,
+    setNewGroupName,
+    trackingMode,
+    setTrackingMode,
+    attendanceCooldownSeconds,
+    setAttendanceCooldownSeconds,
+    enableSpoofDetection,
+    setEnableSpoofDetection,
+    persistentCooldowns,
+  } = useAttendanceStore();
+  
+  const {
+    error,
+    setError,
+    showSettings,
+    setShowSettings,
+    isSettingsFullScreen,
+    setIsSettingsFullScreen,
+    groupInitialSection,
+    setGroupInitialSection,
+    quickSettings,
+    setQuickSettings,
+  } = useUIStore();
 
   const attendanceEnabled = true;
   const recognitionEnabled = true;
 
   // ===== HOOKS INITIALIZATION =====
   
-  // 1. Stream State Hook (refs declared above, passed to hook)
+  // 1. Stream State Hook
   useStreamState({
-    setIsStreaming,
     isProcessingRef,
     animationFrameRef,
     isScanningRef,
@@ -117,71 +145,36 @@ export default function Main() {
   });
 
   // 2. Attendance Cooldown Hook
-  const {
-    persistentCooldowns,
-    setPersistentCooldowns,
-    persistentCooldownsRef,
-  } = useAttendanceCooldown(attendanceCooldownSeconds);
+  const { persistentCooldownsRef } = useAttendanceCooldown();
 
   // 3. Face Tracking Hook
-  const { calculateAngleConsistencyRef } = useFaceTracking({
-    trackedFaces,
-    setTrackedFaces,
-  });
+  const { calculateAngleConsistencyRef } = useFaceTracking();
 
   // 4. Attendance Groups Hook
   const {
-    currentGroup,
-    setCurrentGroup,
     currentGroupRef,
     memberCacheRef,
-    attendanceGroups,
-    groupMembers,
-    recentAttendance,
-    showGroupManagement,
-    setShowGroupManagement,
-    showDeleteConfirmation,
-    groupToDelete,
-    newGroupName,
-    setNewGroupName,
     loadAttendanceDataRef,
     handleSelectGroup,
     handleCreateGroup,
     handleDeleteGroup,
     confirmDeleteGroup,
     cancelDeleteGroup,
-  } = useAttendanceGroups({
-    setError,
-    setAttendanceCooldownSeconds,
-  });
+  } = useAttendanceGroups();
 
-  // 5. Video Stream Hook (isVideoLoading and setCameraActive declared above)
-  const {
-    cameraDevices,
-    selectedCamera,
-    setSelectedCamera,
-    captureFrame,
-    getCameraDevices,
-  } = useVideoStream({
+  // 5. Video Stream Hook
+  const { captureFrame, getCameraDevices } = useVideoStream({
     videoRef,
     canvasRef,
     isStreamingRef,
     isScanningRef,
-    setIsStreaming,
-    setError,
-    setCameraActive,
     videoRectRef,
     lastVideoRectUpdateRef,
     isStartingRef,
   });
 
-  // 6. Face Detection Hook (refs declared above, passed to hook)
-  const {
-    detectionFps,
-    setDetectionFps,
-    currentDetections,
-    setCurrentDetections,
-  } = useFaceDetection({
+  // 6. Face Detection Hook
+  useFaceDetection({
     backendServiceRef,
     isScanningRef,
     isStreamingRef,
@@ -196,22 +189,12 @@ export default function Main() {
   });
 
   // 7. Face Recognition Hook
-  const {
-    currentRecognitionResults,
-    setCurrentRecognitionResults,
-    performFaceRecognition,
-  } = useFaceRecognition({
+  const { performFaceRecognition } = useFaceRecognition({
     backendServiceRef,
     currentGroupRef,
     memberCacheRef,
-    trackingMode,
-    attendanceCooldownSeconds,
-    attendanceEnabled,
-    setTrackedFaces,
     calculateAngleConsistencyRef,
     persistentCooldownsRef,
-    setPersistentCooldowns,
-    setError,
     loadAttendanceDataRef,
   });
 
@@ -219,13 +202,6 @@ export default function Main() {
   const { getVideoRect, calculateScaleFactors, animate, resetOverlayRefs } = useOverlayRendering({
     videoRef,
     overlayCanvasRef,
-    currentDetections,
-    isStreaming,
-    currentRecognitionResults,
-    recognitionEnabled,
-    persistentCooldowns,
-    attendanceCooldownSeconds,
-    quickSettings,
     animationFrameRef,
     videoRectRef,
     lastVideoRectUpdateRef,
@@ -233,25 +209,15 @@ export default function Main() {
 
   // ===== FUNCTIONS THAT STAY IN MAIN =====
   
-  // 9. Backend Service Hook (stopCamera will be passed later via ref pattern)
+  // 9. Backend Service Hook
   const stopCameraRef = useRef<((forceCleanup: boolean) => void) | null>(null);
   
-  const {
-    initializeWebSocket,
-  } = useBackendService({
+  const { initializeWebSocket } = useBackendService({
     backendServiceRef,
     isStreamingRef,
     isScanningRef,
     isStartingRef,
-    setError,
-    setIsStreaming,
-    setIsVideoLoading,
-    setCameraActive,
-    enableSpoofDetection,
-    recognitionEnabled,
     performFaceRecognition,
-    setCurrentDetections,
-    setDetectionFps,
     lastDetectionFrameRef,
     lastFrameTimestampRef,
     lastDetectionRef,
@@ -374,7 +340,15 @@ export default function Main() {
     } finally {
       isStartingRef.current = false;
     }
-  }, [selectedCamera, getCameraDevices, initializeWebSocket]);
+  }, [
+    selectedCamera,
+    getCameraDevices,
+    initializeWebSocket,
+    setIsStreaming,
+    setIsVideoLoading,
+    setCameraActive,
+    setError,
+  ]);
 
   // Set the ref after stopCamera is defined
   const stopCamera = useCallback((forceCleanup: boolean = false) => {
@@ -408,12 +382,8 @@ export default function Main() {
     cleanupAnimationFrame(animationFrameRef);
 
     lastDetectionFrameRef.current = null;
-    resetDetectionState(
-      setCurrentDetections,
-      setCurrentRecognitionResults,
-      setTrackedFaces,
-      lastDetectionRef
-    );
+    resetLastDetectionRef(lastDetectionRef);
+    useDetectionStore.getState().resetDetectionState();
 
     setDetectionFps(0);
     fpsTrackingRef.current = {
@@ -435,8 +405,28 @@ export default function Main() {
     }
 
     isStoppingRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    resetOverlayRefs,
+    setIsStreaming,
+    setIsVideoLoading,
+    setCameraActive,
+    setDetectionFps,
+    streamRef,
+    videoRef,
+    animationFrameRef,
+    overlayCanvasRef,
+    lastDetectionFrameRef,
+    lastDetectionRef,
+    frameCounterRef,
+    skipFramesRef,
+    lastFrameTimestampRef,
+    fpsTrackingRef,
+    isStreamingRef,
+    isProcessingRef,
+    isScanningRef,
+    isStoppingRef,
+    lastStopTimeRef,
+  ]);
 
   // Set the ref after stopCamera is defined
   useEffect(() => {
@@ -500,7 +490,7 @@ export default function Main() {
   const handleOpenSettingsForRegistration = useCallback(() => {
     setGroupInitialSection("members");
     setShowSettings(true);
-  }, []);
+  }, [setGroupInitialSection, setShowSettings]);
 
   // ===== REMAINING USEEFFECTS =====
 
@@ -516,17 +506,13 @@ export default function Main() {
 
   // Group change reset
   useEffect(() => {
-    resetDetectionState(
-      setCurrentDetections,
-      setCurrentRecognitionResults,
-      setTrackedFaces,
-      lastDetectionRef
-    );
+    resetLastDetectionRef(lastDetectionRef);
+    useDetectionStore.getState().resetDetectionState();
 
     if (isStreamingRef.current) {
       stopCamera(false);
     }
-  }, [currentGroup, stopCamera, setCurrentRecognitionResults, setTrackedFaces, setCurrentDetections, isStreamingRef]);
+  }, [currentGroup, stopCamera, isStreamingRef, lastDetectionRef]);
 
   // Cleanup on unload
   useEffect(() => {
@@ -639,7 +625,7 @@ export default function Main() {
             loadAttendanceDataRef.current();
           }}
           isFullScreen={isSettingsFullScreen}
-          onToggleFullScreen={() => setIsSettingsFullScreen((prev) => !prev)}
+          onToggleFullScreen={() => setIsSettingsFullScreen(!isSettingsFullScreen)}
           isModal={true}
           quickSettings={quickSettings}
           onQuickSettingsChange={setQuickSettings}
