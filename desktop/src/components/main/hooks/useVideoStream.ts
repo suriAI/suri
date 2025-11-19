@@ -42,25 +42,21 @@ export function useVideoStream(options: UseVideoStreamOptions) {
       const isPlaying = !video.paused && !video.ended && video.readyState > 2;
       const shouldBeActive = hasStream && isPlaying;
 
-      setCameraActive((prevActive: boolean) => {
-        if (prevActive !== shouldBeActive) {
-          if (shouldBeActive && !isStreamingRef.current) {
-            (isStreamingRef as React.RefObject<boolean>).current = true;
-            setIsStreaming(true);
-          } else if (!shouldBeActive && isStreamingRef.current) {
-            // Don't stop if we're in the middle of starting (matches original behavior)
-            // In original, isStartingRef is accessible in closure, preventing interference
-            if (isStartingRef.current) {
-              return prevActive;
-            }
-            (isStreamingRef as React.RefObject<boolean>).current = false;
-            setIsStreaming(false);
-            (isScanningRef as React.RefObject<boolean>).current = false;
+      const prevActive = useCameraStore.getState().cameraActive;
+      if (prevActive !== shouldBeActive) {
+        if (shouldBeActive && !isStreamingRef.current) {
+          (isStreamingRef as React.RefObject<boolean>).current = true;
+          setIsStreaming(true);
+        } else if (!shouldBeActive && isStreamingRef.current) {
+          if (isStartingRef.current) {
+            return;
           }
-          return shouldBeActive;
+          (isStreamingRef as React.RefObject<boolean>).current = false;
+          setIsStreaming(false);
+          (isScanningRef as React.RefObject<boolean>).current = false;
         }
-        return prevActive;
-      });
+        setCameraActive(shouldBeActive);
+      }
     };
 
     checkVideoState();

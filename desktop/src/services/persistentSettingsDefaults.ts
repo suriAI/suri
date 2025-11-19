@@ -55,4 +55,3 @@ export const defaultSettings: PersistentSettingsSchema = {
   reportViews: {},
   reportDefaultViewNames: {},
 };
-
