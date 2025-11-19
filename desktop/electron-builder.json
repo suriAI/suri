@@ -2,7 +2,7 @@
   "files": ["dist-electron/**/*", "dist-react/**/*"],
   "appId": "com.suri.app",
   "productName": "Suri AI Attendance Tracker",
-  "icon": "./public/icons/icon-1024.png",
+  "icon": "./public/icons/icon-1024-bg.png",
   "beforePack": "scripts/before-pack.cjs",
   "win": {
     "target": ["portable", "msi"],

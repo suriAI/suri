@@ -635,9 +635,14 @@ app.whenReady().then(async () => {
   // Register custom protocol for direct static file access
   protocol.registerFileProtocol("app", (request, callback) => {
     const url = request.url.replace("app://", ""); // Remove 'app://' prefix
-    const filePath = isDev()
-      ? path.join(__dirname, "../../public", url)
-      : path.join(process.resourcesPath, url);
+    let filePath: string;
+    if (isDev()) {
+      filePath = path.join(__dirname, "../../public", url);
+    } else {
+      // In production, use app.getAppPath() which correctly resolves to the asar location
+      const appPath = app.getAppPath();
+      filePath = path.join(appPath, "dist-react", url);
+    }
     callback(filePath);
   });
 
