@@ -49,10 +49,10 @@ export default function WindowBar() {
         } as React.CSSProperties
       }
     >
-      <div className="flex items-center ml-3 space-x-2 flex-1">
-        <div className="text-white text-sm font-medium">SURI</div>
-        <span className="text-white/40 text-[10px] font-medium">
-          AI-Powered Attendance System
+      <div className="flex items-center ml-3 space-x-1 flex-1">
+        <img src="/icons/icon-1024.png" alt="Suri" className="w-9 h-9" />
+        <span className="text-white/40 text-[11px] font-medium">
+          AI-Powered Attendance Tracker
         </span>
       </div>
 

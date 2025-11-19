@@ -1,4 +1,4 @@
-# Suri - AI-Powered Attendance System
+# Suri - AI-Powered Attendance Tracker
 
 > **Real-time face recognition attendance tracking that runs 100% offline**
 
