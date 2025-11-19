@@ -363,7 +363,9 @@ export function Database({
       </div>
 
       {/* Groups with Members */}
-      <div className={`space-y-2 ${filteredData.length === 0 ? "h-24" : "h-auto"}`}>
+      <div
+        className={`space-y-2 ${filteredData.length === 0 ? "h-24" : "h-auto"}`}
+      >
         {filteredData.length === 0 ? (
           <div className="text-center py-12 text-white/50">
             <div className="text-sm">No groups or members found</div>

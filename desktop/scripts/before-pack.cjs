@@ -23,8 +23,7 @@ async function beforePack(context) {
   }
 
   // Determine expected executable name
-  const executableName =
-    platform === "win32" ? "server.exe" : "server";
+  const executableName = platform === "win32" ? "server.exe" : "server";
   const executablePath = path.join(distDir, executableName);
 
   // Check if executable already exists

@@ -1,11 +1,15 @@
-import type { AttendanceSession } from "../types/recognition";
+import type { AttendanceSession } from "../types/recognition.js";
 
 /**
  * Centralized attendance status labels and utilities
  * This ensures consistent status display across the entire application
  */
 
-export type AttendanceStatusDisplay = "present" | "absent" | "late" | "no_records";
+export type AttendanceStatusDisplay =
+  | "present"
+  | "absent"
+  | "late"
+  | "no_records";
 
 export interface StatusConfig {
   label: string;
@@ -32,7 +36,7 @@ export function getStatusConfig(
       color: "text-white/40",
     };
   }
-  
+
   if (statusOverride === "absent") {
     return {
       label: "Absent",
@@ -41,7 +45,7 @@ export function getStatusConfig(
       color: "text-rose-200",
     };
   }
-  
+
   // No session = check if it's "no records" or "absent"
   // Default to "Absent" if no session exists (member was enrolled but didn't track)
   // This is a fallback - frontend should provide statusOverride for accuracy
@@ -120,4 +124,3 @@ export function getStatusColor(
 ): string {
   return getStatusConfig(session).color;
 }
-

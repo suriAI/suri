@@ -1,33 +1,28 @@
-import { useEffect } from "react";
-import type { GroupSection } from "../types";
-import type { AttendanceGroup } from "../../../types/recognition";
+import { useEffect, useCallback } from "react";
+import { Dropdown } from "../../shared";
+
+import { useGroupStore, useGroupUIStore } from "../stores";
+import { useGroupModals } from "../hooks";
 import { MobileNav } from "./MobileNav";
-import { Dropdown } from "../../shared/Dropdown";
 
-interface MobileDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  activeSection: GroupSection;
-  onSectionChange: (section: GroupSection) => void;
-  selectedGroup: AttendanceGroup | null;
-  groups: AttendanceGroup[];
-  onGroupChange: (group: AttendanceGroup | null) => void;
-  onCreateGroup: () => void;
-}
+export function MobileDrawer() {
+  // Zustand stores
+  const { selectedGroup, groups, setSelectedGroup } = useGroupStore();
+  const {
+    isMobileDrawerOpen,
+    activeSection,
+    setActiveSection,
+    setIsMobileDrawerOpen,
+  } = useGroupUIStore();
+  const { openCreateGroup } = useGroupModals();
 
-export function MobileDrawer({
-  isOpen,
-  onClose,
-  activeSection,
-  onSectionChange,
-  selectedGroup,
-  groups,
-  onGroupChange,
-  onCreateGroup,
-}: MobileDrawerProps) {
+  const onClose = useCallback(
+    () => setIsMobileDrawerOpen(false),
+    [setIsMobileDrawerOpen],
+  );
   // Lock body scroll when drawer is open
   useEffect(() => {
-    if (isOpen) {
+    if (isMobileDrawerOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -35,20 +30,20 @@ export function MobileDrawer({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen]);
+  }, [isMobileDrawerOpen]);
 
   // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === "Escape" && isMobileDrawerOpen) {
         onClose();
       }
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose]);
+  }, [isMobileDrawerOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isMobileDrawerOpen) return null;
 
   return (
     <>
@@ -65,7 +60,7 @@ export function MobileDrawer({
           fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white/[0.02]
           border-r border-white/[0.08] z-50 lg:hidden backdrop-blur-sm
           transform transition-transform duration-300 ease-out
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          ${isMobileDrawerOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         role="dialog"
         aria-modal="true"
@@ -114,9 +109,9 @@ export function MobileDrawer({
                   onChange={(groupId: string | null) => {
                     if (groupId) {
                       const group = groups.find((g) => g.id === groupId);
-                      onGroupChange(group ?? null);
+                      setSelectedGroup(group ?? null);
                     } else {
-                      onGroupChange(null);
+                      setSelectedGroup(null);
                     }
                   }}
                   placeholder="Select group…"
@@ -127,7 +122,7 @@ export function MobileDrawer({
                 />
               </div>
               <button
-                onClick={onCreateGroup}
+                onClick={openCreateGroup}
                 className="h-10 px-3 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors border border-white/10 flex-shrink-0"
                 aria-label="New Group"
                 title="New Group"
@@ -141,7 +136,7 @@ export function MobileDrawer({
           <div className="flex-1 min-h-0">
             <MobileNav
               activeSection={activeSection}
-              onSectionChange={onSectionChange}
+              onSectionChange={setActiveSection}
               selectedGroup={selectedGroup}
               onClose={onClose}
             />

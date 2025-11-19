@@ -6,7 +6,7 @@ import {
   getStatusLabel,
   getStatusClassName,
 } from "../../../utils";
-import { RegistrationStatus } from "../../shared/RegistrationStatus.js";
+import { RegistrationStatus } from "../../shared";
 import type {
   AttendanceGroup,
   AttendanceMember,

@@ -1,8 +1,7 @@
 import Main from "./components/main/index.tsx";
-import WindowBar from "./components/electron/WindowBar.tsx";
-import LoadingScreen from "./components/common/LoadingScreen.tsx";
 import { useModelLoading } from "./hooks/useModelLoading";
-import WindowFooter from "./components/electron/WindowFooter.tsx";
+import { LoadingScreen } from "./components/common";
+import { WindowBar, WindowFooter } from "./components/electron";
 
 function App() {
   const { modelsReady, isChecking } = useModelLoading();

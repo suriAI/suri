@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { FaceCapture } from "./registration/FaceCapture.js";
-import { BulkFaceRegistration } from "../modals/BulkFaceRegistration.js";
-import { AssistedCameraRegistration } from "../modals/AssistedCameraRegistration.js";
+
+import { AssistedCameraRegistration, BulkFaceRegistration } from "../modals";
+import { FaceCapture } from "../sections";
 import type {
   AttendanceGroup,
   AttendanceMember,
@@ -22,7 +22,17 @@ interface RegistrationProps {
 type SourceType = "upload" | "camera" | null;
 type RegistrationMode = "single" | "bulk" | "queue" | null;
 
-export function Registration({ group, members, onRefresh, onSourceChange, registrationSource, onModeChange, registrationMode, deselectMemberTrigger, onHasSelectedMemberChange }: RegistrationProps) {
+export function Registration({
+  group,
+  members,
+  onRefresh,
+  onSourceChange,
+  registrationSource,
+  onModeChange,
+  registrationMode,
+  deselectMemberTrigger,
+  onHasSelectedMemberChange,
+}: RegistrationProps) {
   const [source, setSource] = useState<SourceType>(null);
   const [mode, setMode] = useState<RegistrationMode>(null);
 
@@ -170,7 +180,9 @@ export function Registration({ group, members, onRefresh, onSourceChange, regist
               onClick={() => handleModeSelect("bulk")}
               className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
             >
-              <span className="text-base font-medium text-white">Batch Upload</span>
+              <span className="text-base font-medium text-white">
+                Batch Upload
+              </span>
             </button>
           )}
 
@@ -179,7 +191,9 @@ export function Registration({ group, members, onRefresh, onSourceChange, regist
               onClick={() => handleModeSelect("queue")}
               className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
             >
-              <span className="text-base font-medium text-white">Camera Queue</span>
+              <span className="text-base font-medium text-white">
+                Camera Queue
+              </span>
             </button>
           )}
         </div>

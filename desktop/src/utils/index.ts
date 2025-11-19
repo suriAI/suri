@@ -1,29 +1,28 @@
-// Display name utilities
 export type {
   PersonWithName,
   HasPersonIdAndName,
   PersonWithDisplayName,
-} from "./displayNameUtils";
+} from "./displayNameUtils.js";
 export {
   generateDisplayNames,
   getDisplayName,
   createDisplayNameMap,
-} from "./displayNameUtils";
+} from "./displayNameUtils.js";
 
-// Date utilities
 export {
   getLocalDateString,
   parseLocalDate,
   generateDateRange,
-} from "./dateUtils";
+} from "./dateUtils.js";
 
-// Attendance status utilities
-export type { AttendanceStatusDisplay, StatusConfig } from "./attendanceStatusUtils";
+export type {
+  AttendanceStatusDisplay,
+  StatusConfig,
+} from "./attendanceStatusUtils.js";
 export {
   getStatusConfig,
   getStatusLabel,
   getStatusShortLabel,
   getStatusClassName,
   getStatusColor,
-} from "./attendanceStatusUtils";
-
+} from "./attendanceStatusUtils.js";

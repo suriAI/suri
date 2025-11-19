@@ -270,7 +270,9 @@ export class BackendService {
         };
 
         this.ws.onclose = (event) => {
-          console.log(`[BackendService] WebSocket closed - code: ${event.code}, wasClean: ${event.wasClean}, reason: ${event.reason || 'none'}`);
+          console.log(
+            `[BackendService] WebSocket closed - code: ${event.code}, wasClean: ${event.wasClean}, reason: ${event.reason || "none"}`,
+          );
           this.stopPingInterval();
           this.isConnecting = false;
           this.connectionPromise = null;
@@ -279,10 +281,14 @@ export class BackendService {
             !event.wasClean &&
             this.reconnectAttempts < this.maxReconnectAttempts
           ) {
-            console.log("[BackendService] WebSocket closed unexpectedly, will attempt reconnect...");
+            console.log(
+              "[BackendService] WebSocket closed unexpectedly, will attempt reconnect...",
+            );
             this.scheduleReconnect();
           } else {
-            console.log("[BackendService] WebSocket closed cleanly or max reconnect attempts reached");
+            console.log(
+              "[BackendService] WebSocket closed cleanly or max reconnect attempts reached",
+            );
             this.handleMessage({
               type: "connection",
               status: "disconnected",
@@ -425,7 +431,7 @@ export class BackendService {
               type: "disconnect",
               client_id: this.clientId,
               timestamp: Date.now(),
-            })
+            }),
           );
           this.ws.close(1000, "Client disconnect");
         } else if (this.ws.readyState === WebSocket.CONNECTING) {

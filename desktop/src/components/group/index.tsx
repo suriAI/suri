@@ -1,20 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
-// Types
 export type { GroupSection } from "./types";
 import type { GroupPanelProps } from "./types";
 import type { AttendanceGroup } from "../../types/recognition";
 
-// Custom Hooks
-import { useGroupData } from "./hooks/useGroupData";
-import { useGroupModals } from "./hooks/useGroupModals";
-
-// Components
-import { GroupSidebar } from "./components/GroupSidebar";
-import { MobileDrawer } from "./components/MobileDrawer";
-import { ErrorBanner } from "./components/ErrorBanner";
-import { GroupContent } from "./components/GroupContent";
-import { GroupModals } from "./components/GroupModals";
+import { useGroupStore, useGroupUIStore } from "./stores";
+import { useGroupData, useGroupModals } from "./hooks";
+import {
+  ErrorBanner,
+  GroupContent,
+  GroupModals,
+  GroupSidebar,
+  MobileDrawer,
+} from "./components";
 
 export function GroupPanel({
   onBack,
@@ -33,65 +31,26 @@ export function GroupPanel({
   onExportHandlersReady,
   onAddMemberHandlerReady,
 }: GroupPanelProps) {
-  const [activeSection, setActiveSection] = useState(
-    initialSection ?? "overview",
-  );
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-
-  // Custom hooks for clean separation of concerns
+  // Zustand stores - only get what we need for handlers
   const {
     selectedGroup,
-    groups,
-    members,
     error,
     setSelectedGroup,
     setError,
     fetchGroups,
     fetchGroupDetails,
-    deleteGroup,
-    exportData,
-  } = useGroupData(initialGroup);
+  } = useGroupStore();
+  const { setActiveSection, setIsMobileDrawerOpen } = useGroupUIStore();
+  const { openCreateGroup, openAddMember } = useGroupModals();
 
-  const {
-    showAddMemberModal,
-    showEditMemberModal,
-    showCreateGroupModal,
-    showEditGroupModal,
-    editingMember,
-    openAddMember,
-    openEditMember,
-    openCreateGroup,
-    openEditGroup,
-    closeAddMember,
-    closeEditMember,
-    closeCreateGroup,
-    closeEditGroup,
-  } = useGroupModals();
+  // Initialize with useGroupData hook for side effects
+  useGroupData(initialGroup);
 
   // Handlers
-  const handleDeleteGroup = async () => {
-    if (!selectedGroup) return;
-
-    if (
-      !confirm(
-        `Delete group "${selectedGroup.name}"? This will remove all members and attendance records.`,
-      )
-    ) {
-      return;
-    }
-
-    await deleteGroup(selectedGroup.id);
-
-    // Notify parent component that groups have changed
-    if (onGroupsChanged) {
-      onGroupsChanged();
-    }
-  };
-
   const handleMemberSuccess = () => {
-    if (selectedGroup) {
-      fetchGroupDetails(selectedGroup.id);
+    const currentGroup = useGroupStore.getState().selectedGroup;
+    if (currentGroup) {
+      fetchGroupDetails(currentGroup.id);
     }
   };
 
@@ -111,13 +70,16 @@ export function GroupPanel({
     if (initialSection) {
       setActiveSection(initialSection);
     }
-  }, [initialSection]);
+  }, [initialSection, setActiveSection]);
 
   // Handle triggerCreateGroup prop
   const prevTriggerRef = useRef(0);
   useEffect(() => {
     // Only trigger if the value actually changed (not just > 0)
-    if (triggerCreateGroup > 0 && triggerCreateGroup !== prevTriggerRef.current) {
+    if (
+      triggerCreateGroup > 0 &&
+      triggerCreateGroup !== prevTriggerRef.current
+    ) {
       openCreateGroup();
       prevTriggerRef.current = triggerCreateGroup;
     }
@@ -129,23 +91,6 @@ export function GroupPanel({
       onAddMemberHandlerReady(openAddMember);
     }
   }, [onAddMemberHandlerReady, openAddMember]);
-
-  // Restore sidebar state from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("suri_group_sidebar_collapsed");
-    if (saved !== null) {
-      setIsSidebarCollapsed(saved === "true");
-    }
-  }, []);
-
-  // Save sidebar state to localStorage
-  const handleToggleSidebar = () => {
-    setIsSidebarCollapsed((prev) => {
-      const newValue = !prev;
-      localStorage.setItem("suri_group_sidebar_collapsed", String(newValue));
-      return newValue;
-    });
-  };
 
   // Embedded mode - just return content without wrapper
   if (isEmbedded) {
@@ -159,19 +104,9 @@ export function GroupPanel({
         {/* Main Content Area - Full width when embedded */}
         <div className="h-full overflow-hidden bg-[#0f0f0f]">
           <GroupContent
-            selectedGroup={selectedGroup}
-            groups={groups}
-            members={members}
-            activeSection={activeSection}
             onMembersChange={() =>
               selectedGroup && fetchGroupDetails(selectedGroup.id)
             }
-            onEditMember={openEditMember}
-            onAddMember={openAddMember}
-            onEditGroup={openEditGroup}
-            onDeleteGroup={handleDeleteGroup}
-            onExportData={exportData}
-            onCreateGroup={openCreateGroup}
             onRegistrationSourceChange={onRegistrationSourceChange}
             registrationSource={registrationSource}
             onRegistrationModeChange={onRegistrationModeChange}
@@ -185,16 +120,6 @@ export function GroupPanel({
 
         {/* Modals */}
         <GroupModals
-          selectedGroup={selectedGroup}
-          showAddMemberModal={showAddMemberModal}
-          showEditMemberModal={showEditMemberModal}
-          showCreateGroupModal={showCreateGroupModal}
-          showEditGroupModal={showEditGroupModal}
-          editingMember={editingMember}
-          onCloseAddMember={closeAddMember}
-          onCloseEditMember={closeEditMember}
-          onCloseCreateGroup={closeCreateGroup}
-          onCloseEditGroup={closeEditGroup}
           onMemberSuccess={handleMemberSuccess}
           onGroupSuccess={handleGroupSuccess}
         />
@@ -229,47 +154,18 @@ export function GroupPanel({
 
       {/* Desktop Sidebar - Hidden on mobile */}
       <div className="hidden lg:block">
-        <GroupSidebar
-          activeSection={activeSection}
-          onSectionChange={setActiveSection}
-          selectedGroup={selectedGroup}
-          groups={groups}
-          onGroupChange={setSelectedGroup}
-          onCreateGroup={openCreateGroup}
-          onBack={onBack}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-        />
+        <GroupSidebar onBack={onBack} />
       </div>
 
       {/* Mobile Drawer */}
-      <MobileDrawer
-        isOpen={isMobileDrawerOpen}
-        onClose={() => setIsMobileDrawerOpen(false)}
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        selectedGroup={selectedGroup}
-        groups={groups}
-        onGroupChange={setSelectedGroup}
-        onCreateGroup={openCreateGroup}
-      />
+      <MobileDrawer />
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden bg-black">
         <GroupContent
-          selectedGroup={selectedGroup}
-          groups={groups}
-          members={members}
-          activeSection={activeSection}
           onMembersChange={() =>
             selectedGroup && fetchGroupDetails(selectedGroup.id)
           }
-          onEditMember={openEditMember}
-          onAddMember={openAddMember}
-          onEditGroup={openEditGroup}
-          onDeleteGroup={handleDeleteGroup}
-          onExportData={exportData}
-          onCreateGroup={openCreateGroup}
           onRegistrationSourceChange={onRegistrationSourceChange}
           registrationSource={registrationSource}
           onRegistrationModeChange={onRegistrationModeChange}
@@ -281,16 +177,6 @@ export function GroupPanel({
 
       {/* Modals */}
       <GroupModals
-        selectedGroup={selectedGroup}
-        showAddMemberModal={showAddMemberModal}
-        showEditMemberModal={showEditMemberModal}
-        showCreateGroupModal={showCreateGroupModal}
-        showEditGroupModal={showEditGroupModal}
-        editingMember={editingMember}
-        onCloseAddMember={closeAddMember}
-        onCloseEditMember={closeEditMember}
-        onCloseCreateGroup={closeCreateGroup}
-        onCloseEditGroup={closeEditGroup}
         onMemberSuccess={handleMemberSuccess}
         onGroupSuccess={handleGroupSuccess}
       />

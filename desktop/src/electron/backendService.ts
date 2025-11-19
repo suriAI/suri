@@ -118,8 +118,7 @@ export class BackendService {
     } else {
       // In production, use PyInstaller executable
       const platform = process.platform;
-      const executableName =
-        platform === "win32" ? "server.exe" : "server";
+      const executableName = platform === "win32" ? "server.exe" : "server";
 
       // Try multiple possible locations
       const possiblePaths = [

@@ -48,12 +48,7 @@ function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
   const lastBboxStyleRef = useRef<string>("");
 
   useEffect(() => {
-    if (
-      !frame.bbox ||
-      !frame.width ||
-      !frame.height ||
-      !containerRef.current
-    ) {
+    if (!frame.bbox || !frame.width || !frame.height || !containerRef.current) {
       setBboxStyle(null);
       lastBboxStyleRef.current = "";
       return;
@@ -165,7 +160,9 @@ function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
         <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 p-3 text-center">
           <div className="space-y-1">
             <div className="text-xl">⚠️</div>
-            <div className="text-xs text-red-200">{frame.error || "Failed"}</div>
+            <div className="text-xs text-red-200">
+              {frame.error || "Failed"}
+            </div>
           </div>
         </div>
       )}
@@ -219,10 +216,14 @@ export function FaceCapture({
   deselectMemberTrigger,
   onSelectedMemberChange,
 }: FaceCaptureProps) {
-  const [source, setSource] = useState<CaptureSource>(initialSource ?? "upload");
+  const [source, setSource] = useState<CaptureSource>(
+    initialSource ?? "upload",
+  );
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
-  const [registrationFilter, setRegistrationFilter] = useState<"all" | "registered" | "non-registered">("all");
+  const [registrationFilter, setRegistrationFilter] = useState<
+    "all" | "registered" | "non-registered"
+  >("all");
   const [frames, setFrames] = useState<CapturedFrame[]>([]);
   const [activeAngle, setActiveAngle] = useState<string>(REQUIRED_ANGLE);
   const [memberStatus, setMemberStatus] = useState<Map<string, boolean>>(
@@ -248,20 +249,22 @@ export function FaceCapture({
 
     // Apply search filter
     if (memberSearch.trim()) {
-    const query = memberSearch.toLowerCase();
+      const query = memberSearch.toLowerCase();
       result = result.filter(
-      (member) =>
-        member.name.toLowerCase().includes(query) ||
-        member.displayName.toLowerCase().includes(query) ||
-        member.person_id.toLowerCase().includes(query),
-    );
+        (member) =>
+          member.name.toLowerCase().includes(query) ||
+          member.displayName.toLowerCase().includes(query) ||
+          member.person_id.toLowerCase().includes(query),
+      );
     }
 
     // Apply registration status filter
     if (registrationFilter !== "all") {
       result = result.filter((member) => {
         const isRegistered = memberStatus.get(member.person_id) ?? false;
-        return registrationFilter === "registered" ? isRegistered : !isRegistered;
+        return registrationFilter === "registered"
+          ? isRegistered
+          : !isRegistered;
       });
     }
 
@@ -269,9 +272,9 @@ export function FaceCapture({
     result = [...result].sort((a, b) => {
       const aRegistered = memberStatus.get(a.person_id) ?? false;
       const bRegistered = memberStatus.get(b.person_id) ?? false;
-      
+
       if (aRegistered && !bRegistered) return -1; // Registered first
-      if (!aRegistered && bRegistered) return 1;  // Non-registered after
+      if (!aRegistered && bRegistered) return 1; // Non-registered after
       return 0; // Maintain original order within same status
     });
 
@@ -358,7 +361,10 @@ export function FaceCapture({
   // Deselect member when trigger changes
   const deselectedMemberTriggerRef = useRef(deselectMemberTrigger ?? 0);
   useEffect(() => {
-    if (deselectMemberTrigger !== undefined && deselectedMemberTriggerRef.current !== deselectMemberTrigger) {
+    if (
+      deselectMemberTrigger !== undefined &&
+      deselectedMemberTriggerRef.current !== deselectMemberTrigger
+    ) {
       deselectedMemberTriggerRef.current = deselectMemberTrigger;
       if (selectedMemberId) {
         setSelectedMemberId("");
@@ -384,9 +390,9 @@ export function FaceCapture({
       );
       if (!memberExists) {
         setSelectedMemberId("");
-    resetFrames();
-    setSuccessMessage(null);
-    setGlobalError(null);
+        resetFrames();
+        setSuccessMessage(null);
+        setGlobalError(null);
       }
     }
     // Don't reset frames/messages when members list refreshes after successful registration
@@ -599,8 +605,7 @@ export function FaceCapture({
       return;
     }
 
-    const isAlreadyRegistered =
-      memberStatus.get(selectedMemberId) ?? false;
+    const isAlreadyRegistered = memberStatus.get(selectedMemberId) ?? false;
 
     if (!framesReady) {
       const frame = frames.find((f) => f.angle === REQUIRED_ANGLE);
@@ -807,11 +812,11 @@ export function FaceCapture({
                   className="w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-cyan-400/50 focus:bg-white/10 focus:outline-none transition-all"
                 />
               </div>
-              </div>
+            </div>
 
             {/* Registration Status Filter Tabs */}
             <div className="flex items-center gap-2 flex-shrink-0">
-                <button
+              <button
                 onClick={() => setRegistrationFilter("all")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   registrationFilter === "all"
@@ -830,7 +835,7 @@ export function FaceCapture({
                 }`}
               >
                 Needs Registration
-                </button>
+              </button>
               <button
                 onClick={() => setRegistrationFilter("registered")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -868,10 +873,15 @@ export function FaceCapture({
               {members.length > 0 && filteredMembers.length > 0 && (
                 <div className="px-1 pb-1">
                   <div className="text-xs text-white/30">
-                    Showing {filteredMembers.length} of {members.length} member{members.length !== 1 ? "s" : ""}
+                    Showing {filteredMembers.length} of {members.length} member
+                    {members.length !== 1 ? "s" : ""}
                     {registrationFilter !== "all" && (
                       <span className="ml-1">
-                        ({registrationFilter === "registered" ? "registered" : "needs registration"})
+                        (
+                        {registrationFilter === "registered"
+                          ? "registered"
+                          : "needs registration"}
+                        )
                       </span>
                     )}
                   </div>
@@ -895,12 +905,12 @@ export function FaceCapture({
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                        <div
-                          className={`text-sm font-medium truncate transition-colors ${
-                            isSelected ? "text-cyan-100" : "text-white"
-                          }`}
-                        >
-                          {member.displayName}
+                          <div
+                            className={`text-sm font-medium truncate transition-colors ${
+                              isSelected ? "text-cyan-100" : "text-white"
+                            }`}
+                          >
+                            {member.displayName}
                           </div>
                         </div>
                         {member.role && (
@@ -930,9 +940,9 @@ export function FaceCapture({
                             </span>
                           </span>
                         )}
-                      {isSelected && (
+                        {isSelected && (
                           <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-                      )}
+                        )}
                       </div>
                     </div>
                     {hasEmbeddings && isSelected && (
@@ -965,7 +975,6 @@ export function FaceCapture({
         {/* Registration Panel - Show only when member selected */}
         {selectedMemberId && (
           <div className="flex flex-col h-full overflow-hidden p-6 space-y-2">
-
             {/* Content Area - Takes available space */}
             <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
               {/* Only show source toggle if no initialSource was provided (direct access) */}
@@ -975,7 +984,9 @@ export function FaceCapture({
                     <button
                       key={option}
                       onClick={() => setSource(option)}
-                      disabled={!!frames.find((f) => f.angle === REQUIRED_ANGLE)}
+                      disabled={
+                        !!frames.find((f) => f.angle === REQUIRED_ANGLE)
+                      }
                       className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
                         source === option
                           ? "bg-white/10 text-white border border-white/20"
@@ -1035,7 +1046,9 @@ export function FaceCapture({
                             )}
                           </div>
                           <button
-                            onClick={() => void captureFromCamera(REQUIRED_ANGLE)}
+                            onClick={() =>
+                              void captureFromCamera(REQUIRED_ANGLE)
+                            }
                             disabled={!cameraReady || !!cameraError}
                             className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/20 py-4 text-sm font-medium text-white hover:bg-white/15 disabled:bg-white/5 disabled:border-white/10 disabled:text-white/30 transition-all mt-3 flex-shrink-0"
                           >
@@ -1081,7 +1094,10 @@ export function FaceCapture({
                       {frames
                         .filter((f) => f.angle === REQUIRED_ANGLE)
                         .map((frame) => (
-                          <div key={frame.id} className="flex-1 min-h-0 flex flex-col space-y-2">
+                          <div
+                            key={frame.id}
+                            className="flex-1 min-h-0 flex flex-col space-y-2"
+                          >
                             <ImagePreviewWithBbox frame={frame} />
                             {/* Name and Change button container */}
                             <div className="flex-shrink-0 rounded-xl border border-white/10 bg-white/5 p-1.5">
@@ -1124,9 +1140,7 @@ export function FaceCapture({
               </button>
               <button
                 onClick={() => void handleRegister()}
-                disabled={
-                  !framesReady || !selectedMemberId || isRegistering
-                }
+                disabled={!framesReady || !selectedMemberId || isRegistering}
                 className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition-all ${
                   memberStatus.get(selectedMemberId)
                     ? "bg-amber-500/20 border-amber-400/40 text-amber-100 hover:bg-amber-500/30"

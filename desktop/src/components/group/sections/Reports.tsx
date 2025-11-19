@@ -21,7 +21,11 @@ interface ReportsProps {
   }) => void;
 }
 
-export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: ReportsProps) {
+export function Reports({
+  group,
+  onDaysTrackedChange,
+  onExportHandlersReady,
+}: ReportsProps) {
   const [report, setReport] = useState<AttendanceReport | null>(null);
   const [reportStartDate, setReportStartDate] =
     useState<string>(getLocalDateString());
@@ -43,15 +47,18 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
     key: ColumnKey;
     label: string;
     align?: "left" | "center";
-  }> = useMemo(() => [
-    { key: "name", label: "Name", align: "left" },
-    { key: "date", label: "Date", align: "left" },
-    { key: "status", label: "Status", align: "center" },
-    { key: "check_in_time", label: "Time In", align: "center" },
-    { key: "is_late", label: "Late", align: "center" },
-    { key: "late_minutes", label: "Minutes Late", align: "center" },
-    { key: "notes", label: "Notes", align: "left" },
-  ], []);
+  }> = useMemo(
+    () => [
+      { key: "name", label: "Name", align: "left" },
+      { key: "date", label: "Date", align: "left" },
+      { key: "status", label: "Status", align: "center" },
+      { key: "check_in_time", label: "Time In", align: "center" },
+      { key: "is_late", label: "Late", align: "center" },
+      { key: "late_minutes", label: "Minutes Late", align: "center" },
+      { key: "notes", label: "Notes", align: "left" },
+    ],
+    [],
+  );
 
   type GroupByKey = "none" | "person" | "date";
 
@@ -309,10 +316,10 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
   const filteredRows = useMemo(() => {
     // Generate all dates in the report range
     const allDates = generateDateRange(reportStartDate, reportEndDate);
-    
+
     // Generate rows for ALL date-member combinations
     const rows: RowData[] = [];
-    
+
     for (const member of members) {
       // Handle joined_at date for this member
       let memberJoinedAt: Date | null = null;
@@ -324,32 +331,33 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
           memberJoinedAt = null;
         }
       }
-      
+
       // Normalize joined_at to date-only for comparison
       if (memberJoinedAt) {
         memberJoinedAt.setHours(0, 0, 0, 0);
       }
-      
+
       for (const date of allDates) {
         // Check if this date is before member joined
         const dateObj = new Date(date);
         dateObj.setHours(0, 0, 0, 0);
         const isBeforeJoined = memberJoinedAt && dateObj < memberJoinedAt;
-        
+
         // Edge case: If joined_at is in the future, treat all dates as before joined
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const isFutureEnrollment = memberJoinedAt && memberJoinedAt > today;
-        
+
         // Edge case: If the date itself is in the future, show "no_records" (can't have attendance for dates that haven't happened yet)
         const isFutureDate = dateObj > today;
-        
-        const shouldShowNoRecords = isBeforeJoined || isFutureEnrollment || isFutureDate;
-        
+
+        const shouldShowNoRecords =
+          isBeforeJoined || isFutureEnrollment || isFutureDate;
+
         // Look up session for this person_id and date
         const sessionKey = `${member.person_id}_${date}`;
         const session = sessionsMap.get(sessionKey) || null;
-        
+
         // If date is before joined_at OR joined_at is in future, session should be null (will show "No records")
         // Also filter out old sessions that exist for dates before joined_at (data cleanup)
         let finalSession: AttendanceSession | null = null;
@@ -366,8 +374,8 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
           // we should show "Absent" not "No records"
           finalSession = null; // Will be handled by status display logic
         }
-        
-        // Determine status: 
+
+        // Determine status:
         // - If date < joined_at: "no_records" (not enrolled yet)
         // - If date > today: "no_records" (future date, hasn't happened yet)
         // - If date >= joined_at and date <= today and no session: "absent" (enrolled but didn't track)
@@ -381,7 +389,7 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
         } else {
           status = finalSession.status;
         }
-        
+
         rows.push({
           person_id: member.person_id,
           name: displayNameMap.get(member.person_id) || "Unknown",
@@ -402,7 +410,7 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
       if (statusFilter !== "all") {
         if (r.status !== statusFilter) return false;
       }
-      
+
       if (search) {
         const q = search.toLowerCase();
         const hay = `${r.name} ${r.status} ${r.notes}`.toLowerCase();
@@ -410,7 +418,15 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
       }
       return true;
     });
-  }, [sessionsMap, members, displayNameMap, statusFilter, search, reportStartDate, reportEndDate]);
+  }, [
+    sessionsMap,
+    members,
+    displayNameMap,
+    statusFilter,
+    search,
+    reportStartDate,
+    reportEndDate,
+  ]);
 
   const groupedRows = useMemo(() => {
     if (groupBy === "none")
@@ -459,9 +475,7 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
   // Export CSV handler
   const handleExportCSV = useCallback(() => {
     try {
-      const cols = allColumns.filter((c) =>
-        visibleColumns.includes(c.key),
-      );
+      const cols = allColumns.filter((c) => visibleColumns.includes(c.key));
       const header = cols.map((c) => c.label);
       const rows: string[][] = [];
       Object.values(groupedRows).forEach((groupArr) => {
@@ -479,9 +493,7 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
 
       const csvContent = [header, ...rows]
         .map((row) =>
-          row
-            .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-            .join(","),
+          row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
         )
         .join("\n");
 
@@ -496,11 +508,16 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error exporting view:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to export view",
-      );
+      setError(err instanceof Error ? err.message : "Failed to export view");
     }
-  }, [allColumns, visibleColumns, groupedRows, group.name, reportStartDate, reportEndDate]);
+  }, [
+    allColumns,
+    visibleColumns,
+    groupedRows,
+    group.name,
+    reportStartDate,
+    reportEndDate,
+  ]);
 
   // Print handler
   const handlePrint = useCallback(() => {
@@ -677,26 +694,28 @@ export function Reports({ group, onDaysTrackedChange, onExportHandlersReady }: R
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-white/50">Status</span>
-                    {(["all", "present", "absent", "no_records"] as const).map((st) => {
-                      const active = statusFilter === st;
-                      return (
-                        <label
-                          key={st}
-                          className="text-[11px] flex items-center gap-1 cursor-pointer"
-                        >
-                          <input
-                            type="radio"
-                            name="statusFilter"
-                            checked={active}
-                            onChange={() => setStatusFilter(st)}
-                            className="cursor-pointer"
-                          />
-                          <span className="capitalize">
-                            {st === "no_records" ? "No records" : st}
-                          </span>
-                        </label>
-                      );
-                    })}
+                    {(["all", "present", "absent", "no_records"] as const).map(
+                      (st) => {
+                        const active = statusFilter === st;
+                        return (
+                          <label
+                            key={st}
+                            className="text-[11px] flex items-center gap-1 cursor-pointer"
+                          >
+                            <input
+                              type="radio"
+                              name="statusFilter"
+                              checked={active}
+                              onChange={() => setStatusFilter(st)}
+                              className="cursor-pointer"
+                            />
+                            <span className="capitalize">
+                              {st === "no_records" ? "No records" : st}
+                            </span>
+                          </label>
+                        );
+                      },
+                    )}
                   </div>
                 </div>
 

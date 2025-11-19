@@ -21,40 +21,47 @@ export function useVideoStream(options: UseVideoStreamOptions) {
     lastVideoRectUpdateRef,
     isStartingRef,
   } = options;
-  
+
   // Zustand stores
-  const { cameraDevices, selectedCamera, setCameraDevices, setSelectedCamera, setIsStreaming, setCameraActive } = useCameraStore();
+  const {
+    cameraDevices,
+    selectedCamera,
+    setCameraDevices,
+    setSelectedCamera,
+    setIsStreaming,
+    setCameraActive,
+  } = useCameraStore();
   const { setError } = useUIStore();
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-      const checkVideoState = () => {
-        const hasStream = video.srcObject !== null;
-        const isPlaying = !video.paused && !video.ended && video.readyState > 2;
-        const shouldBeActive = hasStream && isPlaying;
+    const checkVideoState = () => {
+      const hasStream = video.srcObject !== null;
+      const isPlaying = !video.paused && !video.ended && video.readyState > 2;
+      const shouldBeActive = hasStream && isPlaying;
 
-        setCameraActive((prevActive: boolean) => {
-          if (prevActive !== shouldBeActive) {
-            if (shouldBeActive && !isStreamingRef.current) {
-              (isStreamingRef as React.RefObject<boolean>).current = true;
-              setIsStreaming(true);
-            } else if (!shouldBeActive && isStreamingRef.current) {
-              // Don't stop if we're in the middle of starting (matches original behavior)
-              // In original, isStartingRef is accessible in closure, preventing interference
-              if (isStartingRef.current) {
-                return prevActive;
-              }
-              (isStreamingRef as React.RefObject<boolean>).current = false;
-              setIsStreaming(false);
-              (isScanningRef as React.RefObject<boolean>).current = false;
+      setCameraActive((prevActive: boolean) => {
+        if (prevActive !== shouldBeActive) {
+          if (shouldBeActive && !isStreamingRef.current) {
+            (isStreamingRef as React.RefObject<boolean>).current = true;
+            setIsStreaming(true);
+          } else if (!shouldBeActive && isStreamingRef.current) {
+            // Don't stop if we're in the middle of starting (matches original behavior)
+            // In original, isStartingRef is accessible in closure, preventing interference
+            if (isStartingRef.current) {
+              return prevActive;
             }
-            return shouldBeActive;
+            (isStreamingRef as React.RefObject<boolean>).current = false;
+            setIsStreaming(false);
+            (isScanningRef as React.RefObject<boolean>).current = false;
           }
-          return prevActive;
-        });
-      };
+          return shouldBeActive;
+        }
+        return prevActive;
+      });
+    };
 
     checkVideoState();
     const events = ["loadedmetadata", "play", "pause", "ended", "emptied"];
@@ -66,8 +73,10 @@ export function useVideoStream(options: UseVideoStreamOptions) {
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         if (video && videoRectRef.current) {
-          (videoRectRef as React.RefObject<DOMRect | null>).current = video.getBoundingClientRect();
-          (lastVideoRectUpdateRef as React.RefObject<number>).current = Date.now();
+          (videoRectRef as React.RefObject<DOMRect | null>).current =
+            video.getBoundingClientRect();
+          (lastVideoRectUpdateRef as React.RefObject<number>).current =
+            Date.now();
         }
       });
     });
@@ -80,7 +89,16 @@ export function useVideoStream(options: UseVideoStreamOptions) {
       clearInterval(interval);
       resizeObserver.disconnect();
     };
-  }, [isScanningRef, isStartingRef, isStreamingRef, lastVideoRectUpdateRef, setCameraActive, setIsStreaming, videoRectRef, videoRef]);
+  }, [
+    isScanningRef,
+    isStartingRef,
+    isStreamingRef,
+    lastVideoRectUpdateRef,
+    setCameraActive,
+    setIsStreaming,
+    videoRectRef,
+    videoRef,
+  ]);
 
   const captureFrame = useCallback((): Promise<ArrayBuffer | null> => {
     const video = videoRef.current;
@@ -162,4 +180,3 @@ export function useVideoStream(options: UseVideoStreamOptions) {
     getCameraDevices,
   };
 }
-

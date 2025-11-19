@@ -3,8 +3,14 @@ import { startTransition } from "react";
 import { useAttendanceStore } from "../stores";
 
 export function useAttendanceCooldown() {
-  const { persistentCooldowns, setPersistentCooldowns, attendanceCooldownSeconds } = useAttendanceStore();
-  const persistentCooldownsRef = useRef<Map<string, import("../types").CooldownInfo>>(new Map());
+  const {
+    persistentCooldowns,
+    setPersistentCooldowns,
+    attendanceCooldownSeconds,
+  } = useAttendanceStore();
+  const persistentCooldownsRef = useRef<
+    Map<string, import("../types").CooldownInfo>
+  >(new Map());
 
   useEffect(() => {
     persistentCooldownsRef.current = persistentCooldowns;
@@ -20,7 +26,7 @@ export function useAttendanceCooldown() {
       startTransition(() => {
         setPersistentCooldowns((prev) => {
           if (prev.size === 0) return prev;
-          
+
           const newPersistent = new Map(prev);
           let hasChanges = false;
 
@@ -48,7 +54,7 @@ export function useAttendanceCooldown() {
       if (now - lastUpdateTime >= updateInterval) {
         updateCooldowns();
         lastUpdateTime = now;
-        
+
         if (persistentCooldownsRef.current.size === 0) {
           rafId = null;
           return;
@@ -82,4 +88,3 @@ export function useAttendanceCooldown() {
     persistentCooldownsRef,
   };
 }
-

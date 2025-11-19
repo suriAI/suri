@@ -1,4 +1,4 @@
-import { Dropdown } from "../../shared/Dropdown";
+import { Dropdown } from "../../shared";
 
 interface ControlBarProps {
   cameraDevices: MediaDeviceInfo[];
@@ -51,8 +51,8 @@ export function ControlBar({
         <button
           onClick={isStreaming ? stopCamera : startCamera}
           className={`min-w-[140px] px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ease-in-out flex items-center justify-center gap-2 ${
-            isStreaming 
-              ? "bg-red-500/20 border border-red-400/40 text-red-200 hover:bg-red-500/30" 
+            isStreaming
+              ? "bg-red-500/20 border border-red-400/40 text-red-200 hover:bg-red-500/30"
               : "bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 shadow-lg shadow-cyan-500/10"
           }`}
         >

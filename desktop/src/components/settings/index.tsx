@@ -4,13 +4,16 @@ import { Display } from "./sections/Display";
 import { Database } from "./sections/Database";
 import { Attendance } from "./sections/Attendance";
 import { GroupPanel, type GroupSection } from "../group";
-import { Dropdown } from "../shared/Dropdown";
+import { Dropdown } from "../shared";
 import type {
   QuickSettings,
   AttendanceSettings,
   SettingsOverview,
 } from "./types";
-import type { AttendanceGroup, AttendanceMember } from "../../types/recognition";
+import type {
+  AttendanceGroup,
+  AttendanceMember,
+} from "../../types/recognition";
 
 export type { QuickSettings, AttendanceSettings };
 
@@ -64,15 +67,21 @@ export const Settings: React.FC<SettingsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
   const [triggerCreateGroup, setTriggerCreateGroup] = useState(0);
-  const [registrationSource, setRegistrationSource] = useState<"upload" | "camera" | null>(null);
-  const [registrationMode, setRegistrationMode] = useState<"single" | "bulk" | "queue" | null>(null);
+  const [registrationSource, setRegistrationSource] = useState<
+    "upload" | "camera" | null
+  >(null);
+  const [registrationMode, setRegistrationMode] = useState<
+    "single" | "bulk" | "queue" | null
+  >(null);
   const [deselectMemberTrigger, setDeselectMemberTrigger] = useState(0);
   const [hasSelectedMember, setHasSelectedMember] = useState(false);
   const [reportsExportHandlers, setReportsExportHandlers] = useState<{
     exportCSV: () => void;
     print: () => void;
   } | null>(null);
-  const [addMemberHandler, setAddMemberHandler] = useState<(() => void) | null>(null);
+  const [addMemberHandler, setAddMemberHandler] = useState<(() => void) | null>(
+    null,
+  );
 
   const toggleQuickSetting = (key: keyof QuickSettings) => {
     const newSettings = { ...quickSettings, [key]: !quickSettings[key] };
@@ -112,7 +121,8 @@ export const Settings: React.FC<SettingsProps> = ({
     const fetchMembers = async () => {
       if (
         activeSection === "group" &&
-        (groupInitialSection === "registration" || groupInitialSection === "members") &&
+        (groupInitialSection === "registration" ||
+          groupInitialSection === "members") &&
         currentGroup
       ) {
         try {
@@ -449,25 +459,29 @@ export const Settings: React.FC<SettingsProps> = ({
                   if (newGroup && onGroupSelect) {
                     onGroupSelect(newGroup);
                     // Refresh members if showing registration or members section with the new group
-                    if (groupInitialSection === "registration" || groupInitialSection === "members") {
+                    if (
+                      groupInitialSection === "registration" ||
+                      groupInitialSection === "members"
+                    ) {
                       try {
-                        const groupMembers = await attendanceManager.getGroupMembers(
-                          newGroup.id,
-                        );
+                        const groupMembers =
+                          await attendanceManager.getGroupMembers(newGroup.id);
                         setMembers(groupMembers);
                       } catch (error) {
                         console.error("Failed to refresh members:", error);
                       }
                     }
                   } else if (
-                    (groupInitialSection === "registration" || groupInitialSection === "members") &&
+                    (groupInitialSection === "registration" ||
+                      groupInitialSection === "members") &&
                     currentGroup
                   ) {
                     // Refresh members if showing registration or members section with current group
                     try {
-                      const groupMembers = await attendanceManager.getGroupMembers(
-                        currentGroup.id,
-                      );
+                      const groupMembers =
+                        await attendanceManager.getGroupMembers(
+                          currentGroup.id,
+                        );
                       setMembers(groupMembers);
                     } catch (error) {
                       console.error("Failed to refresh members:", error);

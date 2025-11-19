@@ -12,9 +12,7 @@ export function RegistrationStatus({ members }: RegistrationStatusProps) {
     <div className="flex items-center gap-2">
       <span className="text-sm text-white/70">Registered:</span>
       {total === 0 ? (
-        <span className="text-sm text-white/60 italic">
-          No members yet
-        </span>
+        <span className="text-sm text-white/60 italic">No members yet</span>
       ) : (
         <span className="text-sm font-semibold text-white">
           {registered} out of {total} {total === 1 ? "member" : "members"}
@@ -23,4 +21,3 @@ export function RegistrationStatus({ members }: RegistrationStatusProps) {
     </div>
   );
 }
-

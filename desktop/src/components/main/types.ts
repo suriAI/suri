@@ -101,8 +101,4 @@ export interface CooldownInfo {
 }
 
 // Re-export needed types
-export type {
-  AttendanceGroup,
-  AttendanceMember,
-  AttendanceRecord,
-};
+export type { AttendanceGroup, AttendanceMember, AttendanceRecord };

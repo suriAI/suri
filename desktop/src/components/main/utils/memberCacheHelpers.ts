@@ -3,7 +3,10 @@
  */
 
 import { attendanceManager } from "../../../services";
-import type { AttendanceGroup, AttendanceMember } from "../../../types/recognition";
+import type {
+  AttendanceGroup,
+  AttendanceMember,
+} from "../../../types/recognition";
 
 /**
  * Gets a member from cache or fetches it if not cached
@@ -13,14 +16,16 @@ import type { AttendanceGroup, AttendanceMember } from "../../../types/recogniti
 export async function getMemberFromCache(
   personId: string,
   currentGroup: AttendanceGroup | null,
-  memberCacheRef: React.RefObject<Map<string, AttendanceMember | null>>
+  memberCacheRef: React.RefObject<Map<string, AttendanceMember | null>>,
 ): Promise<{ member: AttendanceMember | null; memberName: string } | null> {
   try {
     if (!memberCacheRef.current) return null;
     let member = memberCacheRef.current.get(personId);
     if (!member && member !== null) {
       member = await attendanceManager.getMember(personId);
-      (memberCacheRef as React.RefObject<Map<string, AttendanceMember | null>>).current.set(personId, member || null);
+      (
+        memberCacheRef as React.RefObject<Map<string, AttendanceMember | null>>
+      ).current.set(personId, member || null);
     }
 
     // If we have a current group, validate that the member exists and belongs to it
@@ -42,7 +47,9 @@ export async function getMemberFromCache(
     }
   } catch {
     if (memberCacheRef.current) {
-      (memberCacheRef as React.RefObject<Map<string, AttendanceMember | null>>).current.set(personId, null);
+      (
+        memberCacheRef as React.RefObject<Map<string, AttendanceMember | null>>
+      ).current.set(personId, null);
     }
     // In original, when no group, catch doesn't return null - it just sets cache to null
     // But since we're in a try-catch, we need to return something
@@ -54,4 +61,3 @@ export async function getMemberFromCache(
     }
   }
 }
-

@@ -7,7 +7,7 @@
  * Cleans up a media stream by stopping all tracks
  */
 export function cleanupStream(
-  streamRef: React.RefObject<MediaStream | null>
+  streamRef: React.RefObject<MediaStream | null>,
 ): void {
   if (streamRef.current) {
     streamRef.current.getTracks().forEach((track) => {
@@ -26,7 +26,7 @@ export function cleanupStream(
  */
 export function cleanupVideo(
   videoRef: React.RefObject<HTMLVideoElement | null>,
-  pause: boolean = true
+  pause: boolean = true,
 ): void {
   if (videoRef.current) {
     try {
@@ -44,15 +44,16 @@ export function cleanupVideo(
  * Cleans up an animation frame by canceling it
  */
 export function cleanupAnimationFrame(
-  animationFrameRef: React.RefObject<number | undefined>
+  animationFrameRef: React.RefObject<number | undefined>,
 ): void {
   if (animationFrameRef.current) {
     try {
       cancelAnimationFrame(animationFrameRef.current);
-      (animationFrameRef as React.MutableRefObject<number | undefined>).current = undefined;
+      (
+        animationFrameRef as React.MutableRefObject<number | undefined>
+      ).current = undefined;
     } catch {
       // Ignore cleanup errors
     }
   }
 }
-

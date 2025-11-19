@@ -154,14 +154,17 @@ export const Sidebar = memo(function Sidebar({
     if (!isResizingRef.current) return;
 
     let finalWidth = currentResizeWidth.current;
-    
-    if (sidebarRef.current && (!finalWidth || finalWidth < MIN_EXPANDED_WIDTH)) {
+
+    if (
+      sidebarRef.current &&
+      (!finalWidth || finalWidth < MIN_EXPANDED_WIDTH)
+    ) {
       const domWidth = parseFloat(sidebarRef.current.style.width);
       if (!isNaN(domWidth) && domWidth >= MIN_EXPANDED_WIDTH) {
         finalWidth = domWidth;
       }
     }
-    
+
     if (!finalWidth || finalWidth < MIN_EXPANDED_WIDTH) {
       finalWidth = sidebarWidth;
     }

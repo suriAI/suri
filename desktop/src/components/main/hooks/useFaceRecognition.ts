@@ -2,10 +2,17 @@ import { useCallback } from "react";
 import { startTransition } from "react";
 import { attendanceManager } from "../../../services";
 import type { BackendService } from "../../../services";
-import type { AttendanceGroup, AttendanceMember } from "../../../types/recognition";
+import type {
+  AttendanceGroup,
+  AttendanceMember,
+} from "../../../types/recognition";
 import type { DetectionResult } from "../types";
 import type { ExtendedFaceRecognitionResponse } from "../utils";
-import { trimTrackingHistory, areRecognitionMapsEqual, getMemberFromCache } from "../utils";
+import {
+  trimTrackingHistory,
+  areRecognitionMapsEqual,
+  getMemberFromCache,
+} from "../utils";
 import { NON_LOGGING_ANTISPOOF_STATUSES } from "../constants";
 import { useDetectionStore, useAttendanceStore, useUIStore } from "../stores";
 
@@ -22,7 +29,9 @@ interface UseFaceRecognitionOptions {
       }>,
     ) => number
   >;
-  persistentCooldownsRef: React.RefObject<Map<string, import("../types").CooldownInfo>>;
+  persistentCooldownsRef: React.RefObject<
+    Map<string, import("../types").CooldownInfo>
+  >;
   loadAttendanceDataRef: React.RefObject<() => Promise<void>>;
 }
 
@@ -37,10 +46,15 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
   } = options;
 
   // Zustand stores
-  const { currentRecognitionResults, setCurrentRecognitionResults, setTrackedFaces } = useDetectionStore();
-  const { trackingMode, attendanceCooldownSeconds, setPersistentCooldowns } = useAttendanceStore();
+  const {
+    currentRecognitionResults,
+    setCurrentRecognitionResults,
+    setTrackedFaces,
+  } = useDetectionStore();
+  const { trackingMode, attendanceCooldownSeconds, setPersistentCooldowns } =
+    useAttendanceStore();
   const { setError } = useUIStore();
-  
+
   const attendanceEnabled = true;
 
   const performFaceRecognition = useCallback(
@@ -100,7 +114,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
               const memberResult = await getMemberFromCache(
                 response.person_id,
                 currentGroupValue,
-                memberCacheRef
+                memberCacheRef,
               );
 
               if (!memberResult) {
@@ -118,7 +132,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                   const currentLivenessStatus = face.liveness?.status;
                   const existingTrack = newTracked.get(trackedFaceId);
 
-                      if (existingTrack) {
+                  if (existingTrack) {
                     existingTrack.lastSeen = currentTime;
                     existingTrack.confidence = Math.max(
                       existingTrack.confidence,
@@ -186,7 +200,10 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
 
                 if (!shouldSkipAttendanceLogging) {
                   try {
-                    if (response.similarity === undefined || response.similarity === null) {
+                    if (
+                      response.similarity === undefined ||
+                      response.similarity === null
+                    ) {
                       return null;
                     }
                     const actualConfidence = response.similarity;
@@ -215,7 +232,11 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                                 ...existing,
                                 lastKnownBbox: face.bbox,
                               });
-                              (persistentCooldownsRef as React.RefObject<Map<string, import("../types").CooldownInfo>>).current = newPersistent;
+                              (
+                                persistentCooldownsRef as React.RefObject<
+                                  Map<string, import("../types").CooldownInfo>
+                                >
+                              ).current = newPersistent;
                               return newPersistent;
                             }
                             return prev;
@@ -253,7 +274,11 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                                 attendanceCooldownSeconds,
                             };
                             newPersistent.set(cooldownKey, cooldownData);
-                            (persistentCooldownsRef as React.RefObject<Map<string, import("../types").CooldownInfo>>).current = newPersistent;
+                            (
+                              persistentCooldownsRef as React.RefObject<
+                                Map<string, import("../types").CooldownInfo>
+                              >
+                            ).current = newPersistent;
                             return newPersistent;
                           });
                         });
@@ -268,7 +293,11 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                                 memberName: memberName,
                                 lastKnownBbox: face.bbox,
                               });
-                              (persistentCooldownsRef as React.RefObject<Map<string, import("../types").CooldownInfo>>).current = newPersistent;
+                              (
+                                persistentCooldownsRef as React.RefObject<
+                                  Map<string, import("../types").CooldownInfo>
+                                >
+                              ).current = newPersistent;
                             }
                             return newPersistent;
                           });
@@ -430,7 +459,21 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
         console.error("❌ Face recognition processing failed:", error);
       }
     },
-    [trackingMode, attendanceCooldownSeconds, attendanceEnabled, backendServiceRef, calculateAngleConsistencyRef, currentGroupRef, loadAttendanceDataRef, memberCacheRef, persistentCooldownsRef, setCurrentRecognitionResults, setError, setPersistentCooldowns, setTrackedFaces],
+    [
+      trackingMode,
+      attendanceCooldownSeconds,
+      attendanceEnabled,
+      backendServiceRef,
+      calculateAngleConsistencyRef,
+      currentGroupRef,
+      loadAttendanceDataRef,
+      memberCacheRef,
+      persistentCooldownsRef,
+      setCurrentRecognitionResults,
+      setError,
+      setPersistentCooldowns,
+      setTrackedFaces,
+    ],
   );
 
   return {
@@ -439,4 +482,3 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
     performFaceRecognition,
   };
 }
-

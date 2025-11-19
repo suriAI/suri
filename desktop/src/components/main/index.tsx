@@ -1,8 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useCallback,
-} from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Settings } from "../settings";
 // Import all services
 import { attendanceManager, BackendService } from "../../services";
@@ -88,7 +84,7 @@ export default function Main() {
     selectedCamera,
     setSelectedCamera,
   } = useCameraStore();
-  
+
   const {
     currentDetections,
     detectionFps,
@@ -96,12 +92,13 @@ export default function Main() {
     trackedFaces,
     currentRecognitionResults: rawCurrentRecognitionResults,
   } = useDetectionStore();
-  
+
   // Ensure currentRecognitionResults is always a Map
-  const currentRecognitionResults = rawCurrentRecognitionResults instanceof Map 
-    ? rawCurrentRecognitionResults 
-    : new Map();
-  
+  const currentRecognitionResults =
+    rawCurrentRecognitionResults instanceof Map
+      ? rawCurrentRecognitionResults
+      : new Map();
+
   const {
     currentGroup,
     setCurrentGroup,
@@ -122,7 +119,7 @@ export default function Main() {
     setEnableSpoofDetection,
     persistentCooldowns,
   } = useAttendanceStore();
-  
+
   const {
     error,
     setError,
@@ -140,7 +137,7 @@ export default function Main() {
   const recognitionEnabled = true;
 
   // ===== HOOKS INITIALIZATION =====
-  
+
   // 1. Stream State Hook
   useStreamState({
     isProcessingRef,
@@ -208,19 +205,20 @@ export default function Main() {
   });
 
   // 8. Overlay Rendering Hook
-  const { getVideoRect, calculateScaleFactors, animate, resetOverlayRefs } = useOverlayRendering({
-    videoRef,
-    overlayCanvasRef,
-    animationFrameRef,
-    videoRectRef,
-    lastVideoRectUpdateRef,
-  });
+  const { getVideoRect, calculateScaleFactors, animate, resetOverlayRefs } =
+    useOverlayRendering({
+      videoRef,
+      overlayCanvasRef,
+      animationFrameRef,
+      videoRectRef,
+      lastVideoRectUpdateRef,
+    });
 
   // ===== FUNCTIONS THAT STAY IN MAIN =====
-  
+
   // 9. Backend Service Hook
   const stopCameraRef = useRef<((forceCleanup: boolean) => void) | null>(null);
-  
+
   const { initializeWebSocket } = useBackendService({
     backendServiceRef,
     isStreamingRef,
@@ -239,7 +237,6 @@ export default function Main() {
     videoRef,
     backendServiceReadyRef,
   });
-
 
   const startCamera = useCallback(async () => {
     try {
@@ -262,14 +259,16 @@ export default function Main() {
       setIsVideoLoading(true);
       setError(null);
 
-      const currentStatus = backendServiceRef.current?.getWebSocketStatus() || "disconnected";
+      const currentStatus =
+        backendServiceRef.current?.getWebSocketStatus() || "disconnected";
       if (currentStatus !== "connected") {
         try {
           setError("Connecting to detection service...");
           await initializeWebSocket();
           setError(null);
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
           setError(`Failed to connect to detection service: ${errorMessage}`);
           isStreamingRef.current = false;
           setIsStreaming(false);
@@ -329,11 +328,15 @@ export default function Main() {
         setIsVideoLoading(false);
         setCameraActive(true);
 
-        resetFrameCounters(frameCounterRef, skipFramesRef, lastFrameTimestampRef);
+        resetFrameCounters(
+          frameCounterRef,
+          skipFramesRef,
+          lastFrameTimestampRef,
+        );
 
         isScanningRef.current = true;
         backendServiceReadyRef.current = true;
-        
+
         if (backendServiceRef.current?.isWebSocketReady()) {
           processCurrentFrameRef.current();
         }
@@ -360,82 +363,85 @@ export default function Main() {
   ]);
 
   // Set the ref after stopCamera is defined
-  const stopCamera = useCallback((forceCleanup: boolean = false) => {
-    const now = Date.now();
-    const timeSinceLastStop = now - lastStopTimeRef.current;
+  const stopCamera = useCallback(
+    (forceCleanup: boolean = false) => {
+      const now = Date.now();
+      const timeSinceLastStop = now - lastStopTimeRef.current;
 
-    if (!forceCleanup) {
-      if (isStoppingRef.current || !isStreamingRef.current) {
-        return;
+      if (!forceCleanup) {
+        if (isStoppingRef.current || !isStreamingRef.current) {
+          return;
+        }
+
+        if (timeSinceLastStop < 100) {
+          return;
+        }
       }
 
-      if (timeSinceLastStop < 100) {
-        return;
+      isStoppingRef.current = true;
+      lastStopTimeRef.current = now;
+
+      isScanningRef.current = false;
+
+      cleanupStream(streamRef);
+      cleanupVideo(videoRef, !forceCleanup);
+
+      isStreamingRef.current = false;
+      isProcessingRef.current = false;
+      setIsStreaming(false);
+      setIsVideoLoading(false);
+      setCameraActive(false);
+
+      cleanupAnimationFrame(animationFrameRef);
+
+      lastDetectionFrameRef.current = null;
+      resetLastDetectionRef(lastDetectionRef);
+      useDetectionStore.getState().resetDetectionState();
+
+      setDetectionFps(0);
+      fpsTrackingRef.current = {
+        timestamps: [],
+        maxSamples: 10,
+        lastUpdateTime: Date.now(),
+      };
+
+      resetFrameCounters(frameCounterRef, skipFramesRef, lastFrameTimestampRef);
+
+      resetOverlayRefs();
+
+      const overlayCanvas = overlayCanvasRef.current;
+      if (overlayCanvas) {
+        const ctx = overlayCanvas.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        }
       }
-    }
 
-    isStoppingRef.current = true;
-    lastStopTimeRef.current = now;
-
-    isScanningRef.current = false;
-
-    cleanupStream(streamRef);
-    cleanupVideo(videoRef, !forceCleanup);
-
-    isStreamingRef.current = false;
-    isProcessingRef.current = false;
-    setIsStreaming(false);
-    setIsVideoLoading(false);
-    setCameraActive(false);
-
-    cleanupAnimationFrame(animationFrameRef);
-
-    lastDetectionFrameRef.current = null;
-    resetLastDetectionRef(lastDetectionRef);
-    useDetectionStore.getState().resetDetectionState();
-
-    setDetectionFps(0);
-    fpsTrackingRef.current = {
-      timestamps: [],
-      maxSamples: 10,
-      lastUpdateTime: Date.now(),
-    };
-
-    resetFrameCounters(frameCounterRef, skipFramesRef, lastFrameTimestampRef);
-
-    resetOverlayRefs();
-
-    const overlayCanvas = overlayCanvasRef.current;
-    if (overlayCanvas) {
-      const ctx = overlayCanvas.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-      }
-    }
-
-    isStoppingRef.current = false;
-  }, [
-    resetOverlayRefs,
-    setIsStreaming,
-    setIsVideoLoading,
-    setCameraActive,
-    setDetectionFps,
-    streamRef,
-    videoRef,
-    animationFrameRef,
-    overlayCanvasRef,
-    lastDetectionFrameRef,
-    lastDetectionRef,
-    frameCounterRef,
-    skipFramesRef,
-    lastFrameTimestampRef,
-    fpsTrackingRef,
-    isStreamingRef,
-    isProcessingRef,
-    isScanningRef,
-    isStoppingRef,
-    lastStopTimeRef,
-  ]);
+      isStoppingRef.current = false;
+    },
+    [
+      resetOverlayRefs,
+      setIsStreaming,
+      setIsVideoLoading,
+      setCameraActive,
+      setDetectionFps,
+      streamRef,
+      videoRef,
+      animationFrameRef,
+      overlayCanvasRef,
+      lastDetectionFrameRef,
+      lastDetectionRef,
+      frameCounterRef,
+      skipFramesRef,
+      lastFrameTimestampRef,
+      fpsTrackingRef,
+      isStreamingRef,
+      isProcessingRef,
+      isScanningRef,
+      isStoppingRef,
+      lastStopTimeRef,
+    ],
+  );
 
   // Set the ref after stopCamera is defined
   useEffect(() => {
@@ -541,12 +547,16 @@ export default function Main() {
       performCleanup();
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload, { capture: true });
+    window.addEventListener("beforeunload", handleBeforeUnload, {
+      capture: true,
+    });
     window.addEventListener("pagehide", handlePageHide, { capture: true });
     window.addEventListener("unload", handlePageHide, { capture: true });
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload, { capture: true });
+      window.removeEventListener("beforeunload", handleBeforeUnload, {
+        capture: true,
+      });
       window.removeEventListener("pagehide", handlePageHide, { capture: true });
       window.removeEventListener("unload", handlePageHide, { capture: true });
     };
@@ -634,7 +644,9 @@ export default function Main() {
             loadAttendanceDataRef.current();
           }}
           isFullScreen={isSettingsFullScreen}
-          onToggleFullScreen={() => setIsSettingsFullScreen(!isSettingsFullScreen)}
+          onToggleFullScreen={() =>
+            setIsSettingsFullScreen(!isSettingsFullScreen)
+          }
           isModal={true}
           quickSettings={quickSettings}
           onQuickSettingsChange={setQuickSettings}

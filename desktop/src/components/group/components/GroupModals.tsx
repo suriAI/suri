@@ -1,48 +1,37 @@
-import type {
-  AttendanceGroup,
-  AttendanceMember,
-} from "../../../types/recognition";
+import type { AttendanceGroup } from "../../../types/recognition";
 
-import { AddMember } from "../modals/AddMember";
-import { EditMember } from "../modals/EditMember";
-import { CreateGroup } from "../modals/CreateGroup";
-import { EditGroup } from "../modals/EditGroup";
+import { useGroupStore } from "../stores";
+import { useGroupModals } from "../hooks";
+import { AddMember, CreateGroup, EditGroup, EditMember } from "../modals";
 
 interface GroupModalsProps {
-  selectedGroup: AttendanceGroup | null;
-  showAddMemberModal: boolean;
-  showEditMemberModal: boolean;
-  showCreateGroupModal: boolean;
-  showEditGroupModal: boolean;
-  editingMember: AttendanceMember | null;
-  onCloseAddMember: () => void;
-  onCloseEditMember: () => void;
-  onCloseCreateGroup: () => void;
-  onCloseEditGroup: () => void;
   onMemberSuccess: () => void;
   onGroupSuccess: (group?: AttendanceGroup) => void;
 }
 
 export function GroupModals({
-  selectedGroup,
-  showAddMemberModal,
-  showEditMemberModal,
-  showCreateGroupModal,
-  showEditGroupModal,
-  editingMember,
-  onCloseAddMember,
-  onCloseEditMember,
-  onCloseCreateGroup,
-  onCloseEditGroup,
   onMemberSuccess,
   onGroupSuccess,
 }: GroupModalsProps) {
+  // Zustand stores
+  const { selectedGroup, fetchGroups, setSelectedGroup } = useGroupStore();
+  const {
+    showAddMemberModal,
+    showEditMemberModal,
+    showCreateGroupModal,
+    showEditGroupModal,
+    editingMember,
+    closeAddMember,
+    closeEditMember,
+    closeCreateGroup,
+    closeEditGroup,
+  } = useGroupModals();
   return (
     <>
       {showAddMemberModal && selectedGroup && (
         <AddMember
           group={selectedGroup}
-          onClose={onCloseAddMember}
+          onClose={closeAddMember}
           onSuccess={onMemberSuccess}
         />
       )}
@@ -50,23 +39,32 @@ export function GroupModals({
       {showEditMemberModal && editingMember && (
         <EditMember
           member={editingMember}
-          onClose={onCloseEditMember}
+          onClose={closeEditMember}
           onSuccess={onMemberSuccess}
         />
       )}
 
       {showCreateGroupModal && (
         <CreateGroup
-          onClose={onCloseCreateGroup}
-          onSuccess={(newGroup) => onGroupSuccess(newGroup)}
+          onClose={closeCreateGroup}
+          onSuccess={(newGroup) => {
+            fetchGroups();
+            if (newGroup) {
+              setSelectedGroup(newGroup);
+            }
+            onGroupSuccess(newGroup);
+          }}
         />
       )}
 
       {showEditGroupModal && selectedGroup && (
         <EditGroup
           group={selectedGroup}
-          onClose={onCloseEditGroup}
-          onSuccess={() => onGroupSuccess()}
+          onClose={closeEditGroup}
+          onSuccess={() => {
+            fetchGroups();
+            onGroupSuccess();
+          }}
         />
       )}
     </>

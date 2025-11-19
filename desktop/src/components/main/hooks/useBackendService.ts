@@ -63,11 +63,17 @@ export function useBackendService(options: UseBackendServiceOptions) {
   } = options;
 
   // Zustand stores
-  const { setIsStreaming, setIsVideoLoading, setCameraActive, websocketStatus, setWebsocketStatus } = useCameraStore();
+  const {
+    setIsStreaming,
+    setIsVideoLoading,
+    setCameraActive,
+    websocketStatus,
+    setWebsocketStatus,
+  } = useCameraStore();
   const { setCurrentDetections, setDetectionFps } = useDetectionStore();
   const { enableSpoofDetection } = useAttendanceStore();
   const { setError } = useUIStore();
-  
+
   const recognitionEnabled = true;
   const initializationRef = useRef<{
     initialized: boolean;
@@ -123,8 +129,7 @@ export function useBackendService(options: UseBackendServiceOptions) {
           const waitTime = Math.min(pollInterval * 2, 2000);
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         } catch (error) {
-          lastError =
-            error instanceof Error ? error.message : "Unknown error";
+          lastError = error instanceof Error ? error.message : "Unknown error";
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
         }
       }
@@ -163,7 +168,8 @@ export function useBackendService(options: UseBackendServiceOptions) {
           return;
         }
 
-        (lastFrameTimestampRef as React.RefObject<number>).current = responseFrameTimestamp;
+        (lastFrameTimestampRef as React.RefObject<number>).current =
+          responseFrameTimestamp;
 
         const now = Date.now();
         const fpsTracking = fpsTrackingRef.current;
@@ -193,7 +199,8 @@ export function useBackendService(options: UseBackendServiceOptions) {
 
         if (data.faces && Array.isArray(data.faces)) {
           if (data.suggested_skip !== undefined) {
-            (skipFramesRef as React.RefObject<number>).current = data.suggested_skip;
+            (skipFramesRef as React.RefObject<number>).current =
+              data.suggested_skip;
           }
 
           if (!data.model_used) {
@@ -201,54 +208,62 @@ export function useBackendService(options: UseBackendServiceOptions) {
           }
 
           const detectionResult: DetectionResult = {
-            faces: data.faces.map((face: WebSocketFaceData) => {
-              if (!face.bbox || !Array.isArray(face.bbox) || face.bbox.length !== 4) {
-                return null;
-              }
+            faces: data.faces
+              .map((face: WebSocketFaceData) => {
+                if (
+                  !face.bbox ||
+                  !Array.isArray(face.bbox) ||
+                  face.bbox.length !== 4
+                ) {
+                  return null;
+                }
 
-              if (face.confidence === undefined) {
-                return null;
-              }
+                if (face.confidence === undefined) {
+                  return null;
+                }
 
-              const bbox = face.bbox;
+                const bbox = face.bbox;
 
-              return {
-                bbox: {
-                  x: bbox[0],
-                  y: bbox[1],
-                  width: bbox[2],
-                  height: bbox[3],
-                },
-                confidence: face.confidence,
-                track_id: face.track_id,
-                landmarks_5: face.landmarks_5,
-                liveness: (() => {
-                  if (!face.liveness) {
-                    return undefined;
-                  }
-                  if (face.liveness.status === undefined) {
-                    return undefined;
-                  }
-                  if (face.liveness.is_real === undefined) {
-                    return undefined;
-                  }
-                  return {
-                    is_real: face.liveness.is_real,
-                    confidence: face.liveness.confidence,
-                    live_score: face.liveness.live_score,
-                    spoof_score: face.liveness.spoof_score,
-                    status: face.liveness.status,
-                    attack_type: face.liveness.attack_type,
-                    message: face.liveness.message,
-                  };
-                })(),
-              };
-            }).filter((face) => face !== null) as DetectionResult["faces"],
+                return {
+                  bbox: {
+                    x: bbox[0],
+                    y: bbox[1],
+                    width: bbox[2],
+                    height: bbox[3],
+                  },
+                  confidence: face.confidence,
+                  track_id: face.track_id,
+                  landmarks_5: face.landmarks_5,
+                  liveness: (() => {
+                    if (!face.liveness) {
+                      return undefined;
+                    }
+                    if (face.liveness.status === undefined) {
+                      return undefined;
+                    }
+                    if (face.liveness.is_real === undefined) {
+                      return undefined;
+                    }
+                    return {
+                      is_real: face.liveness.is_real,
+                      confidence: face.liveness.confidence,
+                      live_score: face.liveness.live_score,
+                      spoof_score: face.liveness.spoof_score,
+                      status: face.liveness.status,
+                      attack_type: face.liveness.attack_type,
+                      message: face.liveness.message,
+                    };
+                  })(),
+                };
+              })
+              .filter((face) => face !== null) as DetectionResult["faces"],
             model_used: data.model_used,
           };
 
           setCurrentDetections(detectionResult);
-          (lastDetectionRef as React.RefObject<DetectionResult | null>).current = detectionResult;
+          (
+            lastDetectionRef as React.RefObject<DetectionResult | null>
+          ).current = detectionResult;
 
           if (
             recognitionEnabled &&
@@ -352,7 +367,8 @@ export function useBackendService(options: UseBackendServiceOptions) {
       const readinessResult = await waitForBackendReady(60000, 500);
 
       if (!readinessResult.ready || !readinessResult.modelsLoaded) {
-        const errorMessage = readinessResult.error ?? "Backend not ready: Models still loading";
+        const errorMessage =
+          readinessResult.error ?? "Backend not ready: Models still loading";
         throw new Error(errorMessage);
       }
 
@@ -420,7 +436,10 @@ export function useBackendService(options: UseBackendServiceOptions) {
       return;
     }
 
-    if (initializationRef.current.initialized && !backendServiceRef.current?.isWebSocketReady()) {
+    if (
+      initializationRef.current.initialized &&
+      !backendServiceRef.current?.isWebSocketReady()
+    ) {
       initializationRef.current.initialized = false;
     }
 
@@ -461,7 +480,8 @@ export function useBackendService(options: UseBackendServiceOptions) {
           }
         } else if (currentAnimationFrame) {
           cancelAnimationFrame(currentAnimationFrame);
-          (animationFrameRef as React.RefObject<number | undefined>).current = undefined;
+          (animationFrameRef as React.RefObject<number | undefined>).current =
+            undefined;
         }
 
         const initRef = initializationRef;
@@ -518,7 +538,13 @@ export function useBackendService(options: UseBackendServiceOptions) {
         processCurrentFrameRef.current?.();
       }
     }
-  }, [websocketStatus, isScanningRef, isStreamingRef, backendServiceRef, processCurrentFrameRef]);
+  }, [
+    websocketStatus,
+    isScanningRef,
+    isStreamingRef,
+    backendServiceRef,
+    processCurrentFrameRef,
+  ]);
 
   return {
     backendServiceReadyRef,
@@ -527,4 +553,3 @@ export function useBackendService(options: UseBackendServiceOptions) {
     waitForBackendReady,
   };
 }
-

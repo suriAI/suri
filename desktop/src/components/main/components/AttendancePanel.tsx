@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, memo, useCallback } from "react";
 import { createDisplayNameMap } from "../../../utils";
-import { Dropdown } from "../../shared/Dropdown";
+import { Dropdown } from "../../shared";
 import type {
   AttendanceGroup,
   AttendanceMember,
@@ -74,19 +74,16 @@ export const AttendancePanel = memo(function AttendancePanel({
     [],
   );
 
-  const handleSortFieldChange = useCallback(
-    (field: SortField | null) => {
-      if (field) {
-        setSortField(field);
-        if (field === "time") {
-          setSortOrder("desc");
-        } else if (field === "name") {
-          setSortOrder("asc");
-        }
+  const handleSortFieldChange = useCallback((field: SortField | null) => {
+    if (field) {
+      setSortField(field);
+      if (field === "time") {
+        setSortOrder("desc");
+      } else if (field === "name") {
+        setSortOrder("asc");
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   const handleLoadMore = useCallback(() => {
     setDisplayLimit((prev) => prev + 20);
@@ -110,7 +107,9 @@ export const AttendancePanel = memo(function AttendancePanel({
       const filteredArray: typeof filtered = [];
       for (let i = 0; i < filtered.length; i++) {
         const record = filtered[i];
-        const displayName = (displayNameMap.get(record.person_id) || "Unknown").toLowerCase();
+        const displayName = (
+          displayNameMap.get(record.person_id) || "Unknown"
+        ).toLowerCase();
         if (displayName.includes(normalizedQuery)) {
           filteredArray.push(record);
         }
@@ -281,7 +280,8 @@ export const AttendancePanel = memo(function AttendancePanel({
                     onClick={handleLoadMore}
                     className="w-full py-2 text-xs bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] rounded text-white/70 transition-colors"
                   >
-                    Load More ({processedRecords.length - displayLimit} remaining)
+                    Load More ({processedRecords.length - displayLimit}{" "}
+                    remaining)
                   </button>
                 </div>
               )}

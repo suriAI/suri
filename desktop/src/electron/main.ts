@@ -639,4 +639,3 @@ app.on("before-quit", (event) => {
     setImmediate(() => app.exit(0));
   }
 });
-

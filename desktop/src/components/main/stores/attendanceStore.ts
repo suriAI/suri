@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import type { AttendanceGroup, AttendanceMember, AttendanceRecord } from "../../../types/recognition";
+import type {
+  AttendanceGroup,
+  AttendanceMember,
+  AttendanceRecord,
+} from "../../../types/recognition";
 import type { CooldownInfo } from "../types";
 
 interface AttendanceState {
@@ -8,21 +12,21 @@ interface AttendanceState {
   attendanceGroups: AttendanceGroup[];
   groupMembers: AttendanceMember[];
   recentAttendance: AttendanceRecord[];
-  
+
   // Group management UI
   showGroupManagement: boolean;
   showDeleteConfirmation: boolean;
   groupToDelete: AttendanceGroup | null;
   newGroupName: string;
-  
+
   // Cooldowns
   persistentCooldowns: Map<string, CooldownInfo>;
-  
+
   // Settings
   trackingMode: "auto" | "manual";
   attendanceCooldownSeconds: number;
   enableSpoofDetection: boolean;
-  
+
   // Actions
   setCurrentGroup: (group: AttendanceGroup | null) => void;
   setAttendanceGroups: (groups: AttendanceGroup[]) => void;
@@ -32,7 +36,11 @@ interface AttendanceState {
   setShowDeleteConfirmation: (show: boolean) => void;
   setGroupToDelete: (group: AttendanceGroup | null) => void;
   setNewGroupName: (name: string) => void;
-  setPersistentCooldowns: (cooldowns: Map<string, CooldownInfo> | ((prev: Map<string, CooldownInfo>) => Map<string, CooldownInfo>)) => void;
+  setPersistentCooldowns: (
+    cooldowns:
+      | Map<string, CooldownInfo>
+      | ((prev: Map<string, CooldownInfo>) => Map<string, CooldownInfo>),
+  ) => void;
   setTrackingMode: (mode: "auto" | "manual") => void;
   setAttendanceCooldownSeconds: (seconds: number) => void;
   setEnableSpoofDetection: (enabled: boolean) => void;
@@ -59,7 +67,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   trackingMode: "auto",
   attendanceCooldownSeconds: 10,
   enableSpoofDetection: getInitialSpoofDetection(),
-  
+
   // Actions
   setCurrentGroup: (group) => {
     set({ currentGroup: group });
@@ -78,15 +86,16 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   setNewGroupName: (name) => set({ newGroupName: name }),
   setPersistentCooldowns: (cooldowns) => {
     const prevCooldowns = get().persistentCooldowns;
-    const newCooldowns = typeof cooldowns === "function" ? cooldowns(prevCooldowns) : cooldowns;
+    const newCooldowns =
+      typeof cooldowns === "function" ? cooldowns(prevCooldowns) : cooldowns;
     const mapCooldowns = newCooldowns instanceof Map ? newCooldowns : new Map();
     set({ persistentCooldowns: mapCooldowns });
   },
   setTrackingMode: (mode) => set({ trackingMode: mode }),
-  setAttendanceCooldownSeconds: (seconds) => set({ attendanceCooldownSeconds: seconds }),
+  setAttendanceCooldownSeconds: (seconds) =>
+    set({ attendanceCooldownSeconds: seconds }),
   setEnableSpoofDetection: (enabled) => {
     set({ enableSpoofDetection: enabled });
     localStorage.setItem("suri_enable_spoof_detection", String(enabled));
   },
 }));
-

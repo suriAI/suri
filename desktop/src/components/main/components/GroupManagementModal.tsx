@@ -1,5 +1,5 @@
 import type { AttendanceGroup } from "../types";
-import { FormInput } from "../../common/FormInput";
+import { FormInput } from "../../common";
 
 interface GroupManagementModalProps {
   showGroupManagement: boolean;

@@ -13,7 +13,16 @@ interface UseStreamStateOptions {
 }
 
 export function useStreamState(options: UseStreamStateOptions) {
-  const { isProcessingRef, animationFrameRef, isScanningRef, isStreamingRef, isStartingRef, isStoppingRef, lastStartTimeRef, lastStopTimeRef } = options;
+  const {
+    isProcessingRef,
+    animationFrameRef,
+    isScanningRef,
+    isStreamingRef,
+    isStartingRef,
+    isStoppingRef,
+    lastStartTimeRef,
+    lastStopTimeRef,
+  } = options;
   const { setIsStreaming } = useCameraStore();
 
   const emergencyRecovery = useCallback(() => {
@@ -30,9 +39,20 @@ export function useStreamState(options: UseStreamStateOptions) {
 
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
-      (animationFrameRef as React.RefObject<number | undefined>).current = undefined;
+      (animationFrameRef as React.RefObject<number | undefined>).current =
+        undefined;
     }
-  }, [setIsStreaming, isProcessingRef, animationFrameRef, isScanningRef, isStreamingRef, isStartingRef, isStoppingRef, lastStartTimeRef, lastStopTimeRef]);
+  }, [
+    setIsStreaming,
+    isProcessingRef,
+    animationFrameRef,
+    isScanningRef,
+    isStreamingRef,
+    isStartingRef,
+    isStoppingRef,
+    lastStartTimeRef,
+    lastStopTimeRef,
+  ]);
 
   useEffect(() => {
     let startTimeout: NodeJS.Timeout | undefined;
@@ -60,4 +80,3 @@ export function useStreamState(options: UseStreamStateOptions) {
     };
   }, [emergencyRecovery, isStartingRef, isStoppingRef]);
 }
-

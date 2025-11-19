@@ -28,9 +28,10 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
   // Zustand stores
   const { currentDetections, currentRecognitionResults } = useDetectionStore();
   const { isStreaming } = useCameraStore();
-  const { persistentCooldowns, attendanceCooldownSeconds } = useAttendanceStore();
+  const { persistentCooldowns, attendanceCooldownSeconds } =
+    useAttendanceStore();
   const { quickSettings } = useUIStore();
-  
+
   const recognitionEnabled = true;
 
   const lastCanvasSizeRef = useRef<{ width: number; height: number }>({
@@ -56,8 +57,12 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
     if (!video) return null;
 
     const now = Date.now();
-    if (!videoRectRef.current || now - (lastVideoRectUpdateRef.current ?? 0) > 200) {
-      (videoRectRef as React.RefObject<DOMRect | null>).current = video.getBoundingClientRect();
+    if (
+      !videoRectRef.current ||
+      now - (lastVideoRectUpdateRef.current ?? 0) > 200
+    ) {
+      (videoRectRef as React.RefObject<DOMRect | null>).current =
+        video.getBoundingClientRect();
       (lastVideoRectUpdateRef as React.RefObject<number>).current = now;
     }
 
@@ -150,16 +155,23 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
   const animate = useCallback(() => {
     const detectionsToRender = currentDetections;
     const overlayCanvas = overlayCanvasRef.current;
-    
+
     if (!overlayCanvas || !isStreaming) {
-      if (overlayCanvas && overlayCanvas.width > 0 && overlayCanvas.height > 0) {
-        const ctx = overlayCanvas.getContext("2d", { willReadFrequently: false });
+      if (
+        overlayCanvas &&
+        overlayCanvas.width > 0 &&
+        overlayCanvas.height > 0
+      ) {
+        const ctx = overlayCanvas.getContext("2d", {
+          willReadFrequently: false,
+        });
         if (ctx) {
           ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         }
       }
       if (isStreaming) {
-        (animationFrameRef as React.RefObject<number | undefined>).current = requestAnimationFrame(animate);
+        (animationFrameRef as React.RefObject<number | undefined>).current =
+          requestAnimationFrame(animate);
       }
       return;
     }
@@ -171,7 +183,8 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
       }
       lastDetectionHashRef.current = "";
       if (isStreaming) {
-        (animationFrameRef as React.RefObject<number | undefined>).current = requestAnimationFrame(animate);
+        (animationFrameRef as React.RefObject<number | undefined>).current =
+          requestAnimationFrame(animate);
       }
       return;
     }
@@ -183,16 +196,16 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
     if (now - lastHashCalculationRef.current >= 16) {
       const facesCount = detectionsToRender.faces.length;
       const recognitionCount = recognitionForHash.size;
-      
+
       let hashSum = facesCount * 1000 + recognitionCount;
-      
+
       const sampleCount = Math.min(3, detectionsToRender.faces.length);
       for (let i = 0; i < sampleCount; i++) {
         const face = detectionsToRender.faces[i];
         hashSum += Math.round(face.bbox.x / 10) * 100;
         hashSum += Math.round(face.bbox.y / 10) * 10;
       }
-      
+
       let recIndex = 0;
       for (const [trackId, result] of recognitionForHash) {
         if (recIndex >= 3) break;
@@ -202,7 +215,7 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
         }
         recIndex++;
       }
-      
+
       // Include persistentCooldowns in hash to trigger redraw when cooldowns change
       // This ensures the "Done" indicator appears/disappears correctly
       hashSum += persistentCooldowns.size * 10000;
@@ -213,7 +226,7 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
         hashSum += Math.floor(cooldownInfo.startTime / 1000);
         cooldownIndex++;
       }
-      
+
       const simpleHash = String(hashSum);
 
       if (simpleHash !== lastDetectionHashRef.current) {
@@ -233,7 +246,8 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
     }
 
     if (isStreaming) {
-      (animationFrameRef as React.RefObject<number | undefined>).current = requestAnimationFrame(animate);
+      (animationFrameRef as React.RefObject<number | undefined>).current =
+        requestAnimationFrame(animate);
     }
   }, [
     isStreaming,
@@ -259,4 +273,3 @@ export function useOverlayRendering(options: UseOverlayRenderingOptions) {
     resetOverlayRefs,
   };
 }
-

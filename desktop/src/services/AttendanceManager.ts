@@ -8,7 +8,7 @@ import type {
   AttendanceSettings,
   AttendanceEvent,
 } from "../types/recognition.js";
-import { getLocalDateString } from "../utils";
+import { getLocalDateString } from "../utils/index.js";
 
 // API Configuration
 const API_BASE_URL = "http://127.0.0.1:8700";
@@ -126,7 +126,10 @@ export class AttendanceManager {
         await new Promise((resolve) => setTimeout(resolve, checkInterval));
       } catch (error) {
         // Log error for debugging but continue waiting
-        console.debug("[AttendanceManager] Error checking backend readiness:", error);
+        console.debug(
+          "[AttendanceManager] Error checking backend readiness:",
+          error,
+        );
         await new Promise((resolve) => setTimeout(resolve, checkInterval));
       }
     }
@@ -468,41 +471,44 @@ export class AttendanceManager {
           // No joined_at date, use report start date as fallback
           memberJoinedAt = startDate;
         }
-        
+
         // Calculate effective date range (start from member's join date or report start date, whichever is later)
-        const effectiveStartDate = memberJoinedAt > startDate ? memberJoinedAt : startDate;
+        const effectiveStartDate =
+          memberJoinedAt > startDate ? memberJoinedAt : startDate;
         const effectiveEndDate = endDate;
-        
+
         // Calculate total days the member was actually in the group during the report period
-        const memberTimeDiff = Math.abs(effectiveEndDate.getTime() - effectiveStartDate.getTime());
-        const totalDaysMemberWasInGroup = Math.ceil(memberTimeDiff / (1000 * 60 * 60 * 24)) + 1;
-        
+        const memberTimeDiff = Math.abs(
+          effectiveEndDate.getTime() - effectiveStartDate.getTime(),
+        );
+        const totalDaysMemberWasInGroup =
+          Math.ceil(memberTimeDiff / (1000 * 60 * 60 * 24)) + 1;
+
         // Only count sessions after the member joined (including the join date itself)
         // Filter out any old sessions that might exist for dates before joined_at
-        const memberSessions = sessions.filter(
-          (s) => {
-            if (s.person_id !== member.person_id) return false;
-            const sessionDate = new Date(s.date);
-            sessionDate.setHours(0, 0, 0, 0);
-            const joinedDate = new Date(memberJoinedAt);
-            joinedDate.setHours(0, 0, 0, 0);
-            // Include sessions on or after the join date
-            return sessionDate >= joinedDate;
-          }
-        );
+        const memberSessions = sessions.filter((s) => {
+          if (s.person_id !== member.person_id) return false;
+          const sessionDate = new Date(s.date);
+          sessionDate.setHours(0, 0, 0, 0);
+          const joinedDate = new Date(memberJoinedAt);
+          joinedDate.setHours(0, 0, 0, 0);
+          // Include sessions on or after the join date
+          return sessionDate >= joinedDate;
+        });
 
         const presentDays = memberSessions.filter(
           (s) => s.status !== "absent",
         ).length;
-        
+
         // Only count absent days for the period when member was actually in the group
-        const absentDays = totalDaysMemberWasInGroup > 0 
-          ? totalDaysMemberWasInGroup - presentDays 
-          : 0;
+        const absentDays =
+          totalDaysMemberWasInGroup > 0
+            ? totalDaysMemberWasInGroup - presentDays
+            : 0;
         const lateDays = memberSessions.filter((s) => s.is_late).length;
         const attendanceRate =
-          totalDaysMemberWasInGroup > 0 
-            ? (presentDays / totalDaysMemberWasInGroup) * 100 
+          totalDaysMemberWasInGroup > 0
+            ? (presentDays / totalDaysMemberWasInGroup) * 100
             : 0;
 
         return {

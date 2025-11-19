@@ -6,7 +6,7 @@ export interface ExtendedFaceRecognitionResponse
   memberName?: string;
 }
 
-export const trimTrackingHistory = <T,>(history: T[]): T[] => {
+export const trimTrackingHistory = <T>(history: T[]): T[] => {
   if (history.length <= TRACKING_HISTORY_LIMIT) {
     return history;
   }

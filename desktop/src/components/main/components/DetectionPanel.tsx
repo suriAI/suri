@@ -75,7 +75,9 @@ const DetectionCard = memo(
     };
 
     const statusStyles = getStatusStyles();
-    const isSpoof = face.liveness?.status === "spoof" || face.liveness?.status === "too_small";
+    const isSpoof =
+      face.liveness?.status === "spoof" ||
+      face.liveness?.status === "too_small";
     const hasName = isRecognized && recognitionResult?.person_id && displayName;
 
     return (
@@ -108,9 +110,7 @@ const DetectionCard = memo(
                   isSpoof ? "text-red-300/70" : "text-white/40"
                 }`}
               >
-                {isSpoof 
-                  ? "Spoofed Face"
-                  : "Unknown"}
+                {isSpoof ? "Spoofed Face" : "Unknown"}
               </span>
             )}
           </div>
@@ -167,14 +167,12 @@ export function DetectionPanel({
     return [...faces].sort((a, b) => {
       const aIsLive = a.liveness?.status === "live";
       const bIsLive = b.liveness?.status === "live";
-      
+
       if (aIsLive && !bIsLive) return -1; // a comes first
-      if (!aIsLive && bIsLive) return 1;  // b comes first
+      if (!aIsLive && bIsLive) return 1; // b comes first
       return 0; // maintain original order for same status
     });
-  }, [
-    currentDetections?.faces,
-  ]);
+  }, [currentDetections?.faces]);
 
   const hasDetections = filteredFaces.length > 0;
 
@@ -184,17 +182,17 @@ export function DetectionPanel({
         <div className="flex-1 flex items-center justify-center min-h-0">
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="relative">
-              <svg 
-                className="w-8 h-8 text-white/30 animate-pulse" 
-                fill="none" 
-                stroke="currentColor" 
+              <svg
+                className="w-8 h-8 text-white/30 animate-pulse"
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1.5} 
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
                 />
               </svg>
             </div>

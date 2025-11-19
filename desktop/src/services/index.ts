@@ -1,6 +1,2 @@
-// Attendance Manager
-export { AttendanceManager, attendanceManager } from "./AttendanceManager";
-
-// Backend Service
-export { BackendService, backendService } from "./BackendService";
-
+export { AttendanceManager, attendanceManager } from "./AttendanceManager.js";
+export { BackendService, backendService } from "./BackendService.js";

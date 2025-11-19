@@ -6,16 +6,18 @@ interface CameraState {
   isVideoLoading: boolean;
   cameraActive: boolean;
   websocketStatus: "disconnected" | "connecting" | "connected";
-  
+
   // Camera devices
   cameraDevices: MediaDeviceInfo[];
   selectedCamera: string;
-  
+
   // Actions
   setIsStreaming: (value: boolean) => void;
   setIsVideoLoading: (value: boolean) => void;
   setCameraActive: (value: boolean) => void;
-  setWebsocketStatus: (status: "disconnected" | "connecting" | "connected") => void;
+  setWebsocketStatus: (
+    status: "disconnected" | "connecting" | "connected",
+  ) => void;
   setCameraDevices: (devices: MediaDeviceInfo[]) => void;
   setSelectedCamera: (deviceId: string) => void;
 }
@@ -28,7 +30,7 @@ export const useCameraStore = create<CameraState>((set) => ({
   websocketStatus: "disconnected",
   cameraDevices: [],
   selectedCamera: "",
-  
+
   // Actions
   setIsStreaming: (value) => set({ isStreaming: value }),
   setIsVideoLoading: (value) => set({ isVideoLoading: value }),
@@ -37,4 +39,3 @@ export const useCameraStore = create<CameraState>((set) => ({
   setCameraDevices: (devices) => set({ cameraDevices: devices }),
   setSelectedCamera: (deviceId) => set({ selectedCamera: deviceId }),
 }));
-

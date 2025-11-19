@@ -80,7 +80,7 @@ export const drawLandmarks = (
         if (displayWidth !== undefined && displayHeight !== undefined) {
           const largeMargin = Math.max(
             20,
-            Math.min(100, Math.max(displayWidth, displayHeight) * 0.05)
+            Math.min(100, Math.max(displayWidth, displayHeight) * 0.05),
           );
           if (
             x < -largeMargin ||
@@ -118,7 +118,11 @@ export const drawLandmarks = (
   const bboxCenterX = bboxX + bboxW / 2;
   const bboxCenterY = bboxY + bboxH / 2;
 
-  const transformedLandmarks: Array<{ x: number; y: number; original: number[] }> = [];
+  const transformedLandmarks: Array<{
+    x: number;
+    y: number;
+    original: number[];
+  }> = [];
   for (const point of landmarks) {
     if (point && point.length >= 2) {
       const x = displayWidth
@@ -137,11 +141,11 @@ export const drawLandmarks = (
   }
 
   const is5PointLandmarks = landmarks.length === 5;
-  
+
   let outlierThreshold = Infinity;
   if (!is5PointLandmarks && transformedLandmarks.length > 5) {
     const distances = transformedLandmarks.map((lm) =>
-      Math.hypot(lm.x - bboxCenterX, lm.y - bboxCenterY)
+      Math.hypot(lm.x - bboxCenterX, lm.y - bboxCenterY),
     );
     const sorted = [...distances].sort((a, b) => a - b);
     const q1Idx = Math.floor(sorted.length * 0.25);
@@ -155,7 +159,10 @@ export const drawLandmarks = (
   const margin = Math.max(bboxW, bboxH) * 0.5;
   const largeMargin =
     displayWidth !== undefined && displayHeight !== undefined
-      ? Math.max(20, Math.min(100, Math.max(displayWidth, displayHeight) * 0.05))
+      ? Math.max(
+          20,
+          Math.min(100, Math.max(displayWidth, displayHeight) * 0.05),
+        )
       : 50;
 
   transformedLandmarks.forEach((lm) => {
@@ -284,12 +291,14 @@ export const drawOverlays = ({
 
   const currentWidth = overlayCanvas.width;
   const currentHeight = overlayCanvas.height;
-  
+
   if (currentWidth !== displayWidth || currentHeight !== displayHeight) {
     overlayCanvas.width = displayWidth;
     overlayCanvas.height = displayHeight;
-    if (overlayCanvas.style.width !== `${displayWidth}px` || 
-        overlayCanvas.style.height !== `${displayHeight}px`) {
+    if (
+      overlayCanvas.style.width !== `${displayWidth}px` ||
+      overlayCanvas.style.height !== `${displayHeight}px`
+    ) {
       overlayCanvas.style.width = `${displayWidth}px`;
       overlayCanvas.style.height = `${displayHeight}px`;
     }

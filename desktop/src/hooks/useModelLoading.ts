@@ -27,7 +27,9 @@ export function useModelLoading(): ModelLoadingState {
       try {
         // Check if we've exceeded max wait time
         if (Date.now() - startTimeRef.current > maxWaitTime) {
-          console.error("[useModelLoading] Timeout waiting for backend to be ready");
+          console.error(
+            "[useModelLoading] Timeout waiting for backend to be ready",
+          );
           if (isMountedRef.current) {
             setModelsReady(false);
             setIsChecking(false);
@@ -47,7 +49,9 @@ export function useModelLoading(): ModelLoadingState {
           setTimeout(() => resolve(false), 10000); // 10 second timeout per check
         });
 
-        const readyPromise = window.electronAPI.backend_ready.isReady().then((ready) => ready || false);
+        const readyPromise = window.electronAPI.backend_ready
+          .isReady()
+          .then((ready) => ready || false);
 
         const ready = await Promise.race([readyPromise, timeoutPromise]);
 
@@ -64,7 +68,10 @@ export function useModelLoading(): ModelLoadingState {
 
         return false;
       } catch (error) {
-        console.error("[useModelLoading] Failed to check backend readiness:", error);
+        console.error(
+          "[useModelLoading] Failed to check backend readiness:",
+          error,
+        );
         // Don't set isChecking to false on error - keep polling
         // Only stop checking after max wait time
         if (Date.now() - startTimeRef.current > maxWaitTime) {
@@ -97,7 +104,9 @@ export function useModelLoading(): ModelLoadingState {
     // Cleanup timeout - stop checking after max wait time
     const timeoutId = setTimeout(() => {
       if (isMountedRef.current && !modelsReadyRef.current) {
-        console.error("[useModelLoading] Max wait time exceeded, stopping checks");
+        console.error(
+          "[useModelLoading] Max wait time exceeded, stopping checks",
+        );
         setIsChecking(false);
         setModelsReady(false);
         modelsReadyRef.current = false;
