@@ -5,6 +5,7 @@ import type {
   AttendanceRecord,
 } from "../../../types/recognition";
 import type { CooldownInfo } from "../types";
+import { appStore } from "../../../services/AppStore";
 
 interface AttendanceState {
   // Group state
@@ -46,11 +47,14 @@ interface AttendanceState {
   setEnableSpoofDetection: (enabled: boolean) => void;
 }
 
-// Load enableSpoofDetection from localStorage
-const getInitialSpoofDetection = (): boolean => {
-  if (typeof window === "undefined") return true;
-  const saved = localStorage.getItem("suri_enable_spoof_detection");
-  return saved !== null ? saved === "true" : true;
+// Load initial settings from store (async, will be set after store loads)
+const loadInitialSettings = async () => {
+  const attendanceSettings = await appStore.getAttendanceSettings();
+  return {
+    trackingMode: attendanceSettings.trackingMode,
+    attendanceCooldownSeconds: attendanceSettings.attendanceCooldownSeconds,
+    enableSpoofDetection: attendanceSettings.enableSpoofDetection,
+  };
 };
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
@@ -66,16 +70,17 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   persistentCooldowns: new Map(),
   trackingMode: "auto",
   attendanceCooldownSeconds: 10,
-  enableSpoofDetection: getInitialSpoofDetection(),
+  enableSpoofDetection: true, // Will be loaded from store
 
   // Actions
   setCurrentGroup: (group) => {
     set({ currentGroup: group });
-    if (group) {
-      localStorage.setItem("suri_selected_group_id", group.id);
-    } else {
-      localStorage.removeItem("suri_selected_group_id");
-    }
+    // Save to store asynchronously (don't block)
+    appStore
+      .setUIState({
+        selectedGroupId: group?.id || null,
+      })
+      .catch(console.error);
   },
   setAttendanceGroups: (groups) => set({ attendanceGroups: groups }),
   setGroupMembers: (members) => set({ groupMembers: members }),
@@ -91,11 +96,27 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     const mapCooldowns = newCooldowns instanceof Map ? newCooldowns : new Map();
     set({ persistentCooldowns: mapCooldowns });
   },
-  setTrackingMode: (mode) => set({ trackingMode: mode }),
-  setAttendanceCooldownSeconds: (seconds) =>
-    set({ attendanceCooldownSeconds: seconds }),
+  setTrackingMode: (mode) => {
+    set({ trackingMode: mode });
+    appStore.setAttendanceSettings({ trackingMode: mode }).catch(console.error);
+  },
+  setAttendanceCooldownSeconds: (seconds) => {
+    set({ attendanceCooldownSeconds: seconds });
+    appStore
+      .setAttendanceSettings({ attendanceCooldownSeconds: seconds })
+      .catch(console.error);
+  },
   setEnableSpoofDetection: (enabled) => {
     set({ enableSpoofDetection: enabled });
-    localStorage.setItem("suri_enable_spoof_detection", String(enabled));
+    appStore
+      .setAttendanceSettings({ enableSpoofDetection: enabled })
+      .catch(console.error);
   },
 }));
+
+// Load settings from store on initialization
+if (typeof window !== "undefined") {
+  loadInitialSettings().then((settings) => {
+    useAttendanceStore.setState(settings);
+  });
+}

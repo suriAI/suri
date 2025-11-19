@@ -259,10 +259,7 @@ export const Settings: React.FC<SettingsProps> = ({
       const stillExists = currentGroups.some(
         (g) => g.id === validInitialGroup.id,
       );
-      if (
-        stillExists &&
-        storeSelectedGroup?.id !== validInitialGroup.id
-      ) {
+      if (stillExists && storeSelectedGroup?.id !== validInitialGroup.id) {
         groupStore.setSelectedGroup(validInitialGroup);
       }
     } else if (storeSelectedGroup && storeGroupsLoaded) {

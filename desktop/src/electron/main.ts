@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import isDev from "./util.js";
 import { backendService, type DetectionOptions } from "./backendService.js";
+import { appStore } from "./store.js";
 // Set consistent app name across all platforms for userData directory
 app.setName("Suri");
 
@@ -351,6 +352,41 @@ ipcMain.handle("window:maximize", () => {
 
 ipcMain.handle("window:close", () => {
   if (mainWindowRef) mainWindowRef.close();
+  return true;
+});
+
+// =============================================================================
+// STORE IPC HANDLERS
+// =============================================================================
+
+// Get store value
+ipcMain.handle("store:get", (_event, key: string) => {
+  return appStore.get(key);
+});
+
+// Set store value
+ipcMain.handle("store:set", (_event, key: string, value: unknown) => {
+  appStore.set(key, value);
+  return true;
+});
+
+// Delete store value
+ipcMain.handle("store:delete", (_event, key: string) => {
+  // electron-store supports dot notation paths (e.g., "ui.sidebarCollapsed")
+  // Type assertion needed because IPC passes string, but store expects typed key
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (appStore.delete as any)(key);
+  return true;
+});
+
+// Get all store data
+ipcMain.handle("store:getAll", () => {
+  return appStore.store;
+});
+
+// Reset store to defaults
+ipcMain.handle("store:reset", () => {
+  appStore.clear();
   return true;
 });
 

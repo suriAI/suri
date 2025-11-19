@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { attendanceManager } from "../../../services";
+import { appStore } from "../../../services/AppStore";
 import { getLocalDateString } from "../../../utils";
 import type {
   AttendanceGroup,
@@ -50,9 +51,9 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   setSelectedGroup: (group) => {
     set({ selectedGroup: group });
     if (group) {
-      localStorage.setItem("suri_group_selected_id", group.id);
+      appStore.setUIState({ selectedGroupId: group.id }).catch(console.error);
     } else {
-      localStorage.removeItem("suri_group_selected_id");
+      appStore.setUIState({ selectedGroupId: null }).catch(console.error);
       set({ members: [] });
     }
   },
@@ -115,14 +116,14 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     try {
       await attendanceManager.deleteGroup(groupId);
       const currentSelected = get().selectedGroup;
-      
+
       // Dispatch selectGroup event to notify Main component immediately
       window.dispatchEvent(
         new CustomEvent("selectGroup", {
           detail: { group: null },
         }),
       );
-      
+
       if (currentSelected?.id === groupId) {
         set({ selectedGroup: null, members: [] });
       }

@@ -668,10 +668,6 @@ export default function Main() {
 
             if (updates.enableSpoofDetection !== undefined) {
               setEnableSpoofDetection(updates.enableSpoofDetection);
-              localStorage.setItem(
-                "suri_enable_spoof_detection",
-                String(updates.enableSpoofDetection),
-              );
             }
 
             if (updates.attendanceCooldownSeconds !== undefined) {

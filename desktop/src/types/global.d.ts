@@ -126,6 +126,14 @@ declare global {
   }
 
   // Backend Service API interface is now the primary interface for face recognition functionality
+  interface StoreAPI {
+    get: (key: string) => Promise<unknown>;
+    set: (key: string, value: unknown) => Promise<boolean>;
+    delete: (key: string) => Promise<boolean>;
+    getAll: () => Promise<Record<string, unknown>>;
+    reset: () => Promise<boolean>;
+  }
+
   interface BackendServiceAPI {
     // Face Recognition Database API (File-based)
     saveFaceDatabase: (
@@ -140,6 +148,8 @@ declare global {
     backend_ready: BackendReadyAPI;
     // Backend Service API
     backend: BackendAPI;
+    // Store API
+    store: StoreAPI;
   }
 
   interface Window {

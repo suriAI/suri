@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from "react";
-import { attendanceManager } from "../../../services";
+import { attendanceManager, appStore } from "../../../services";
 import type {
   AttendanceGroup,
   AttendanceMember,
@@ -219,11 +219,17 @@ export function useAttendanceGroups() {
         setRecentAttendance([]);
         // Refresh groups list to remove deleted group from dropdown immediately
         // Call getGroups directly (don't use loadAttendanceData as it returns early when currentGroup is null)
-        attendanceManager.getGroups().then((groups) => {
-          setAttendanceGroups(groups);
-        }).catch((error) => {
-          console.error("[useAttendanceGroups] Error refreshing groups:", error);
-        });
+        attendanceManager
+          .getGroups()
+          .then((groups) => {
+            setAttendanceGroups(groups);
+          })
+          .catch((error) => {
+            console.error(
+              "[useAttendanceGroups] Error refreshing groups:",
+              error,
+            );
+          });
       } else {
         handleSelectGroup(group);
       }
@@ -257,7 +263,8 @@ export function useAttendanceGroups() {
         if (groups.length === 0) {
           setCurrentGroupWithCache(null);
         } else if (!currentGroup) {
-          const savedGroupId = localStorage.getItem("suri_selected_group_id");
+          const uiState = await appStore.getUIState();
+          const savedGroupId = uiState.selectedGroupId;
           let groupToSelect = null;
 
           if (savedGroupId) {

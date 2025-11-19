@@ -85,6 +85,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return ipcRenderer.invoke("backend:clear-database");
     },
   },
+  // Store API
+  store: {
+    get: (key: string) => {
+      return ipcRenderer.invoke("store:get", key);
+    },
+    set: (key: string, value: unknown) => {
+      return ipcRenderer.invoke("store:set", key, value);
+    },
+    delete: (key: string) => {
+      return ipcRenderer.invoke("store:delete", key);
+    },
+    getAll: () => {
+      return ipcRenderer.invoke("store:getAll");
+    },
+    reset: () => {
+      return ipcRenderer.invoke("store:reset");
+    },
+  },
 });
 
 // Window control functions

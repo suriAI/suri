@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AttendanceMember } from "../../../types/recognition";
 import type { GroupSection } from "../types";
+import { appStore } from "../../../services/AppStore";
 
 interface GroupUIState {
   // Navigation
@@ -41,16 +42,9 @@ interface GroupUIState {
   reset: () => void;
 }
 
-// Load sidebar state from localStorage
-const getInitialSidebarState = (): boolean => {
-  if (typeof window === "undefined") return false;
-  const saved = localStorage.getItem("suri_group_sidebar_collapsed");
-  return saved === "true";
-};
-
 const initialState = {
   activeSection: "overview" as GroupSection,
-  isSidebarCollapsed: getInitialSidebarState(),
+  isSidebarCollapsed: false, // Will be loaded from store
   isMobileDrawerOpen: false,
   showAddMemberModal: false,
   showEditMemberModal: false,
@@ -73,13 +67,17 @@ export const useGroupUIStore = create<GroupUIState>((set, get) => ({
   // Sidebar
   setIsSidebarCollapsed: (collapsed) => {
     set({ isSidebarCollapsed: collapsed });
-    localStorage.setItem("suri_group_sidebar_collapsed", String(collapsed));
+    appStore
+      .setUIState({ groupSidebarCollapsed: collapsed })
+      .catch(console.error);
   },
 
   toggleSidebar: () => {
     const newValue = !get().isSidebarCollapsed;
     set({ isSidebarCollapsed: newValue });
-    localStorage.setItem("suri_group_sidebar_collapsed", String(newValue));
+    appStore
+      .setUIState({ groupSidebarCollapsed: newValue })
+      .catch(console.error);
   },
 
   setIsMobileDrawerOpen: (open) => set({ isMobileDrawerOpen: open }),
@@ -101,3 +99,12 @@ export const useGroupUIStore = create<GroupUIState>((set, get) => ({
 
   reset: () => set(initialState),
 }));
+
+// Load sidebar state from store on initialization
+if (typeof window !== "undefined") {
+  appStore.getUIState().then((uiState) => {
+    useGroupUIStore.setState({
+      isSidebarCollapsed: uiState.groupSidebarCollapsed,
+    });
+  });
+}

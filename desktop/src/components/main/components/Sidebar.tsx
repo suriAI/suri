@@ -11,6 +11,7 @@ import type { ExtendedFaceRecognitionResponse } from "../index";
 import { AttendancePanel } from "./AttendancePanel";
 import { CooldownList } from "./CooldownList";
 import { DetectionPanel } from "./DetectionPanel";
+import { appStore } from "../../../services/AppStore";
 
 // Get asset path that works in both dev and production (Electron)
 // In Electron with loadFile, we need to use paths relative to the HTML file
@@ -72,17 +73,9 @@ export const Sidebar = memo(function Sidebar({
   setShowSettings,
   onOpenSettingsForRegistration,
 }: SidebarProps) {
-  // Persistent state from localStorage
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    const saved = localStorage.getItem("suri_sidebar_collapsed");
-    return saved === "true";
-  });
-
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem("suri_sidebar_width");
-    const width = saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
-    return Math.max(MIN_EXPANDED_WIDTH, Math.min(MAX_WIDTH, width));
-  });
+  // Persistent state from store
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
 
   const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useRef(false);
@@ -92,19 +85,31 @@ export const Sidebar = memo(function Sidebar({
   const currentResizeWidth = useRef(0);
   const originalTransition = useRef<string>("");
 
+  // Load initial state from store
+  useEffect(() => {
+    appStore.getUIState().then((uiState) => {
+      setIsCollapsed(uiState.sidebarCollapsed);
+      const width = Math.max(
+        MIN_EXPANDED_WIDTH,
+        Math.min(MAX_WIDTH, uiState.sidebarWidth),
+      );
+      setSidebarWidth(width);
+    });
+  }, []);
+
   // Sync isResizing ref with state
   useEffect(() => {
     isResizingRef.current = isResizing;
   }, [isResizing]);
 
-  // Save state to localStorage
+  // Save state to store
   useEffect(() => {
-    localStorage.setItem("suri_sidebar_collapsed", String(isCollapsed));
+    appStore.setUIState({ sidebarCollapsed: isCollapsed }).catch(console.error);
   }, [isCollapsed]);
 
   useEffect(() => {
     if (!isResizing) {
-      localStorage.setItem("suri_sidebar_width", String(sidebarWidth));
+      appStore.setUIState({ sidebarWidth: sidebarWidth }).catch(console.error);
     }
   }, [sidebarWidth, isResizing]);
 

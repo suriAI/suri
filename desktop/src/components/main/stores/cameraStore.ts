@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { appStore } from "../../../services/AppStore";
 
 interface CameraState {
   // Streaming state
@@ -29,7 +30,7 @@ export const useCameraStore = create<CameraState>((set) => ({
   cameraActive: false,
   websocketStatus: "disconnected",
   cameraDevices: [],
-  selectedCamera: "",
+  selectedCamera: "", // Will be loaded from store
 
   // Actions
   setIsStreaming: (value) => set({ isStreaming: value }),
@@ -37,5 +38,18 @@ export const useCameraStore = create<CameraState>((set) => ({
   setCameraActive: (value) => set({ cameraActive: value }),
   setWebsocketStatus: (status) => set({ websocketStatus: status }),
   setCameraDevices: (devices) => set({ cameraDevices: devices }),
-  setSelectedCamera: (deviceId) => set({ selectedCamera: deviceId }),
+  setSelectedCamera: (deviceId) => {
+    set({ selectedCamera: deviceId });
+    // Save to store asynchronously
+    appStore.setUIState({ selectedCamera: deviceId }).catch(console.error);
+  },
 }));
+
+// Load selectedCamera from store on initialization
+if (typeof window !== "undefined") {
+  appStore.getUIState().then((uiState) => {
+    if (uiState.selectedCamera) {
+      useCameraStore.setState({ selectedCamera: uiState.selectedCamera });
+    }
+  });
+}

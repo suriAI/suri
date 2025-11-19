@@ -83,10 +83,7 @@ export class BackendService {
   private pingInterval: number | null = null;
   private isConnecting = false;
   private connectionPromise: Promise<void> | null = null;
-  private enableLivenessDetection: boolean = (() => {
-    const saved = localStorage.getItem("suri_enable_spoof_detection");
-    return saved !== null ? saved === "true" : true;
-  })();
+  private enableLivenessDetection: boolean = true; // Synced from store via useBackendService hook
 
   constructor(config?: Partial<BackendConfig>) {
     this.config = {

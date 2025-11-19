@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { attendanceManager } from "../../../services";
+import { appStore } from "../../../services/AppStore";
 import {
   getLocalDateString,
   generateDateRange,
@@ -85,11 +86,9 @@ export function Reports({
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
 
-  // Saved views in localStorage (per group)
-  const storageKey = `suri_report_views_${group.id}`;
+  // Saved views in store (per group)
   const [views, setViews] = useState<SavedViewConfig[]>([]);
   const [activeViewIndex, setActiveViewIndex] = useState<number | null>(null);
-  const defaultViewNameKey = `suri_report_default_view_name_${group.id}`;
   const [defaultViewName, setDefaultViewName] = useState<string | null>(null);
 
   const generateReport = useCallback(async () => {
@@ -153,50 +152,56 @@ export function Reports({
 
   // Load saved views on mount or group change
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      const parsed: SavedViewConfig[] = raw ? JSON.parse(raw) : [];
-      setViews(parsed);
-      const storedDefaultName = localStorage.getItem(defaultViewNameKey);
-      setDefaultViewName(storedDefaultName);
-      if (parsed.length > 0) {
-        // Pick default view if stored, else first
-        let indexToUse = 0;
-        if (storedDefaultName) {
-          const foundIdx = parsed.findIndex(
-            (v) => v.name === storedDefaultName,
-          );
-          if (foundIdx >= 0) indexToUse = foundIdx;
+    const loadViews = async () => {
+      try {
+        const parsed = (await appStore.getReportViews(
+          group.id,
+        )) as SavedViewConfig[];
+        setViews(parsed);
+        const storedDefaultName = await appStore.getReportDefaultViewName(
+          group.id,
+        );
+        setDefaultViewName(storedDefaultName);
+        if (parsed.length > 0) {
+          // Pick default view if stored, else first
+          let indexToUse = 0;
+          if (storedDefaultName) {
+            const foundIdx = parsed.findIndex(
+              (v) => v.name === storedDefaultName,
+            );
+            if (foundIdx >= 0) indexToUse = foundIdx;
+          }
+          setActiveViewIndex(indexToUse);
+          const v = parsed[indexToUse];
+          setVisibleColumns(v.columns);
+          setGroupBy(v.groupBy);
+          // Handle legacy array format for statusFilter
+          const filterValue = Array.isArray(v.statusFilter)
+            ? v.statusFilter.length === 0
+              ? "all"
+              : (v.statusFilter[0] as "present" | "absent" | "no_records")
+            : v.statusFilter;
+          setStatusFilter(filterValue);
+          setSearch(v.search);
+        } else {
+          setActiveViewIndex(null);
+          setVisibleColumns(defaultColumns);
+          setGroupBy("none");
+          setStatusFilter("all");
+          setSearch("");
         }
-        setActiveViewIndex(indexToUse);
-        const v = parsed[indexToUse];
-        setVisibleColumns(v.columns);
-        setGroupBy(v.groupBy);
-        // Handle legacy array format for statusFilter
-        const filterValue = Array.isArray(v.statusFilter)
-          ? v.statusFilter.length === 0
-            ? "all"
-            : (v.statusFilter[0] as "present" | "absent" | "no_records")
-          : v.statusFilter;
-        setStatusFilter(filterValue);
-        setSearch(v.search);
-      } else {
+      } catch {
+        // ignore
+        setViews([]);
         setActiveViewIndex(null);
-        setVisibleColumns(defaultColumns);
-        setGroupBy("none");
-        setStatusFilter("all");
-        setSearch("");
       }
-    } catch {
-      // ignore
-      setViews([]);
-      setActiveViewIndex(null);
-    }
-  }, [storageKey, defaultColumns, defaultViewNameKey]);
+    };
+    loadViews();
+  }, [group.id, defaultColumns]);
 
   const saveViewsToStorage = (next: SavedViewConfig[]) => {
     setViews(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    appStore.setReportViews(group.id, next).catch(console.error);
   };
 
   // Helpers to determine if current config differs from the selected view (or base defaults)
@@ -607,7 +612,9 @@ export function Reports({
                           setSearch(v.search);
                           // Auto-set default to the selected view
                           setDefaultViewName(v.name);
-                          localStorage.setItem(defaultViewNameKey, v.name);
+                          appStore
+                            .setReportDefaultViewName(group.id, v.name)
+                            .catch(console.error);
                         }
                       } else {
                         // Reset to default values when "(Default View)" is selected
@@ -616,7 +623,9 @@ export function Reports({
                         setStatusFilter("all");
                         setSearch("");
                         setDefaultViewName(null);
-                        localStorage.removeItem(defaultViewNameKey);
+                        appStore
+                          .setReportDefaultViewName(group.id, null)
+                          .catch(console.error);
                       }
                     }}
                   >
