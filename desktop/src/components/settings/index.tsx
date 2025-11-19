@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { backendService, attendanceManager } from "../../services";
 import { Display } from "./sections/Display";
 import { Database } from "./sections/Database";
 import { Attendance } from "./sections/Attendance";
 import { GroupPanel, type GroupSection } from "../group";
 import { Dropdown } from "../shared";
+import { useGroupStore } from "../group/stores";
 import type {
   QuickSettings,
   AttendanceSettings,
@@ -116,6 +117,20 @@ export const Settings: React.FC<SettingsProps> = ({
     loadSystemData();
   }, [loadSystemData]);
 
+  // Clear currentGroup if it no longer exists in groups list (e.g., after deletion)
+  useEffect(() => {
+    if (currentGroup) {
+      const groupExists = groups.some((g) => g.id === currentGroup.id);
+      if (!groupExists) {
+        window.dispatchEvent(
+          new CustomEvent("selectGroup", {
+            detail: { group: null },
+          }),
+        );
+      }
+    }
+  }, [currentGroup, groups]);
+
   // Fetch members when showing registration or members section
   useEffect(() => {
     const fetchMembers = async () => {
@@ -193,6 +208,216 @@ export const Settings: React.FC<SettingsProps> = ({
     { id: "database", label: "Database", icon: "fa-solid fa-database" },
   ];
 
+  // Get groups from store to ensure we have the latest state
+  // Use a selector that only updates when the groups list actually changes (by IDs)
+  const storeGroups = useGroupStore((state) => state.groups);
+  const storeSelectedGroup = useGroupStore((state) => state.selectedGroup);
+  const fetchGroups = useGroupStore((state) => state.fetchGroups);
+  const storeGroupsIds = useMemo(() => new Set(storeGroups.map((g) => g.id)), [storeGroups]);
+
+  // Track if store groups have been loaded at least once
+  const [storeGroupsLoaded, setStoreGroupsLoaded] = useState(false);
+
+  // Ensure store has groups loaded when Settings opens
+  useEffect(() => {
+    // If store groups are empty and haven't been loaded yet, fetch them
+    if (storeGroups.length === 0 && !storeGroupsLoaded) {
+      fetchGroups().then(() => {
+        setStoreGroupsLoaded(true);
+      });
+    } else if (storeGroups.length > 0) {
+      // Mark as loaded once we have groups
+      setStoreGroupsLoaded(true);
+    }
+  }, [storeGroups.length, storeGroupsLoaded, fetchGroups]);
+
+  // Use storeGroups as source of truth if loaded, otherwise fallback to local groups state
+  // This ensures deleted groups are immediately removed from dropdown
+  const dropdownGroups = storeGroupsLoaded ? storeGroups : groups;
+
+  // Memoize the filtered initialGroup to prevent passing deleted groups
+  // Check both local groups state and store groups to ensure we don't pass deleted groups
+  const validInitialGroup = useMemo(() => {
+    // Only pass currentGroup if it exists in the groups list
+    // This prevents passing deleted groups even if parent hasn't updated yet
+    if (!currentGroup) return null;
+    
+    // If store groups have been loaded, use them as the source of truth
+    if (storeGroupsLoaded) {
+      // If store has no groups, currentGroup must be deleted - return null
+      if (storeGroups.length === 0) {
+        return null;
+      }
+      // Check if group exists in store groups
+      if (storeGroupsIds.has(currentGroup.id)) {
+        return currentGroup;
+      }
+      // Group doesn't exist in store (was deleted), return null
+      return null;
+    }
+    
+    // Store not loaded yet - fallback to local groups during initial load
+    const existsInLocal = groups.some((g) => g.id === currentGroup.id);
+    if (existsInLocal) {
+      return currentGroup;
+    }
+    
+    // Group doesn't exist in local groups either, return null
+    return null;
+  }, [currentGroup, storeGroupsIds, storeGroups.length, storeGroupsLoaded, groups]);
+
+  // Track last synced state to prevent unnecessary updates
+  const lastSyncedStateRef = useRef<{
+    validInitialGroupId: string | null;
+    storeSelectedGroupId: string | null;
+  } | null>(null);
+
+  // Sync store's selectedGroup with currentGroup when Settings opens
+  // This ensures that when a group is created from main and Settings is opened,
+  // the store's selectedGroup is updated to match
+  useEffect(() => {
+    const validInitialGroupId = validInitialGroup?.id ?? null;
+    const storeSelectedGroupId = storeSelectedGroup?.id ?? null;
+    
+    // Skip if we've already processed this exact state
+    if (
+      lastSyncedStateRef.current &&
+      lastSyncedStateRef.current.validInitialGroupId === validInitialGroupId &&
+      lastSyncedStateRef.current.storeSelectedGroupId === storeSelectedGroupId
+    ) {
+      return;
+    }
+    
+    // Get fresh groups from store to ensure we're working with current data
+    const groupStore = useGroupStore.getState();
+    const currentGroups = groupStore.groups;
+    
+    // Only sync if validInitialGroup exists and is different from store's selectedGroup
+    if (validInitialGroup) {
+      // Double-check that the group still exists in the current groups list
+      const stillExists = currentGroups.some((g) => g.id === validInitialGroup.id);
+      if (stillExists && (!storeSelectedGroup || storeSelectedGroup.id !== validInitialGroup.id)) {
+        groupStore.setSelectedGroup(validInitialGroup);
+      }
+    } else if (storeSelectedGroup && storeGroupsLoaded) {
+      // If validInitialGroup is null (group was deleted) but store still has a selection, clear it
+      // But only if the selectedGroup doesn't exist in the current groups list
+      const existsInStore = currentGroups.length > 0 && currentGroups.some((g) => g.id === storeSelectedGroup.id);
+      if (!existsInStore) {
+        groupStore.setSelectedGroup(null);
+      }
+    }
+    
+    // Update ref after processing to prevent re-running
+    lastSyncedStateRef.current = { validInitialGroupId, storeSelectedGroupId };
+  }, [validInitialGroup, storeSelectedGroup, storeGroupsLoaded]);
+
+  // Memoize callbacks to prevent unnecessary re-renders of GroupPanel
+  const handleGroupBack = useCallback(() => {
+    setActiveSection("attendance");
+  }, [setActiveSection]);
+
+  const handleExportHandlersReady = useCallback((handlers: {
+    exportCSV: () => void;
+    print: () => void;
+  }) => {
+    setReportsExportHandlers(handlers);
+  }, []);
+
+  const handleAddMemberHandlerReady = useCallback((handler: () => void) => {
+    setAddMemberHandler(() => handler);
+  }, []);
+
+  const handleGroupsChanged = useCallback(async (newGroup?: AttendanceGroup) => {
+    // Update group store FIRST (this is the source of truth)
+    try {
+      const groupStore = useGroupStore.getState();
+      await groupStore.fetchGroups();
+      const updatedGroups = groupStore.groups;
+      
+      // Mark store as loaded (so dropdown uses store groups)
+      setStoreGroupsLoaded(true);
+      
+      // Sync local groups state with store (for fallback scenarios)
+      setGroups(updatedGroups);
+      
+      // Check if currentGroup was deleted and clear it IMMEDIATELY
+      if (currentGroup && !updatedGroups.some((g) => g.id === currentGroup.id)) {
+        groupStore.setSelectedGroup(null);
+        groupStore.setMembers([]);
+        window.dispatchEvent(
+          new CustomEvent("selectGroup", {
+            detail: { group: null },
+          }),
+        );
+      }
+    } catch (error) {
+      console.error("[Settings] Error updating groups:", error);
+    }
+    
+    // Then reload system data
+    await loadSystemData();
+    
+    if (onGroupsChanged) {
+      onGroupsChanged();
+    }
+    // If a new group was created, automatically select it
+    if (newGroup && onGroupSelect) {
+      onGroupSelect(newGroup);
+      // Refresh members if showing registration or members section with the new group
+      if (
+        groupInitialSection === "registration" ||
+        groupInitialSection === "members"
+      ) {
+        try {
+          const groupMembers =
+            await attendanceManager.getGroupMembers(newGroup.id);
+          setMembers(groupMembers);
+        } catch (error) {
+          console.error("Failed to refresh members:", error);
+        }
+      }
+    } else if (
+      (groupInitialSection === "registration" ||
+        groupInitialSection === "members") &&
+      currentGroup
+    ) {
+      // Refresh members if showing registration or members section with current group
+      try {
+        const groupMembers =
+          await attendanceManager.getGroupMembers(
+            currentGroup.id,
+          );
+        setMembers(groupMembers);
+      } catch (error) {
+        console.error("Failed to refresh members:", error);
+      }
+    }
+  }, [currentGroup, groupInitialSection, loadSystemData, onGroupsChanged, onGroupSelect]);
+
+  // Use store's selectedGroup as the dropdown value (most up-to-date)
+  // This ensures the dropdown updates immediately when a group is selected
+  const dropdownValue = useMemo(() => {
+    // Priority 1: If store has a selectedGroup and it exists in groups, use it
+    if (storeSelectedGroup) {
+      // Check if it exists in store groups (if available) or local groups (fallback)
+      const existsInStore = storeGroups.length > 0 && storeGroupsIds.has(storeSelectedGroup.id);
+      const existsInLocal = groups.some((g) => g.id === storeSelectedGroup.id);
+      
+      if (existsInStore || (storeGroups.length === 0 && existsInLocal)) {
+        return storeSelectedGroup.id;
+      }
+    }
+    // Priority 2: If currentGroup (from parent) exists and is valid, use it
+    // This handles the case when a group is created from main and Settings is opened
+    // validInitialGroup already validates that currentGroup exists in groups
+    if (validInitialGroup) {
+      return validInitialGroup.id;
+    }
+    // Otherwise, return null (show placeholder)
+    return null;
+  }, [storeSelectedGroup, storeGroupsIds, storeGroups.length, groups, validInitialGroup]);
+
   const mainContent = (
     <div className="h-full flex bg-[#0f0f0f] text-white">
       {/* Sidebar Navigation */}
@@ -218,32 +443,45 @@ export const Settings: React.FC<SettingsProps> = ({
         {/* Group Selector - Top Context Switcher (Discord/Slack Pattern) */}
         <div className="px-3 py-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="flex-1">
+            <div className="flex-1" key={storeGroups.length}>
               <Dropdown
-                options={groups.map((group) => ({
+                options={dropdownGroups.map((group) => ({
                   value: group.id,
                   label: group.name,
                 }))}
-                value={currentGroup?.id ?? null}
+                value={dropdownValue}
                 onChange={(groupId) => {
-                  if (groupId && onGroupSelect) {
-                    const group = groups.find((g) => g.id === groupId);
+                  // Update store immediately for visual feedback
+                  const groupStore = useGroupStore.getState();
+                  
+                  if (groupId) {
+                    const group = dropdownGroups.find((g) => g.id === groupId);
                     if (group) {
-                      onGroupSelect(group);
+                      // Update store immediately
+                      groupStore.setSelectedGroup(group);
+                      // Then notify parent
+                      if (onGroupSelect) {
+                        onGroupSelect(group);
+                      }
                     }
-                  } else if (!groupId && onGroupSelect) {
-                    window.dispatchEvent(
-                      new CustomEvent("selectGroup", {
-                        detail: { group: null },
-                      }),
-                    );
+                  } else {
+                    // Clear store immediately
+                    groupStore.setSelectedGroup(null);
+                    // Then notify parent
+                    if (onGroupSelect) {
+                      window.dispatchEvent(
+                        new CustomEvent("selectGroup", {
+                          detail: { group: null },
+                        }),
+                      );
+                    }
                   }
                 }}
                 placeholder="Select group…"
                 emptyMessage="No groups available"
                 maxHeight={256}
-                allowClear={groups.length === 0}
-                showPlaceholderOption={groups.length === 0}
+                allowClear={dropdownGroups.length === 0}
+                showPlaceholderOption={dropdownGroups.length === 0}
               />
             </div>
             {/* Create Group Button - Opens Group section with create modal */}
@@ -436,9 +674,9 @@ export const Settings: React.FC<SettingsProps> = ({
           {activeSection === "group" && (
             <div className="h-full w-full">
               <GroupPanel
-                onBack={() => setActiveSection("attendance")}
+                onBack={handleGroupBack}
                 initialSection={groupInitialSection}
-                initialGroup={currentGroup}
+                initialGroup={validInitialGroup}
                 triggerCreateGroup={triggerCreateGroup}
                 onRegistrationSourceChange={setRegistrationSource}
                 registrationSource={registrationSource}
@@ -446,48 +684,9 @@ export const Settings: React.FC<SettingsProps> = ({
                 registrationMode={registrationMode}
                 deselectMemberTrigger={deselectMemberTrigger}
                 onHasSelectedMemberChange={setHasSelectedMember}
-                onExportHandlersReady={(handlers) => {
-                  setReportsExportHandlers(handlers);
-                }}
-                onAddMemberHandlerReady={(handler) => {
-                  setAddMemberHandler(() => handler);
-                }}
-                onGroupsChanged={async (newGroup?: AttendanceGroup) => {
-                  await loadSystemData();
-                  if (onGroupsChanged) onGroupsChanged();
-                  // If a new group was created, automatically select it
-                  if (newGroup && onGroupSelect) {
-                    onGroupSelect(newGroup);
-                    // Refresh members if showing registration or members section with the new group
-                    if (
-                      groupInitialSection === "registration" ||
-                      groupInitialSection === "members"
-                    ) {
-                      try {
-                        const groupMembers =
-                          await attendanceManager.getGroupMembers(newGroup.id);
-                        setMembers(groupMembers);
-                      } catch (error) {
-                        console.error("Failed to refresh members:", error);
-                      }
-                    }
-                  } else if (
-                    (groupInitialSection === "registration" ||
-                      groupInitialSection === "members") &&
-                    currentGroup
-                  ) {
-                    // Refresh members if showing registration or members section with current group
-                    try {
-                      const groupMembers =
-                        await attendanceManager.getGroupMembers(
-                          currentGroup.id,
-                        );
-                      setMembers(groupMembers);
-                    } catch (error) {
-                      console.error("Failed to refresh members:", error);
-                    }
-                  }
-                }}
+                onExportHandlersReady={handleExportHandlersReady}
+                onAddMemberHandlerReady={handleAddMemberHandlerReady}
+                onGroupsChanged={handleGroupsChanged}
                 isEmbedded={true}
               />
             </div>

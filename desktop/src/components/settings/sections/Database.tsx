@@ -241,9 +241,32 @@ export function Database({
     try {
       const success = await attendanceManager.deleteGroup(groupId);
       if (success) {
+        // Update group store IMMEDIATELY (before notifying parent)
+        try {
+          const { useGroupStore } = await import("../../group/stores/index.js");
+          const groupStore = useGroupStore.getState();
+          const currentSelected = groupStore.selectedGroup;
+          
+          // Dispatch selectGroup event IMMEDIATELY (before any async operations)
+          // This ensures the dropdown updates instantly
+          window.dispatchEvent(
+            new CustomEvent("selectGroup", {
+              detail: { group: null },
+            }),
+          );
+          
+          if (currentSelected?.id === groupId) {
+            groupStore.setSelectedGroup(null);
+            groupStore.setMembers([]);
+          }
+          // Fetch groups to update the list
+          await groupStore.fetchGroups();
+        } catch (error) {
+          console.error("[Database] Error updating group store:", error);
+        }
         // Remove from local state
         setGroupsWithMembers((prev) => prev.filter((g) => g.id !== groupId));
-        // Notify parent to refresh
+        // Notify parent to refresh (this will also update currentGroup in Settings)
         if (onGroupsChanged) {
           onGroupsChanged();
         }
@@ -251,7 +274,7 @@ export function Database({
         alert("Failed to delete group");
       }
     } catch (error) {
-      console.error("Error deleting group:", error);
+      console.error("[Database] ❌ Error deleting group:", error);
       alert("Failed to delete group");
     } finally {
       setDeletingGroup(null);

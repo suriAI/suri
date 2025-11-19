@@ -62,8 +62,13 @@ const initialState = {
 export const useGroupUIStore = create<GroupUIState>((set, get) => ({
   ...initialState,
 
-  // Navigation
-  setActiveSection: (section) => set({ activeSection: section }),
+  // Navigation - only update if section actually changed
+  setActiveSection: (section) => {
+    const current = get().activeSection;
+    if (current !== section) {
+      set({ activeSection: section });
+    }
+  },
 
   // Sidebar
   setIsSidebarCollapsed: (collapsed) => {

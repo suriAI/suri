@@ -15,6 +15,7 @@ interface GroupState {
   // Loading and error states
   loading: boolean;
   error: string | null;
+  lastDeletedGroupId: string | null; // Track last deleted group to prevent restoration
 
   // Actions
   setSelectedGroup: (group: AttendanceGroup | null) => void;
@@ -39,6 +40,7 @@ const initialState = {
   members: [],
   loading: false,
   error: null,
+  lastDeletedGroupId: null,
 };
 
 export const useGroupStore = create<GroupState>((set, get) => ({
@@ -81,11 +83,11 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         if (stillExists) {
           set({ selectedGroup: stillExists });
         } else {
-          // Group was deleted, clear selection
           set({ selectedGroup: null, members: [] });
         }
       }
     } catch (err) {
+      console.error("[GroupStore] Error in fetchGroups:", err);
       set({
         error: err instanceof Error ? err.message : "Failed to load groups",
       });
@@ -109,7 +111,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   },
 
   deleteGroup: async (groupId: string) => {
-    set({ loading: true });
+    set({ loading: true, lastDeletedGroupId: groupId });
     try {
       await attendanceManager.deleteGroup(groupId);
       const currentSelected = get().selectedGroup;
@@ -117,9 +119,12 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         set({ selectedGroup: null, members: [] });
       }
       await get().fetchGroups();
+      set({ lastDeletedGroupId: null });
     } catch (err) {
+      console.error("[GroupStore] Error in deleteGroup:", err);
       set({
         error: err instanceof Error ? err.message : "Failed to delete group",
+        lastDeletedGroupId: null, // Clear on error
       });
     } finally {
       set({ loading: false });

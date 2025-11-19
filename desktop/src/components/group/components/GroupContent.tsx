@@ -1,5 +1,5 @@
+import { useMemo, memo } from "react";
 import { useGroupStore, useGroupUIStore } from "../stores";
-import { useGroupModals } from "../hooks";
 import {
   GroupSettings,
   Members,
@@ -24,7 +24,7 @@ interface GroupContentProps {
   }) => void;
 }
 
-export function GroupContent({
+function GroupContentComponent({
   onMembersChange,
   onRegistrationSourceChange,
   registrationSource,
@@ -35,12 +35,18 @@ export function GroupContent({
   onDaysTrackedChange,
   onExportHandlersReady,
 }: GroupContentProps) {
-  // Zustand stores
-  const { selectedGroup, groups, members, fetchGroupDetails, exportData } =
-    useGroupStore();
-  const { activeSection } = useGroupUIStore();
-  const { openAddMember, openEditMember, openEditGroup, openCreateGroup } =
-    useGroupModals();
+  // Zustand stores - use selectors to prevent unnecessary re-renders
+  const selectedGroup = useGroupStore((state) => state.selectedGroup);
+  const groupsLength = useGroupStore((state) => state.groups.length);
+  const members = useGroupStore((state) => state.members);
+  const fetchGroupDetails = useGroupStore((state) => state.fetchGroupDetails);
+  const exportData = useGroupStore((state) => state.exportData);
+  const activeSection = useGroupUIStore((state) => state.activeSection);
+  const openAddMember = useGroupUIStore((state) => state.openAddMember);
+  const openEditMember = useGroupUIStore((state) => state.openEditMember);
+  const openEditGroup = useGroupUIStore((state) => state.openEditGroup);
+  const openCreateGroup = useGroupUIStore((state) => state.openCreateGroup);
+  
   // Handlers that use store actions
   const handleMembersChange = () => {
     if (selectedGroup) {
@@ -49,17 +55,29 @@ export function GroupContent({
     onMembersChange();
   };
 
-  if (!selectedGroup) {
+  // Show EmptyState if no selectedGroup OR if selectedGroup doesn't exist in groups list (was deleted)
+  // Get groups from store only when needed to check existence
+  const selectedGroupId = selectedGroup?.id;
+  const hasSelectedGroup = useMemo(() => {
+    if (!selectedGroup || !selectedGroupId) return false;
+    // Get fresh groups from store to check existence
+    const currentGroups = useGroupStore.getState().groups;
+    return currentGroups.some((g) => g.id === selectedGroupId);
+  }, [selectedGroup, selectedGroupId]);
+  const hasGroups = groupsLength > 0;
+  
+  if (!hasSelectedGroup || !selectedGroup) {
     return (
       <div className="h-full px-6 pt-6">
         <EmptyState
           onCreateGroup={openCreateGroup}
-          hasGroups={(groups?.length ?? 0) > 0}
+          hasGroups={hasGroups}
         />
       </div>
     );
   }
 
+  // At this point, selectedGroup is guaranteed to be non-null and exist in groups
   return (
     <>
       {activeSection === "overview" && (
@@ -112,8 +130,10 @@ export function GroupContent({
             ) {
               return;
             }
-            await useGroupStore.getState().deleteGroup(selectedGroup.id);
-            handleMembersChange();
+            const groupId = selectedGroup.id;
+            await useGroupStore.getState().deleteGroup(groupId);
+            // After deletion, selectedGroup should be null and EmptyState will show
+            // No need to call handleMembersChange as store is already updated
           }}
           onExportData={exportData}
           onRefresh={handleMembersChange}
@@ -122,3 +142,5 @@ export function GroupContent({
     </>
   );
 }
+
+export const GroupContent = memo(GroupContentComponent);

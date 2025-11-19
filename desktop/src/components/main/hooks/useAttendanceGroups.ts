@@ -206,6 +206,26 @@ export function useAttendanceGroups() {
     setGroupToDelete(null);
   }, [setGroupToDelete, setShowDeleteConfirmation]);
 
+  // Listen for selectGroup custom event (e.g., from Settings when group is deleted)
+  useEffect(() => {
+    const handleSelectGroupEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ group: AttendanceGroup | null }>;
+      const { group } = customEvent.detail;
+      if (group === null) {
+        setCurrentGroupWithCache(null);
+        setGroupMembers([]);
+        setRecentAttendance([]);
+      } else {
+        handleSelectGroup(group);
+      }
+    };
+
+    window.addEventListener("selectGroup", handleSelectGroupEvent as EventListener);
+    return () => {
+      window.removeEventListener("selectGroup", handleSelectGroupEvent as EventListener);
+    };
+  }, [handleSelectGroup, setCurrentGroupWithCache, setGroupMembers, setRecentAttendance]);
+
   useEffect(() => {
     const initializeAttendance = async () => {
       try {

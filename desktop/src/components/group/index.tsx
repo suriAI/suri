@@ -1,11 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback, memo } from "react";
 
 export type { GroupSection } from "./types";
 import type { GroupPanelProps } from "./types";
 import type { AttendanceGroup } from "../../types/recognition";
 
 import { useGroupStore, useGroupUIStore } from "./stores";
-import { useGroupData, useGroupModals } from "./hooks";
+import { useGroupData } from "./hooks";
 import {
   ErrorBanner,
   GroupContent,
@@ -14,7 +14,7 @@ import {
   MobileDrawer,
 } from "./components";
 
-export function GroupPanel({
+function GroupPanelComponent({
   onBack,
   initialSection,
   initialGroup,
@@ -31,30 +31,30 @@ export function GroupPanel({
   onExportHandlersReady,
   onAddMemberHandlerReady,
 }: GroupPanelProps) {
-  // Zustand stores - only get what we need for handlers
-  const {
-    selectedGroup,
-    error,
-    setSelectedGroup,
-    setError,
-    fetchGroups,
-    fetchGroupDetails,
-  } = useGroupStore();
-  const { setActiveSection, setIsMobileDrawerOpen } = useGroupUIStore();
-  const { openCreateGroup, openAddMember } = useGroupModals();
+  // Zustand stores - use selectors to prevent unnecessary re-renders
+  const selectedGroup = useGroupStore((state) => state.selectedGroup);
+  const error = useGroupStore((state) => state.error);
+  const setSelectedGroup = useGroupStore((state) => state.setSelectedGroup);
+  const setError = useGroupStore((state) => state.setError);
+  const fetchGroups = useGroupStore((state) => state.fetchGroups);
+  const fetchGroupDetails = useGroupStore((state) => state.fetchGroupDetails);
+  const setActiveSection = useGroupUIStore((state) => state.setActiveSection);
+  const setIsMobileDrawerOpen = useGroupUIStore((state) => state.setIsMobileDrawerOpen);
+  const openCreateGroup = useGroupUIStore((state) => state.openCreateGroup);
+  const openAddMember = useGroupUIStore((state) => state.openAddMember);
 
   // Initialize with useGroupData hook for side effects
   useGroupData(initialGroup);
 
   // Handlers
-  const handleMemberSuccess = () => {
+  const handleMemberSuccess = useCallback(() => {
     const currentGroup = useGroupStore.getState().selectedGroup;
     if (currentGroup) {
       fetchGroupDetails(currentGroup.id);
     }
-  };
+  }, [fetchGroupDetails]);
 
-  const handleGroupSuccess = (newGroup?: AttendanceGroup) => {
+  const handleGroupSuccess = useCallback((newGroup?: AttendanceGroup) => {
     fetchGroups();
     if (newGroup) {
       setSelectedGroup(newGroup);
@@ -63,11 +63,20 @@ export function GroupPanel({
     if (onGroupsChanged) {
       onGroupsChanged(newGroup);
     }
-  };
+  }, [fetchGroups, setSelectedGroup, onGroupsChanged]);
 
-  // Sync initial section
+  const handleMembersChange = useCallback(() => {
+    if (selectedGroup) {
+      fetchGroupDetails(selectedGroup.id);
+    }
+  }, [selectedGroup, fetchGroupDetails]);
+
+
+  // Sync initial section - use ref to prevent repeated calls
+  const lastSyncedSectionRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (initialSection) {
+    if (initialSection && initialSection !== lastSyncedSectionRef.current) {
+      lastSyncedSectionRef.current = initialSection;
       setActiveSection(initialSection);
     }
   }, [initialSection, setActiveSection]);
@@ -104,9 +113,7 @@ export function GroupPanel({
         {/* Main Content Area - Full width when embedded */}
         <div className="h-full overflow-hidden bg-[#0f0f0f]">
           <GroupContent
-            onMembersChange={() =>
-              selectedGroup && fetchGroupDetails(selectedGroup.id)
-            }
+            onMembersChange={handleMembersChange}
             onRegistrationSourceChange={onRegistrationSourceChange}
             registrationSource={registrationSource}
             onRegistrationModeChange={onRegistrationModeChange}
@@ -163,9 +170,7 @@ export function GroupPanel({
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden bg-black">
         <GroupContent
-          onMembersChange={() =>
-            selectedGroup && fetchGroupDetails(selectedGroup.id)
-          }
+          onMembersChange={handleMembersChange}
           onRegistrationSourceChange={onRegistrationSourceChange}
           registrationSource={registrationSource}
           onRegistrationModeChange={onRegistrationModeChange}
@@ -183,3 +188,5 @@ export function GroupPanel({
     </div>
   );
 }
+
+export const GroupPanel = memo(GroupPanelComponent);
