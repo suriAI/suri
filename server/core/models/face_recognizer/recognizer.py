@@ -238,48 +238,6 @@ class FaceRecognizer:
 
         return await loop.run_in_executor(None, _register)
 
-    def extract_embeddings_for_tracking(
-        self, image: np.ndarray, face_detections: List[Dict]
-    ) -> List[np.ndarray]:
-        """
-        Extract embeddings for face tracking.
-
-        Used by face tracker to get appearance features.
-        """
-        try:
-            if not face_detections:
-                return []
-
-            face_data_list = []
-            for face in face_detections:
-                bbox = face.get("bbox")
-
-                if not isinstance(bbox, dict):
-                    logger.warning(f"Invalid bbox format: {bbox}")
-                    continue
-
-                bbox_list = [
-                    bbox.get("x", 0),
-                    bbox.get("y", 0),
-                    bbox.get("width", 0),
-                    bbox.get("height", 0),
-                ]
-
-                face_data = {"bbox": bbox_list}
-
-                if "landmarks_5" in face:
-                    face_data["landmarks_5"] = face["landmarks_5"]
-
-                face_data_list.append(face_data)
-
-            embeddings = self._extract_embeddings_batch(image, face_data_list)
-
-            return embeddings
-
-        except Exception as e:
-            logger.error(f"Embedding extraction for tracking failed: {e}")
-            return []
-
     def remove_person(self, person_id: str) -> Dict:
         """Remove a person from the database"""
         try:

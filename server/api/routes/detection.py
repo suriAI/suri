@@ -98,7 +98,7 @@ async def detect_faces(request: DetectionRequest):
 
             faces = face_detector.detect_faces(image)
 
-            # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
+            # CRITICAL: Add face tracking for consistent track_id
             faces = await process_face_tracking(faces, image)
 
             faces = await process_liveness_detection(
@@ -182,7 +182,7 @@ async def detect_faces_upload(
 
             faces = face_detector.detect_faces(image)
 
-            # CRITICAL: Add face tracking for consistent track_id (Deep SORT with embeddings)
+            # CRITICAL: Add face tracking for consistent track_id
             faces = await process_face_tracking(faces, image)
 
             faces = await process_liveness_detection(

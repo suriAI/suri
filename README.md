@@ -294,9 +294,11 @@ FACE_RECOGNIZER_CONFIG = {
 
 # Face Tracking
 FACE_TRACKER_CONFIG = {
-    "n_init": 2,                 # Frames to confirm track
-    "max_age": 30,               # Frames before deletion
-    "max_cosine_distance": 0.25  # Appearance matching
+    "track_thresh": 0.5,         # Detection confidence threshold
+    "match_thresh": 0.8,         # Matching threshold for association
+    "track_buffer": 30,          # Buffer size for lost tracks
+    "frame_rate": 30,            # Default frame rate (auto-detected per client)
+    "max_iou_distance": 0.7      # Maximum IoU distance for matching
 }
 ```
 

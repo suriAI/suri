@@ -158,12 +158,12 @@ except ImportError:
         "log_severity_level": 3,
     }
 
-# Model configurations - OPTIMIZED FOR MAXIMUM PERFORMANCE
+# Model configurations
 MODEL_CONFIGS = {
     "face_detector": {
         "model_path": WEIGHTS_DIR / "detector_fast.onnx",
         "input_size": (640, 640),  # Optimized for better distant face detection
-        "score_threshold": 0.9,
+        "score_threshold": 0.8,
         "nms_threshold": 0.3,
         "top_k": 5000,
         "min_face_size": 80,  # Faces smaller are marked as "too_small" for UI feedback.
@@ -186,15 +186,12 @@ MODEL_CONFIGS = {
         / "face_database.db",  # SQLite database storage (auto-handles dev/prod)
     },
     "face_tracker": {
-        "max_age": 30,  # Maximum frames to keep track alive without detection
-        "n_init": 2,  # OPTIMIZED: Reduced from 3 to 2 (faster track confirmation)
-        "max_iou_distance": 0.7,  # OPTIMIZED: Reduced from 0.7 to 0.6 (stricter motion gating)
-        "max_cosine_distance": 0.3,  # OPTIMIZED: Reduced from 0.3 to 0.25 (stricter appearance gating)
-        "nn_budget": 30,  # OPTIMIZED: Reduced from 100 to 30 (faster matching, less memory)
-        "matching_weights": {
-            "appearance": 0.7,  # 70% weight on appearance matching
-            "motion": 0.3,  # 30% weight on IOU/motion matching
-        },
+        "model_path": WEIGHTS_DIR / "tracker.onnx",
+        "track_thresh": 0.5,  # Detection confidence threshold
+        "match_thresh": 0.8,  # Matching threshold for association
+        "track_buffer": 30,  # Buffer size for lost tracks
+        "frame_rate": 30,  # Default frame rate (auto-detected per client)
+        "max_iou_distance": 0.7,  # Maximum IoU distance for matching tracks to detections
     },
 }
 
@@ -399,4 +396,5 @@ FACE_DETECTOR_CONFIG = config["models"]["face_detector"]
 LIVENESS_DETECTOR_CONFIG = config["models"]["liveness_detector"]
 FACE_RECOGNIZER_MODEL_PATH = config["models"]["face_recognizer"]["model_path"]
 FACE_RECOGNIZER_CONFIG = config["models"]["face_recognizer"]
+FACE_TRACKER_MODEL_PATH = config["models"]["face_tracker"]["model_path"]
 FACE_TRACKER_CONFIG = config["models"]["face_tracker"]

@@ -99,7 +99,7 @@ export interface FaceWithRecognition {
     height: number;
   };
   confidence: number;
-  track_id?: number; // SORT tracker ID for consistent face tracking across frames
+  track_id?: number; // ByteTrack tracker ID for consistent face tracking across frames
   liveness?: {
     is_real: boolean | null;
     live_score?: number;

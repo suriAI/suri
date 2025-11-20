@@ -20,6 +20,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.connection_metadata: Dict[str, dict] = {}
         self.streaming_tasks: Dict[str, asyncio.Task] = {}
+        self.fps_tracking: Dict[str, dict] = {}
 
     async def connect(self, websocket: WebSocket, client_id: str) -> bool:
         """
@@ -40,6 +41,12 @@ class ConnectionManager:
                 "last_activity": datetime.now(),
                 "message_count": 0,
                 "streaming": False,
+            }
+            self.fps_tracking[client_id] = {
+                "timestamps": [],
+                "max_samples": 30,
+                "last_update": datetime.now(),
+                "current_fps": 30,
             }
 
             # Send welcome message
@@ -84,6 +91,8 @@ class ConnectionManager:
             del self.active_connections[client_id]
             if client_id in self.connection_metadata:
                 del self.connection_metadata[client_id]
+            if client_id in self.fps_tracking:
+                del self.fps_tracking[client_id]
 
     async def send_personal_message(self, message: dict, client_id: str) -> bool:
         """
@@ -286,6 +295,55 @@ class ConnectionManager:
             Number of active connections
         """
         return len(self.active_connections)
+
+    def update_fps(self, client_id: str) -> int:
+        """
+        Update and get FPS for a client based on frame timestamps
+
+        Args:
+            client_id: Client identifier
+
+        Returns:
+            Current FPS (defaults to 30 if not enough samples)
+        """
+        if client_id not in self.fps_tracking:
+            return 30
+
+        now = datetime.now()
+        tracking = self.fps_tracking[client_id]
+        tracking["timestamps"].append(now)
+
+        if len(tracking["timestamps"]) > tracking["max_samples"]:
+            tracking["timestamps"].pop(0)
+
+        if (now - tracking["last_update"]).total_seconds() >= 0.1 and len(
+            tracking["timestamps"]
+        ) >= 2:
+            time_span = (
+                tracking["timestamps"][-1] - tracking["timestamps"][0]
+            ).total_seconds()
+            frame_count = len(tracking["timestamps"]) - 1
+
+            if time_span > 0:
+                fps = frame_count / time_span
+                tracking["current_fps"] = max(1, min(120, int(round(fps))))
+                tracking["last_update"] = now
+
+        return tracking["current_fps"]
+
+    def get_fps(self, client_id: str) -> int:
+        """
+        Get current FPS for a client
+
+        Args:
+            client_id: Client identifier
+
+        Returns:
+            Current FPS (defaults to 30 if not found)
+        """
+        if client_id not in self.fps_tracking:
+            return 30
+        return self.fps_tracking[client_id]["current_fps"]
 
     async def ping_all_clients(self):
         """

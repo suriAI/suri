@@ -9,8 +9,12 @@ def softmax(prediction: np.ndarray) -> np.ndarray:
 
 
 def deduplicate_detections(face_detections: List[Dict]) -> List[Dict]:
-    """Deduplicate face detections based on bounding box and track_id"""
-    seen_bboxes = {}
+    """Deduplicate face detections based on bounding box.
+
+    Tracker already handles tracking, so we just remove exact bbox duplicates.
+    If same bbox appears multiple times, keep the first one.
+    """
+    seen_bboxes = set()
     deduplicated_detections = []
 
     for detection in face_detections:
@@ -26,25 +30,9 @@ def deduplicate_detections(face_detections: List[Dict]) -> List[Dict]:
             bbox.get("height", 0),
         )
 
-        track_id = detection.get("track_id", None)
-        if track_id is not None:
-            if isinstance(track_id, (np.integer, np.int32, np.int64)):
-                track_id = int(track_id)
-
-        if bbox_key in seen_bboxes:
-            existing_track_id = seen_bboxes[bbox_key].get("track_id", None)
-            if existing_track_id is not None:
-                if isinstance(existing_track_id, (np.integer, np.int32, np.int64)):
-                    existing_track_id = int(existing_track_id)
-
-            if track_id is not None and track_id >= 0:
-                if existing_track_id is None or existing_track_id < 0:
-                    idx = deduplicated_detections.index(seen_bboxes[bbox_key])
-                    deduplicated_detections[idx] = detection
-                    seen_bboxes[bbox_key] = detection
-        else:
+        if bbox_key not in seen_bboxes:
             deduplicated_detections.append(detection)
-            seen_bboxes[bbox_key] = detection
+            seen_bboxes.add(bbox_key)
 
     return deduplicated_detections
 

@@ -39,8 +39,8 @@ def check_dependencies():
         "onnxruntime": "onnxruntime",
         "numpy": "numpy",
         "pydantic": "pydantic",
-        "filterpy": "filterpy",
         "lap": "lap",
+        "scipy": "scipy",
         "ulid": "ulid",
     }
 

@@ -14,9 +14,9 @@ pydantic
 # ONNX runtime for anti-spoofing models
 onnxruntime
 
-# SORT tracker dependencies
-filterpy
+# Tracker dependencies
 lap
+scipy
 
 # Attendance database dependencies
 ulid

@@ -56,32 +56,27 @@ async def process_liveness_detection(
     return faces
 
 
-async def process_face_tracking(faces: List[Dict], image: np.ndarray) -> List[Dict]:
+async def process_face_tracking(
+    faces: List[Dict], image: np.ndarray, frame_rate: int = None
+) -> List[Dict]:
     """
-    Process face tracking with Deep SORT
-    - Extracts embeddings for all frames for consistent tracking
-    - Frontend controls frame rate, so no need for backend frame skipping
+    Process face tracking
+    - Updates tracker with detected faces and optional frame rate
+    - ByteTrack uses only bbox + IoU matching, no embeddings needed
     """
-    if not (faces and face_tracker and face_recognizer):
+    if not (faces and face_tracker):
         return faces
 
     try:
-        # Extract embeddings for all faces (batch processing for efficiency)
         loop = asyncio.get_event_loop()
-        embeddings = await loop.run_in_executor(
-            None, face_recognizer.extract_embeddings_for_tracking, image, faces
-        )
-
-        # Update Deep SORT tracker with faces and embeddings
         tracked_faces = await loop.run_in_executor(
-            None, face_tracker.update, faces, embeddings
+            None, face_tracker.update, faces, frame_rate
         )
 
         return tracked_faces
 
     except Exception as e:
-        logger.warning(f"Deep SORT tracking failed: {e}")
-        # Return original faces without tracking on error
+        logger.warning(f"Face tracking failed: {e}")
         return faces
 
 
