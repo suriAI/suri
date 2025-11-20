@@ -76,6 +76,7 @@ export const Sidebar = memo(function Sidebar({
   // Persistent state from store
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useRef(false);
@@ -85,7 +86,7 @@ export const Sidebar = memo(function Sidebar({
   const currentResizeWidth = useRef(0);
   const originalTransition = useRef<string>("");
 
-  // Load initial state from store
+  // Load initial state from store (disable transition on initial load)
   useEffect(() => {
     persistentSettings.getUIState().then((uiState) => {
       setIsCollapsed(uiState.sidebarCollapsed);
@@ -94,6 +95,26 @@ export const Sidebar = memo(function Sidebar({
         Math.min(MAX_WIDTH, uiState.sidebarWidth),
       );
       setSidebarWidth(width);
+      
+      // Set width immediately without transition on initial load
+      if (sidebarRef.current) {
+        const expectedWidth = uiState.sidebarCollapsed ? MIN_WIDTH : width;
+        // Disable transition for initial load
+        sidebarRef.current.style.transition = "none";
+        sidebarRef.current.style.width = `${expectedWidth}px`;
+        sidebarRef.current.style.minWidth = `${expectedWidth}px`;
+        sidebarRef.current.style.maxWidth = `${expectedWidth}px`;
+        
+        // Re-enable transition after a brief moment
+        requestAnimationFrame(() => {
+          if (sidebarRef.current) {
+            sidebarRef.current.style.transition = "";
+          }
+          setIsInitialized(true);
+        });
+      } else {
+        setIsInitialized(true);
+      }
     });
   }, []);
 
@@ -117,10 +138,14 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [sidebarWidth, isResizing]);
 
-  // Toggle collapse/expand
+  // Toggle collapse/expand (with transition for manual toggles)
   const toggleSidebar = useCallback(() => {
+    if (sidebarRef.current && isInitialized) {
+      // Ensure transition is enabled for manual toggles
+      sidebarRef.current.style.transition = "";
+    }
     setIsCollapsed((prev) => !prev);
-  }, []);
+  }, [isInitialized]);
 
   // Handle resize start
   const handleResizeStart = useCallback(
@@ -228,24 +253,22 @@ export const Sidebar = memo(function Sidebar({
 
   const currentWidth = isCollapsed ? MIN_WIDTH : sidebarWidth;
 
-  // Clear stale inline styles after resize completes
+  // Ensure width is correct when collapsed state changes (only after initialization)
   useEffect(() => {
-    if (!isResizing && sidebarRef.current) {
-      const inlineWidth = sidebarRef.current.style.width;
-      if (inlineWidth && Math.abs(parseFloat(inlineWidth) - sidebarWidth) > 1) {
-        sidebarRef.current.style.width = "";
-        sidebarRef.current.style.minWidth = "";
-        sidebarRef.current.style.maxWidth = "";
-      }
+    if (isInitialized && !isResizing && sidebarRef.current) {
+      const expectedWidth = isCollapsed ? MIN_WIDTH : sidebarWidth;
+      sidebarRef.current.style.width = `${expectedWidth}px`;
+      sidebarRef.current.style.minWidth = `${expectedWidth}px`;
+      sidebarRef.current.style.maxWidth = `${expectedWidth}px`;
     }
-  }, [sidebarWidth, isResizing]);
+  }, [isCollapsed, sidebarWidth, isResizing, isInitialized]);
 
   return (
     <>
       {/* Sidebar Container */}
       <div
         ref={sidebarRef}
-        className="relative bg-white/[0.02] border-l border-b border-white/[0.08] flex flex-col max-h-full transition-all duration-300 ease-in-out"
+        className={`relative bg-white/[0.02] border-l border-b border-white/[0.08] flex flex-col max-h-full ${isInitialized ? "transition-all duration-300 ease-in-out" : ""}`}
         style={{
           width: `${currentWidth}px`,
           minWidth: `${currentWidth}px`,
