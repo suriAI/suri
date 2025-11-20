@@ -9,7 +9,6 @@ from .preprocess import (
 )
 from .postprocess import (
     softmax,
-    deduplicate_detections,
     validate_detection,
     run_batch_inference,
     assemble_liveness_results,
@@ -59,14 +58,13 @@ class LivenessDetector:
 
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Deduplicate detections
-        deduplicated_detections = deduplicate_detections(face_detections)
-
         # Validate detections and filter by minimum face size
+        # Note: ByteTrack already handles deduplication via track_id
+        # Face detector NMS already removes overlapping detections
         results = []
         valid_detections_for_cropping = []
 
-        for detection in deduplicated_detections:
+        for detection in face_detections:
             is_valid, liveness_status = validate_detection(
                 detection, self.min_face_size
             )

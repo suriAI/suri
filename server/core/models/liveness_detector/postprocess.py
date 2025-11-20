@@ -8,35 +8,6 @@ def softmax(prediction: np.ndarray) -> np.ndarray:
     return exp_pred / np.sum(exp_pred, axis=-1, keepdims=True)
 
 
-def deduplicate_detections(face_detections: List[Dict]) -> List[Dict]:
-    """Deduplicate face detections based on bounding box.
-
-    Tracker already handles tracking, so we just remove exact bbox duplicates.
-    If same bbox appears multiple times, keep the first one.
-    """
-    seen_bboxes = set()
-    deduplicated_detections = []
-
-    for detection in face_detections:
-        bbox = detection.get("bbox", {})
-        if not isinstance(bbox, dict):
-            deduplicated_detections.append(detection)
-            continue
-
-        bbox_key = (
-            bbox.get("x", 0),
-            bbox.get("y", 0),
-            bbox.get("width", 0),
-            bbox.get("height", 0),
-        )
-
-        if bbox_key not in seen_bboxes:
-            deduplicated_detections.append(detection)
-            seen_bboxes.add(bbox_key)
-
-    return deduplicated_detections
-
-
 def process_prediction(raw_pred: np.ndarray, confidence_threshold: float) -> Dict:
     """Process raw prediction into liveness result"""
     live_score = float(raw_pred[0])
