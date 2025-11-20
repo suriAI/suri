@@ -594,10 +594,13 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 - [React](https://react.dev/) - UI library
 - [OpenCV](https://opencv.org/) - Computer vision
 
-**Algorithms**
-- Deep SORT tracking algorithm
-- Kalman filter motion prediction
-- Hungarian algorithm for data association
+**AI Models & Algorithms**
+- [OpenCV Zoo](https://github.com/opencv/opencv_zoo) - Face detection model
+- [EdgeFace](https://github.com/otroshi/edgeface) - Face recognition model by Idiap Research Institute
+- [Silent Face Anti-Spoofing](https://github.com/minivision-ai/Silent-Face-Anti-Spoofing) - Liveness detection model
+- [ByteTrack](https://github.com/FoundationVision/ByteTrack) - Multi-object tracking algorithm
+
+> **Note**: Full license texts for third-party AI models are available in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 **Inspiration**
 - Face recognition research from academic community

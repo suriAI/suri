@@ -203,12 +203,12 @@ export const Settings: React.FC<SettingsProps> = ({
   }, [activeSection, groupInitialSection]);
 
   // Keep add member handler available as long as there's a currentGroup
-  // Only clear it when there's no group or no members
+  // Only clear it when there's no group (not based on members count)
   useEffect(() => {
-    if (!currentGroup || members.length === 0) {
+    if (!currentGroup) {
       setAddMemberHandler(null);
     }
-  }, [currentGroup, members.length]);
+  }, [currentGroup]);
 
   const handleClearDatabase = async () => {
     if (
