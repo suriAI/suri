@@ -595,10 +595,10 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 - [OpenCV](https://opencv.org/) - Computer vision
 
 **AI Models & Algorithms**
-- [OpenCV Zoo](https://github.com/opencv/opencv_zoo) - Face detection model
-- [EdgeFace](https://github.com/otroshi/edgeface) - Face recognition model by Idiap Research Institute
-- [Silent Face Anti-Spoofing](https://github.com/minivision-ai/Silent-Face-Anti-Spoofing) - Liveness detection model
-- [ByteTrack](https://github.com/FoundationVision/ByteTrack) - Multi-object tracking algorithm
+- OpenCV Zoo - Face detection model
+- EdgeFace - Face recognition model by Idiap Research Institute
+- Silent Face Anti-Spoofing - Liveness detection model
+- ByteTrack - Multi-object tracking algorithm
 
 > **Note**: Full license texts for third-party AI models are available in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
