@@ -360,19 +360,7 @@ export function BulkFaceRegistration({
             onClick={onClose}
             className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/80 transition flex items-center justify-center"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <i className="fa fa-times text-sm"></i>
           </button>
         </div>
 
@@ -385,19 +373,7 @@ export function BulkFaceRegistration({
               onClick={() => setError(null)}
               className="text-red-200/50 hover:text-red-100 transition"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <i className="fa fa-times text-xs"></i>
             </button>
           </div>
         )}

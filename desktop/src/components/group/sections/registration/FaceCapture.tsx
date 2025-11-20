@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { attendanceManager, backendService } from "../../../../services";
+import {
+  attendanceManager,
+  backendService,
+  persistentSettings,
+} from "../../../../services";
 import { generateDisplayNames } from "../../../../utils";
 import type {
   AttendanceGroup,
   AttendanceMember,
 } from "../../../../types/recognition";
+import { Dropdown } from "../../../shared";
 
 type CaptureSource = "upload" | "live";
 
@@ -68,19 +73,16 @@ function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
       const imageAspectRatio = frame.width / frame.height;
       const containerAspectRatio = containerWidth / containerHeight;
 
-      // Calculate how the image is displayed with object-contain
       let displayedWidth: number;
       let displayedHeight: number;
       let offsetX = 0;
       let offsetY = 0;
 
       if (imageAspectRatio > containerAspectRatio) {
-        // Image is wider - fits to container width
         displayedWidth = containerWidth;
         displayedHeight = containerWidth / imageAspectRatio;
         offsetY = (containerHeight - displayedHeight) / 2;
       } else {
-        // Image is taller - fits to container height
         displayedHeight = containerHeight;
         displayedWidth = containerHeight * imageAspectRatio;
         offsetX = (containerWidth - displayedWidth) / 2;
@@ -91,7 +93,6 @@ function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
         return;
       }
 
-      // Calculate bbox position in pixels relative to displayed image
       const scaleX = displayedWidth / frame.width;
       const scaleY = displayedHeight / frame.height;
 
@@ -107,7 +108,6 @@ function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
         height: `${bboxHeight}px`,
       };
 
-      // Only update if values actually changed to prevent blinking
       const styleKey = `${bboxLeft.toFixed(2)},${bboxTop.toFixed(
         2,
       )},${bboxWidth.toFixed(2)},${bboxHeight.toFixed(2)}`;
@@ -117,16 +117,13 @@ function ImagePreviewWithBbox({ frame }: { frame: CapturedFrame }) {
       }
     };
 
-    // Debounce resize calculations
     let timeoutId: NodeJS.Timeout;
     const debouncedCalculate = () => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(calculateBbox, 16); // ~60fps
+      timeoutId = setTimeout(calculateBbox, 16);
     };
 
     calculateBbox();
-
-    // Recalculate on resize with debouncing
     const resizeObserver = new ResizeObserver(debouncedCalculate);
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
@@ -229,7 +226,16 @@ export function FaceCapture({
   const [memberStatus, setMemberStatus] = useState<Map<string, boolean>>(
     new Map(),
   );
-  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCameraState] = useState<string>("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  
+  const setSelectedCamera = useCallback((deviceId: string) => {
+    setSelectedCameraState(deviceId);
+    persistentSettings
+      .setUIState({ selectedCamera: deviceId })
+      .catch(console.error);
+  }, []);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -239,7 +245,6 @@ export function FaceCapture({
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Generate display names with auto-differentiation for duplicates
   const membersWithDisplayNames = useMemo(() => {
     return generateDisplayNames(members);
   }, [members]);
@@ -247,7 +252,6 @@ export function FaceCapture({
   const filteredMembers = useMemo(() => {
     let result = membersWithDisplayNames;
 
-    // Apply search filter
     if (memberSearch.trim()) {
       const query = memberSearch.toLowerCase();
       result = result.filter(
@@ -258,7 +262,6 @@ export function FaceCapture({
       );
     }
 
-    // Apply registration status filter
     if (registrationFilter !== "all") {
       result = result.filter((member) => {
         const isRegistered = memberStatus.get(member.person_id) ?? false;
@@ -268,14 +271,13 @@ export function FaceCapture({
       });
     }
 
-    // Sort: registered first, then non-registered (within each group, maintain original order)
     result = [...result].sort((a, b) => {
       const aRegistered = memberStatus.get(a.person_id) ?? false;
       const bRegistered = memberStatus.get(b.person_id) ?? false;
 
-      if (aRegistered && !bRegistered) return -1; // Registered first
-      if (!aRegistered && bRegistered) return 1; // Non-registered after
-      return 0; // Maintain original order within same status
+      if (aRegistered && !bRegistered) return -1;
+      if (!aRegistered && bRegistered) return 1;
+      return 0;
     });
 
     return result;
@@ -286,39 +288,160 @@ export function FaceCapture({
     setActiveAngle(REQUIRED_ANGLE);
   }, []);
 
+  useEffect(() => {
+    persistentSettings.getUIState().then((uiState) => {
+      if (uiState.selectedCamera) {
+        setSelectedCameraState(uiState.selectedCamera);
+      }
+    });
+  }, []);
+
+  const getCameraDevices = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput",
+      );
+      setCameraDevices(videoDevices);
+    } catch {
+      setCameraError("Unable to detect cameras. Please make sure your camera is connected.");
+    }
+  }, []);
+
+  useEffect(() => {
+    getCameraDevices();
+  }, [getCameraDevices]);
+
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    setCameraReady(false);
+    setIsStreaming(false);
+    setIsVideoReady(false);
     setCameraError(null);
   }, []);
 
   const startCamera = useCallback(async () => {
     try {
       setCameraError(null);
+      
+      setIsStreaming(true);
+      setIsVideoReady(false);
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput",
+      );
+      
+      if (videoDevices.length === 0) {
+        throw new Error("No camera detected. Please make sure your camera is connected and try again.");
+      }
+
+      setCameraDevices(videoDevices);
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      let deviceIdToUse: string | undefined = undefined;
+      let cameraToSelect = selectedCamera;
+      
+      if (cameraToSelect && videoDevices.length > 0) {
+        const deviceExists = videoDevices.some(
+          (device) => device.deviceId && device.deviceId === cameraToSelect,
+        );
+        if (deviceExists) {
+          deviceIdToUse = cameraToSelect;
+        } else {
+          console.warn(
+            `Selected camera (${cameraToSelect}) not found. Falling back to first available camera.`,
+          );
+          const validDevice = videoDevices.find(
+            (device) => device.deviceId && device.deviceId.trim() !== "",
+          );
+          if (validDevice) {
+            deviceIdToUse = validDevice.deviceId;
+            cameraToSelect = validDevice.deviceId;
+            setSelectedCamera(validDevice.deviceId);
+          }
+        }
+      } else if (videoDevices.length > 0 && !cameraToSelect) {
+        const validDevice = videoDevices.find(
+          (device) => device.deviceId && device.deviceId.trim() !== "",
+        );
+        if (validDevice) {
+          deviceIdToUse = validDevice.deviceId;
+          cameraToSelect = validDevice.deviceId;
+          setSelectedCamera(validDevice.deviceId);
+        }
+      }
+
+      if (!deviceIdToUse) {
+        throw new Error("No valid camera device found.");
+      }
+
       const constraints: MediaStreamConstraints = {
-        video: true,
+        video: { deviceId: { ideal: deviceIdToUse } },
         audio: false,
       };
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+        const waitForVideoReady = () => {
+          return new Promise<void>((resolve) => {
+            const video = videoRef.current;
+            if (!video) {
+              resolve();
+              return;
+            }
+
+            const checkVideoReady = () => {
+              if (video.videoWidth > 0 && video.videoHeight > 0) {
+                resolve();
+              } else {
+                setTimeout(checkVideoReady, 16);
+              }
+            };
+
+            video
+              .play()
+              .then(() => {
+                if (video.paused) {
+                  return video.play();
+                }
+              })
+              .then(() => {
+                checkVideoReady();
+              })
+              .catch((err) => {
+                console.error("Video play() failed:", err);
+                checkVideoReady();
+              });
+          });
+        };
+
+        await waitForVideoReady();
+        
+        const video = videoRef.current;
+        if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+          setIsVideoReady(true);
+        }
+      } else {
+        throw new Error("Video element not available");
       }
-      setCameraReady(true);
-    } catch (error) {
-      console.error("🚨 Camera start failed:", error);
+    } catch (err) {
+      console.error("Error starting camera:", err);
       
-      // Provide user-friendly error messages
       let errorMessage = "Unable to access your camera. Please make sure your camera is connected and try again.";
-      if (error instanceof Error) {
-        const errorName = error.name;
+      if (err instanceof Error) {
+        const errorName = err.name;
         if (errorName === "NotAllowedError" || errorName === "PermissionDeniedError") {
-          // Detect operating system for platform-specific instructions using userAgent
           const userAgent = navigator.userAgent.toLowerCase();
           let instructions = "";
           
@@ -334,14 +457,36 @@ export function FaceCapture({
         } else if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
           errorMessage = "No camera detected. Please make sure your camera is connected and try again.";
         } else if (errorName === "NotReadableError" || errorName === "TrackStartError") {
-          errorMessage = "Your camera is being used by another app. Please close other apps that might be using the camera, then try again.";
+          errorMessage = "Your camera is being used by another app. Please close other apps (like Zoom, Teams, or your web browser) that might be using the camera, then try again.";
+        } else if (errorName === "OverconstrainedError" || errorName === "ConstraintNotSatisfiedError") {
+          errorMessage = "Switching to a different camera...";
+          try {
+            const fallbackConstraints: MediaStreamConstraints = {
+              video: true,
+              audio: false,
+            };
+            const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+            streamRef.current = fallbackStream;
+            if (videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+              await videoRef.current.play();
+              setCameraError(null);
+              return;
+            }
+          } catch (fallbackErr) {
+            console.error("Fallback camera start failed:", fallbackErr);
+            errorMessage = "Unable to start camera. Please check if your camera is working and not being used by another app.";
+          }
+        } else {
+          errorMessage = "Unable to start camera. Please make sure your camera is connected and not being used by another app.";
         }
       }
       
       setCameraError(errorMessage);
-      setCameraReady(false);
+      setIsStreaming(false);
+      setIsVideoReady(false);
     }
-  }, []);
+  }, [selectedCamera, setSelectedCamera]);
 
   const loadMemberStatus = useCallback(async () => {
     if (!group) {
@@ -357,7 +502,7 @@ export function FaceCapture({
       );
       setMemberStatus(status);
     } catch (error) {
-      console.error("⚠️ Failed to load member registration status:", error);
+      console.error("Failed to load member registration status:", error);
     }
   }, [group]);
 
@@ -365,7 +510,6 @@ export function FaceCapture({
     loadMemberStatus();
   }, [loadMemberStatus]);
 
-  // Auto-dismiss success message after 5 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -375,14 +519,12 @@ export function FaceCapture({
     }
   }, [successMessage]);
 
-  // Notify parent when selected member changes
   useEffect(() => {
     if (onSelectedMemberChange) {
       onSelectedMemberChange(!!selectedMemberId);
     }
   }, [selectedMemberId, onSelectedMemberChange]);
 
-  // Deselect member when trigger changes
   const deselectedMemberTriggerRef = useRef(deselectMemberTrigger ?? 0);
   useEffect(() => {
     if (
@@ -397,7 +539,6 @@ export function FaceCapture({
     }
   }, [deselectMemberTrigger, selectedMemberId, resetFrames]);
 
-  // Only reset when group changes or selected member no longer exists
   useEffect(() => {
     if (!group) {
       setSelectedMemberId("");
@@ -407,7 +548,6 @@ export function FaceCapture({
       return;
     }
 
-    // Only clear selection if selected member no longer exists
     if (selectedMemberId) {
       const memberExists = members.some(
         (m) => m.person_id === selectedMemberId,
@@ -419,7 +559,6 @@ export function FaceCapture({
         setGlobalError(null);
       }
     }
-    // Don't reset frames/messages when members list refreshes after successful registration
   }, [group, resetFrames, members, selectedMemberId]);
 
   useEffect(() => {
@@ -429,20 +568,10 @@ export function FaceCapture({
   }, [activeAngle]);
 
   useEffect(() => {
-    if (source === "live") {
-      startCamera();
-      return () => stopCamera();
+    if (source !== "live") {
+      stopCamera();
     }
-    stopCamera();
-  }, [source, startCamera, stopCamera]);
-
-  // Restart camera when frames are cleared and source is 'live'
-  useEffect(() => {
-    const hasFrame = frames.find((f) => f.angle === REQUIRED_ANGLE);
-    if (source === "live" && !hasFrame && !cameraReady) {
-      startCamera();
-    }
-  }, [source, frames, cameraReady, startCamera]);
+  }, [source, stopCamera]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
@@ -489,7 +618,7 @@ export function FaceCapture({
 
         if (!detection.faces || detection.faces.length === 0) {
           throw new Error(
-            "No face detected. Try better lighting, remove glasses, or face the camera directly.",
+            "No face detected. Make sure your face is visible and in the frame.",
           );
         }
 
@@ -557,7 +686,6 @@ export function FaceCapture({
         return;
       }
 
-      // Mirror the canvas to match the mirrored video preview
       ctx.save();
       ctx.scale(-1, 1);
       ctx.drawImage(video, -width, 0, width, height);
@@ -566,11 +694,49 @@ export function FaceCapture({
       const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
       await captureProcessedFrame(angle, dataUrl, width, height);
 
-      // Stop camera after successful capture since the camera container will be hidden
       stopCamera();
     },
     [captureProcessedFrame, stopCamera],
   );
+
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      setIsVideoReady(false);
+    }
+  }, [isStreaming]);
+
+  useEffect(() => {
+    if (!isStreaming || !isVideoReady) {
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    const checkVideoUnready = () => {
+      const hasSrcObject = !!video.srcObject;
+      const hasDimensions = video.videoWidth > 0 && video.videoHeight > 0;
+      const isPlaying = !video.paused;
+      const noError = !cameraError;
+      
+      const ready = hasSrcObject && hasDimensions && isPlaying && noError;
+      
+      if (!ready && isVideoReady) {
+        console.warn("Video became unready");
+        setIsVideoReady(false);
+      }
+    };
+
+    const interval = setInterval(checkVideoUnready, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isStreaming, cameraError, isVideoReady]);
 
   const handleFileSelected = useCallback(
     async (angle: string, files: FileList | null) => {
@@ -617,7 +783,6 @@ export function FaceCapture({
       return;
     }
 
-    // Validate member still exists
     const selectedMember = members.find(
       (m) => m.person_id === selectedMemberId,
     );
@@ -693,8 +858,6 @@ export function FaceCapture({
       if (onRefresh) {
         await onRefresh();
       }
-
-      // Don't auto-reset - let user stay on the success message and manually go back
     } catch (error) {
       const message =
         error instanceof Error
@@ -757,7 +920,6 @@ export function FaceCapture({
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
-      {/* Success Message - Positioned absolutely to not affect layout */}
       {successMessage && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-cyan-500/30 bg-cyan-500/10 backdrop-blur-sm px-4 py-3 text-sm text-cyan-200 flex items-center gap-3 min-w-[500px] max-w-[95%] transition-all duration-300 ease-out">
           <span className="flex-1">{successMessage}</span>
@@ -782,7 +944,6 @@ export function FaceCapture({
         </div>
       )}
 
-      {/* Alerts */}
       {globalError && (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-200 flex items-center gap-3 flex-shrink-0">
           <span className="flex-1">{globalError}</span>
@@ -808,12 +969,9 @@ export function FaceCapture({
       )}
 
       <div className="flex-1 overflow-hidden min-h-0">
-        {/* Show member list only when no member selected */}
         {!selectedMemberId && (
           <div className="space-y-3 flex flex-col overflow-hidden min-h-0 h-full p-6">
-            {/* Header Row with Search and Back Button */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              {/* Search Bar */}
               <div className="relative flex-1">
                 <svg
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"
@@ -838,49 +996,65 @@ export function FaceCapture({
               </div>
             </div>
 
-            {/* Registration Status Filter Tabs */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => setRegistrationFilter("all")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  registrationFilter === "all"
-                    ? "bg-white/10 text-white border border-white/20"
-                    : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setRegistrationFilter("non-registered")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  registrationFilter === "non-registered"
-                    ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
-                    : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
-                }`}
-              >
-                Needs Registration
-              </button>
-              <button
-                onClick={() => setRegistrationFilter("registered")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  registrationFilter === "registered"
-                    ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/30"
-                    : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
-                }`}
-              >
-                Registered
-              </button>
+            <div className="flex items-center justify-between gap-2 flex-shrink-0">
+              {members.length > 0 && filteredMembers.length > 0 && (
+                <div className="text-xs text-white/30">
+                  Showing {filteredMembers.length} of {members.length} member
+                  {members.length !== 1 ? "s" : ""}
+                  {registrationFilter !== "all" && (
+                    <span className="ml-1">
+                      (
+                      {registrationFilter === "registered"
+                        ? "registered"
+                        : "needs registration"}
+                      )
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => setRegistrationFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    registrationFilter === "all"
+                      ? "bg-white/10 text-white border border-white/20"
+                      : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setRegistrationFilter("non-registered")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    registrationFilter === "non-registered"
+                      ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
+                      : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
+                  }`}
+                >
+                  Needs Registration
+                </button>
+                <button
+                  onClick={() => setRegistrationFilter("registered")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    registrationFilter === "registered"
+                      ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/30"
+                      : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
+                  }`}
+                >
+                  Registered
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 space-y-1.5 overflow-y-auto custom-scroll overflow-x-hidden min-h-0 pr-2">
+            <div className="flex-1 space-y-1.5 overflow-y-auto custom-scroll overflow-x-hidden min-h-0">
               {members.length === 0 && (
-                <div className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-3 py-12 text-center">
+                <div className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-3 py-12 text-center w-full">
                   <div className="text-xs text-white/40">No members yet</div>
                 </div>
               )}
 
               {members.length > 0 && filteredMembers.length === 0 && (
-                <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-6 text-center">
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-6 text-center w-full">
                   <div className="text-xs text-white/40">
                     {memberSearch.trim()
                       ? `No results for "${memberSearch}"`
@@ -889,25 +1063,6 @@ export function FaceCapture({
                         : registrationFilter === "non-registered"
                           ? "All members are registered"
                           : "No members found"}
-                  </div>
-                </div>
-              )}
-
-              {/* Show filter count info */}
-              {members.length > 0 && filteredMembers.length > 0 && (
-                <div className="px-1 pb-1">
-                  <div className="text-xs text-white/30">
-                    Showing {filteredMembers.length} of {members.length} member
-                    {members.length !== 1 ? "s" : ""}
-                    {registrationFilter !== "all" && (
-                      <span className="ml-1">
-                        (
-                        {registrationFilter === "registered"
-                          ? "registered"
-                          : "needs registration"}
-                        )
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
@@ -996,12 +1151,9 @@ export function FaceCapture({
           </div>
         )}
 
-        {/* Registration Panel - Show only when member selected */}
         {selectedMemberId && (
           <div className="flex flex-col h-full overflow-hidden p-6 space-y-2">
-            {/* Content Area - Takes available space */}
             <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
-              {/* Only show source toggle if no initialSource was provided (direct access) */}
               {!initialSource && (
                 <div className="flex gap-2 flex-shrink-0">
                   {(["upload", "live"] as CaptureSource[]).map((option) => (
@@ -1023,66 +1175,137 @@ export function FaceCapture({
                 </div>
               )}
 
-              {/* Capture/Preview Area - Takes remaining space */}
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {source === "live"
-                  ? // Camera mode - only show camera if no frame exists
-                    !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
-                      <div className="h-full flex flex-col rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
-                        <div className="p-4 space-y-3 flex-shrink-0">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`h-2 w-2 rounded-full ${cameraReady ? "bg-cyan-400 animate-pulse" : "bg-yellow-400"}`}
-                              />
-                              <span className="text-xs text-white/60">
-                                {cameraReady ? "Ready" : "Initializing..."}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex-1 min-h-0 flex flex-col p-4 pt-0">
-                          <div className="flex-1 relative overflow-hidden rounded-xl border border-white/20 bg-black">
-                            <video
-                              ref={videoRef}
-                              className="w-full h-full object-cover scale-x-[-1]"
-                              playsInline
-                              muted
-                            />
-                            {!cameraReady && !cameraError && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="flex flex-col items-center gap-2">
-                                  <div className="h-12 w-12 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
-                                  <span className="text-xs text-white/40">
-                                    Loading...
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                            {cameraError && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-4 text-center">
-                                <div className="space-y-2">
-                                  <div className="text-xs text-red-300">
+                  ? !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
+                      <div className="h-full flex flex-col overflow-hidden relative">
+                        <div className="flex-1 relative overflow-hidden rounded-xl border border-white/20 bg-black">
+                          <video
+                            ref={videoRef}
+                            className="w-full h-full object-contain scale-x-[-1]"
+                            playsInline
+                            muted
+                          />
+                          {!isStreaming && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/90">
+                              <div className="text-center space-y-2">
+                                {cameraError ? (
+                                  <div className="text-sm text-white/60">
                                     {cameraError}
                                   </div>
+                                ) : (
+                                  <div className="relative">
+                                    <svg
+                                      className="w-8 h-8 text-white/30 animate-pulse"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={1.5}
+                                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                      />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {isStreaming && !isVideoReady && !cameraError && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <div className="h-12 w-12 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
+                            </div>
+                          )}
+                          {cameraError && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-4 text-center">
+                              <div className="space-y-2">
+                                <div className="text-xs text-red-300">
+                                  {cameraError}
                                 </div>
                               </div>
-                            )}
+                            </div>
+                          )}
+
+                          {cameraDevices.length > 0 && !isStreaming && (
+                            <div className="absolute bottom-2 left-2 z-10 max-w-[200px]">
+                              <Dropdown
+                                options={cameraDevices.map((device, index) => ({
+                                  value: device.deviceId,
+                                  label: device.label || `Camera ${index + 1}`,
+                                }))}
+                                value={selectedCamera}
+                                onChange={(deviceId) => {
+                                  if (deviceId) {
+                                    setSelectedCamera(deviceId);
+                                    if (isStreaming) {
+                                      stopCamera();
+                                    }
+                                  }
+                                }}
+                                placeholder="Select camera…"
+                                emptyMessage="No cameras available"
+                                disabled={isStreaming || cameraDevices.length <= 1}
+                                maxHeight={256}
+                                buttonClassName="text-xs px-2 py-1 bg-black/60 backdrop-blur-sm border border-white/10"
+                                showPlaceholderOption={false}
+                                allowClear={false}
+                              />
+                            </div>
+                          )}
+
+                          {isStreaming && (
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
+                              <button
+                                onClick={() =>
+                                  void captureFromCamera(REQUIRED_ANGLE)
+                                }
+                                disabled={!isVideoReady || !!cameraError}
+                                className="px-3 py-1.5 rounded-md backdrop-blur-sm border border-cyan-400/50 bg-cyan-500/40 text-xs font-medium text-cyan-100 hover:bg-cyan-500/50 disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed transition-all"
+                              >
+                                Capture Face
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="absolute bottom-2 right-2 z-10">
+                            {(() => {
+                              const isCameraSelected =
+                                !!selectedCamera &&
+                                selectedCamera.trim() !== "" &&
+                                cameraDevices.some((device) => device.deviceId === selectedCamera);
+                              const canStartCamera = isCameraSelected && !isStreaming;
+                              const isButtonEnabled = isStreaming || canStartCamera;
+                              
+                              return (
+                                <button
+                                  onClick={isStreaming ? stopCamera : startCamera}
+                                  disabled={!isButtonEnabled}
+                                  className={`px-2 py-2 rounded-md backdrop-blur-sm border text-xs font-medium transition-all min-w-[100px] ${
+                                    isStreaming
+                                      ? "bg-red-500/40 border-red-400/50 text-red-100 hover:bg-red-500/50"
+                                      : isButtonEnabled
+                                        ? "bg-cyan-500/40 border-cyan-400/50 text-cyan-100 hover:bg-cyan-500/50"
+                                        : "bg-black/40 border-white/10 text-white/30 cursor-not-allowed opacity-50"
+                                  }`}
+                                  title={
+                                    !isCameraSelected
+                                      ? "Please select a camera first"
+                                      : isStreaming
+                                        ? "Stop camera"
+                                        : "Start camera"
+                                  }
+                                >
+                                  {isStreaming ? "Stop Camera" : "Start Camera"}
+                                </button>
+                              );
+                            })()}
                           </div>
-                          <button
-                            onClick={() =>
-                              void captureFromCamera(REQUIRED_ANGLE)
-                            }
-                            disabled={!cameraReady || !!cameraError}
-                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/20 py-4 text-sm font-medium text-white hover:bg-white/15 disabled:bg-white/5 disabled:border-white/10 disabled:text-white/30 transition-all mt-3 flex-shrink-0"
-                          >
-                            Capture Face
-                          </button>
                         </div>
                       </div>
                     )
-                  : // Upload mode - only show upload area if no frame exists
-                    !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
+                  : !frames.find((f) => f.angle === REQUIRED_ANGLE) && (
                       <div className="h-full rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
                         <label className="h-full flex cursor-pointer flex-col items-center justify-center p-8 text-center hover:bg-white/5 transition-all group">
                           <div className="flex flex-col items-center gap-4">
@@ -1111,99 +1334,82 @@ export function FaceCapture({
                       </div>
                     )}
 
-                {/* Face Preview - Only show when frame exists */}
                 {frames.find((f) => f.angle === REQUIRED_ANGLE) && (
-                  <div className="h-full flex flex-col rounded-xl border border-white/10 bg-black/20 overflow-hidden">
-                    <div className="flex-1 min-h-0 p-3 flex flex-col">
-                      {frames
-                        .filter((f) => f.angle === REQUIRED_ANGLE)
-                        .map((frame) => (
-                          <div
-                            key={frame.id}
-                            className="flex-1 min-h-0 flex flex-col space-y-2"
-                          >
-                            <ImagePreviewWithBbox frame={frame} />
-                            {/* Name and Change button container */}
-                            <div className="flex-shrink-0 rounded-xl border border-white/10 bg-white/5 p-1.5">
-                              <div className="flex items-center gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-white truncate">
-                                    {
-                                      membersWithDisplayNames.find(
-                                        (m) => m.person_id === selectedMemberId,
-                                      )?.displayName
-                                    }
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setSelectedMemberId("");
-                                    resetFrames();
-                                  }}
-                                  className="rounded-lg px-3 py-1.5 text-xs text-white/60 border border-white/10 bg-white/5 hover:bg-white/10 hover:text-white transition-all"
-                                >
-                                  Change
-                                </button>
-                              </div>
-                            </div>
+                  <div className="h-full flex flex-col overflow-hidden relative">
+                    {frames
+                      .filter((f) => f.angle === REQUIRED_ANGLE)
+                      .map((frame) => (
+                        <div
+                          key={frame.id}
+                          className="flex-1 min-h-0 flex flex-col"
+                        >
+                          <ImagePreviewWithBbox frame={frame} />
+                        </div>
+                      ))}
+                    <div className="absolute top-2 left-2 z-10">
+                      <div className="text-md font-medium text-white/80 truncate">
+                        {
+                          membersWithDisplayNames.find(
+                            (m) => m.person_id === selectedMemberId,
+                          )?.displayName
+                        }
+                      </div>
+                    </div>
+                    
+                    <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5">
+                      <button
+                        onClick={resetWorkflow}
+                        className="px-2 py-2 rounded-md backdrop-blur-sm border border-white/10 bg-black/40 text-white/70 hover:text-white hover:bg-black/60 text-xs font-medium transition-all min-w-[100px]"
+                      >
+                        Retake
+                      </button>
+                      
+                      <button
+                        onClick={() => void handleRegister()}
+                        disabled={!framesReady || !selectedMemberId || isRegistering}
+                        className={`px-2 py-2 rounded-md backdrop-blur-sm border text-xs font-medium transition-all min-w-[100px] ${
+                          memberStatus.get(selectedMemberId)
+                            ? "bg-amber-500/40 border-amber-400/50 text-amber-100 hover:bg-amber-500/50"
+                            : "bg-cyan-500/40 border-cyan-400/50 text-cyan-100 hover:bg-cyan-500/50"
+                        } disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed`}
+                        title={
+                          memberStatus.get(selectedMemberId)
+                            ? "Override existing registration with new face data"
+                            : framesReady
+                              ? "Register this member"
+                              : "Capture a face image first"
+                        }
+                      >
+                        {isRegistering ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                            <span>Processing...</span>
                           </div>
-                        ))}
+                        ) : memberStatus.get(selectedMemberId) ? (
+                          <span className="flex items-center gap-1">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            Override
+                          </span>
+                        ) : (
+                          "Register"
+                        )}
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Actions - Fixed at bottom */}
-            <div className="flex gap-2 flex-shrink-0">
-              <button
-                onClick={resetWorkflow}
-                className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white/50 hover:bg-white/10 hover:text-white/70 transition-all"
-              >
-                Reset
-              </button>
-              <button
-                onClick={() => void handleRegister()}
-                disabled={!framesReady || !selectedMemberId || isRegistering}
-                className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition-all ${
-                  memberStatus.get(selectedMemberId)
-                    ? "bg-amber-500/20 border-amber-400/40 text-amber-100 hover:bg-amber-500/30"
-                    : "bg-cyan-500/20 border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30"
-                } disabled:bg-white/5 disabled:border-white/10 disabled:text-white/30`}
-                title={
-                  memberStatus.get(selectedMemberId)
-                    ? "Override existing registration with new face data"
-                    : framesReady
-                      ? "Register this member"
-                      : "Capture a face image first"
-                }
-              >
-                {isRegistering ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="h-3 w-3 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                    <span>Processing...</span>
-                  </div>
-                ) : memberStatus.get(selectedMemberId) ? (
-                  <span className="flex items-center justify-center gap-1.5">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                    Override Registration
-                  </span>
-                ) : (
-                  "Register"
-                )}
-              </button>
             </div>
           </div>
         )}

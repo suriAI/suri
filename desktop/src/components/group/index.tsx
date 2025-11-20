@@ -177,6 +177,8 @@ function GroupPanelComponent({
           registrationSource={registrationSource}
           onRegistrationModeChange={onRegistrationModeChange}
           registrationMode={registrationMode}
+          deselectMemberTrigger={deselectMemberTrigger}
+          onHasSelectedMemberChange={onHasSelectedMemberChange}
           onDaysTrackedChange={onDaysTrackedChange}
           onExportHandlersReady={onExportHandlersReady}
         />

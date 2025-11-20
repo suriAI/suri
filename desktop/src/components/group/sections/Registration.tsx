@@ -33,28 +33,22 @@ export function Registration({
   deselectMemberTrigger,
   onHasSelectedMemberChange,
 }: RegistrationProps) {
-  const [source, setSource] = useState<SourceType>(null);
-  const [mode, setMode] = useState<RegistrationMode>(null);
+  const [source, setSource] = useState<SourceType>(registrationSource || null);
+  const [mode, setMode] = useState<RegistrationMode>(registrationMode || null);
 
-  // Sync with parent's source state
+  // Sync with parent state
   useEffect(() => {
     if (registrationSource !== undefined) {
       setSource(registrationSource);
-      // Reset mode when source is cleared
-      if (registrationSource === null) {
-        setMode(null);
-      }
     }
   }, [registrationSource]);
 
-  // Sync with parent's mode state
   useEffect(() => {
     if (registrationMode !== undefined) {
       setMode(registrationMode);
     }
   }, [registrationMode]);
 
-  // Notify parent when source changes
   const handleSourceChange = (newSource: SourceType) => {
     setSource(newSource);
     if (onSourceChange) {
@@ -62,21 +56,27 @@ export function Registration({
     }
   };
 
-  // Handle mode selection after source is chosen
-  const handleModeSelect = (selectedMode: RegistrationMode) => {
-    setMode(selectedMode);
+  const handleModeChange = (newMode: RegistrationMode) => {
+    setMode(newMode);
     if (onModeChange) {
-      onModeChange(selectedMode);
+      onModeChange(newMode);
     }
   };
 
-  // Reset to source selection
   const handleBack = () => {
-    setMode(null);
-    handleSourceChange(null);
+    if (mode) {
+      setMode(null);
+      if (onModeChange) {
+        onModeChange(null);
+      }
+    } else {
+      setSource(null);
+      if (onSourceChange) {
+        onSourceChange(null);
+      }
+    }
   };
 
-  // If mode is selected, render the appropriate component
   if (mode === "bulk" && source === "upload") {
     return (
       <BulkFaceRegistration
@@ -112,7 +112,6 @@ export function Registration({
     );
   }
 
-  // Step 1: Choose source (Upload or Camera)
   if (!source) {
     return (
       <div className="h-full flex flex-col items-center justify-center px-6">
@@ -163,13 +162,12 @@ export function Registration({
     );
   }
 
-  // Step 2: Choose mode based on selected source
   return (
     <div className="h-full flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-lg">
         <div className="grid gap-3">
           <button
-            onClick={() => handleModeSelect("single")}
+            onClick={() => handleModeChange("single")}
             className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
           >
             <span className="text-base font-medium text-white">Individual</span>
@@ -177,7 +175,7 @@ export function Registration({
 
           {source === "upload" && (
             <button
-              onClick={() => handleModeSelect("bulk")}
+              onClick={() => handleModeChange("bulk")}
               className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
             >
               <span className="text-base font-medium text-white">
@@ -188,7 +186,7 @@ export function Registration({
 
           {source === "camera" && (
             <button
-              onClick={() => handleModeSelect("queue")}
+              onClick={() => handleModeChange("queue")}
               className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
             >
               <span className="text-base font-medium text-white">

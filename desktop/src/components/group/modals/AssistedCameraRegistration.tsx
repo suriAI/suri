@@ -360,52 +360,53 @@ export function AssistedCameraRegistration({
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-[#0a0a0a] to-black border border-white/10 rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-          <div>
-            <h2 className="text-xl font-semibold text-white">
-              Assisted Camera Registration
-            </h2>
-            <p className="text-sm text-white/60 mt-1">
-              {queueStarted
-                ? `${completedMembers}/${totalMembers} members • ${progress}% complete`
-                : "Select members → Start queue → Capture faces"}
-            </p>
+        <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div>
+              <h2 className="text-lg font-medium text-white">
+                Camera Queue Registration
+              </h2>
+              <p className="text-xs text-white/40 mt-0.5">
+                {queueStarted
+                  ? `${completedMembers}/${totalMembers} members • ${progress}% complete`
+                  : group.name}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 transition"
+            className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/80 transition flex items-center justify-center"
           >
-            Close
+            <i className="fa fa-times text-sm"></i>
           </button>
         </div>
 
-        {/* Error/Success Alerts */}
+        {/* Error Alert */}
         {error && (
-          <div className="mx-6 mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center justify-between">
-            <span>{error}</span>
+          <div className="mx-6 mt-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-200 flex items-center gap-3">
+            <div className="h-1 w-1 rounded-full bg-red-400 animate-pulse" />
+            <span className="flex-1">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="text-red-200/70 hover:text-red-100 group"
+              className="text-red-200/50 hover:text-red-100 transition"
             >
-              <div className="relative w-3 h-3">
-                <div className="absolute top-1/2 left-1/2 w-2 h-0.5 bg-red-200/70 group-hover:bg-red-100 transition-all duration-200 rotate-45 -translate-x-1/2 -translate-y-1/2"></div>
-                <div className="absolute top-1/2 left-1/2 w-2 h-0.5 bg-red-200/70 group-hover:bg-red-100 transition-all duration-200 -rotate-45 -translate-x-1/2 -translate-y-1/2"></div>
-              </div>
+              <i className="fa fa-times text-xs"></i>
             </button>
           </div>
         )}
 
         {successMessage && (
-          <div className="mx-6 mt-4 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
-            {successMessage}
+          <div className="mx-6 mt-4 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-200 flex items-center gap-3">
+            <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="flex-1">{successMessage}</span>
           </div>
         )}
 
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {!queueStarted ? (
             /* Setup Phase */
             <div className="space-y-6">
