@@ -1,50 +1,10 @@
-/* Inter font family - using system fonts as fallback */
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-Thin.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 100;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-ThinItalic.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 200;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-ExtraLight.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 200;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-ExtraLightItalic.ttf") format("truetype");
-}
-
+/* OPTIMIZED: Only fonts actually used in components */
 @font-face {
   font-family: "Inter";
   font-style: normal;
   font-weight: 300;
   font-display: swap;
   src: url("./fonts/inter/Inter_18pt-Light.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 300;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-LightItalic.ttf") format("truetype");
 }
 
 @font-face {
@@ -73,26 +33,10 @@
 
 @font-face {
   font-family: "Inter";
-  font-style: italic;
-  font-weight: 500;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-MediumItalic.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
   src: url("./fonts/inter/Inter_18pt-SemiBold.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 600;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-SemiBoldItalic.ttf") format("truetype");
 }
 
 @font-face {
@@ -103,46 +47,6 @@
   src: url("./fonts/inter/Inter_18pt-Bold.ttf") format("truetype");
 }
 
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-BoldItalic.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-ExtraBold.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 800;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-ExtraBoldItalic.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 900;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-Black.ttf") format("truetype");
-}
-
-@font-face {
-  font-family: "Inter";
-  font-style: italic;
-  font-weight: 900;
-  font-display: swap;
-  src: url("./fonts/inter/Inter_18pt-BlackItalic.ttf") format("truetype");
-}
-
 @import "tailwindcss";
 @import "@fortawesome/fontawesome-free/css/all.css";
 
@@ -150,13 +54,12 @@
 :root {
   font-family:
     "Inter",
-    "Space Grotesk",
-    -apple-system,
-    BlinkMacSystemFont,
     "Segoe UI Variable",
     "Segoe UI",
     system-ui,
     ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
     Helvetica,
     Arial,
     sans-serif;
@@ -231,7 +134,7 @@
   background-color: var(--bg-primary);
 
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizeSpeed; /* OPTIMIZED: Faster text rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
