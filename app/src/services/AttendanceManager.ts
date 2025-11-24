@@ -169,7 +169,6 @@ export class AttendanceManager {
       this.settings = await this.httpClient.get<AttendanceSettings>(
         API_ENDPOINTS.settings,
       );
-      console.log("[AttendanceManager] Settings loaded successfully");
     } catch (error) {
       console.error(
         "[AttendanceManager] Failed to load settings, using defaults:",
