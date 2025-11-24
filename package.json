@@ -1,5 +1,5 @@
 {
-  "name": "suri-root",
+  "name": "suri",
   "private": true,
   "scripts": {
     "start": "cd app && pnpm dev"
