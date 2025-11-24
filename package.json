@@ -1,0 +1,8 @@
+{
+  "name": "suri-root",
+  "private": true,
+  "scripts": {
+    "start": "cd app && pnpm dev"
+  },
+  "license": "AGPL-3.0"
+}
