@@ -94,6 +94,10 @@ def align_faces_batch(
             if landmarks_5 is None:
                 continue
             landmarks = np.array(landmarks_5, dtype=np.float32)
+            
+            if landmarks.shape != (5, 2):
+                continue
+                
             aligned_face = align_face(image, landmarks, input_size)
             aligned_faces.append(aligned_face)
         except Exception:

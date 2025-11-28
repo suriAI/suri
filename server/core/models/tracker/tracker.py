@@ -100,6 +100,10 @@ class FaceTracker:
             width = bbox.get("width", 0)
             height = bbox.get("height", 0)
 
+            if width <= 0 or height <= 0:
+                logger.warning(f"Invalid bbox dimensions: width={width}, height={height}")
+                continue
+
             x1, y1 = x, y
             x2, y2 = x + width, y + height
             score = face.get("confidence", 1.0)

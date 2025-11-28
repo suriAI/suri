@@ -98,6 +98,9 @@ async def process_liveness_for_face_operation(
     if not (liveness_detector and enable_liveness_detection):
         return False, None
 
+    if not isinstance(bbox, list) or len(bbox) < 4:
+        return True, f"{operation_name} blocked: invalid bbox format"
+
     # Convert bbox from list format [x, y, width, height] to dict format
     # This matches the format used at commit 834a141 which was accurate for both live and spoof
     temp_face = {

@@ -33,6 +33,12 @@ class TemporalSmoother:
         Returns:
             Tuple of (smoothed_live_score, smoothed_spoof_score)
         """
+        if frame_number < 0:
+            frame_number = 0
+            
+        if frame_number < self.current_frame:
+            frame_number = self.current_frame
+            
         self.current_frame = frame_number
         state = self.track_states[track_id]
 
