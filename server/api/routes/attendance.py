@@ -1018,7 +1018,7 @@ async def register_face_for_group_person(group_id: str, person_id: str, request:
         # Register the face
         logger.info(f"Registering face for {person_id} in group {group_id}")
 
-        result = await face_recognizer.register_person(person_id, image, landmarks_5)
+        result = face_recognizer.register_person(person_id, image, landmarks_5)
 
         if result["success"]:
             logger.info(
@@ -1401,7 +1401,7 @@ async def bulk_detect_faces(group_id: str, request: dict):
                 # Detect faces
                 from hooks import process_face_detection
 
-                detections = await process_face_detection(image)
+                detections = process_face_detection(image)
 
                 if not detections or len(detections) == 0:
                     results.append(
@@ -1601,7 +1601,7 @@ async def bulk_register_faces(group_id: str, request: dict):
                     )
 
                 # Register the face
-                result = await face_recognizer.register_person(
+                result = face_recognizer.register_person(
                     person_id, image, landmarks_5
                 )
 

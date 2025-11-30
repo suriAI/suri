@@ -85,7 +85,7 @@ async def detect_faces(request: DetectionRequest):
                 else FACE_DETECTOR_CONFIG["min_face_size"]
             )
 
-            faces = await process_face_detection(
+            faces = process_face_detection(
                 image,
                 confidence_threshold=request.confidence_threshold,
                 nms_threshold=request.nms_threshold,
@@ -96,7 +96,7 @@ async def detect_faces(request: DetectionRequest):
                 if "track_id" not in face:
                     face["track_id"] = -1
 
-            faces = await process_liveness_detection(
+            faces = process_liveness_detection(
                 faces, image, request.enable_liveness_detection
             )
 
@@ -160,7 +160,7 @@ async def detect_faces_upload(
                 else FACE_DETECTOR_CONFIG["min_face_size"]
             )
 
-            faces = await process_face_detection(
+            faces = process_face_detection(
                 image,
                 confidence_threshold=confidence_threshold,
                 nms_threshold=nms_threshold,
@@ -171,7 +171,7 @@ async def detect_faces_upload(
                 if "track_id" not in face:
                     face["track_id"] = -1
 
-            faces = await process_liveness_detection(
+            faces = process_liveness_detection(
                 faces, image, enable_liveness_detection
             )
 

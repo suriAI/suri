@@ -17,7 +17,7 @@ def set_model_references(liveness, tracker, recognizer, detector=None):
     face_detector = detector
 
 
-async def process_face_detection(
+def process_face_detection(
     image: np.ndarray,
     confidence_threshold: Optional[float] = None,
     nms_threshold: Optional[float] = None,
@@ -43,7 +43,7 @@ async def process_face_detection(
         return []
 
 
-async def process_liveness_detection(
+def process_liveness_detection(
     faces: List[Dict], image: np.ndarray, enable: bool
 ) -> List[Dict]:
     if not (enable and faces and liveness_detector):
@@ -72,7 +72,7 @@ async def process_liveness_detection(
     return faces
 
 
-async def process_face_tracking(
+def process_face_tracking(
     faces: List[Dict],
     image: np.ndarray,
     frame_rate: int = None,
@@ -113,7 +113,7 @@ async def process_face_tracking(
         return faces
 
 
-async def process_liveness_for_face_operation(
+def process_liveness_for_face_operation(
     image: np.ndarray,
     bbox: list,
     enable_liveness_detection: bool,

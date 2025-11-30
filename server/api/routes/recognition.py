@@ -37,7 +37,7 @@ async def recognize_face(request: FaceRecognitionRequest):
         image = decode_base64_image(request.image)
 
         # Check liveness detection
-        should_block, error_msg = await process_liveness_for_face_operation(
+        should_block, error_msg = process_liveness_for_face_operation(
             image, request.bbox, request.enable_liveness_detection, "Recognition"
         )
         if should_block:
@@ -63,7 +63,7 @@ async def recognize_face(request: FaceRecognitionRequest):
             allowed_person_ids = attendance_database.get_group_person_ids(
                 request.group_id
             )
-        result = await face_recognizer.recognize_face(
+        result = face_recognizer.recognize_face(
             image, landmarks_5, allowed_person_ids
         )
 
@@ -105,7 +105,7 @@ async def register_person(request: FaceRegistrationRequest):
         image = decode_base64_image(request.image)
 
         # Check liveness detection
-        should_block, error_msg = await process_liveness_for_face_operation(
+        should_block, error_msg = process_liveness_for_face_operation(
             image, request.bbox, request.enable_liveness_detection, "Registration"
         )
         if should_block:
@@ -126,7 +126,7 @@ async def register_person(request: FaceRegistrationRequest):
                 detail="Landmarks required for face recognition",
             )
 
-        result = await face_recognizer.register_person(
+        result = face_recognizer.register_person(
             request.person_id, image, landmarks_5
         )
 

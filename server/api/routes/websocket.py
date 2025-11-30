@@ -151,16 +151,16 @@ async def handle_websocket_detect(websocket: WebSocket, client_id: str):
                         else FACE_DETECTOR_CONFIG["min_face_size"]
                     )
 
-                    faces = await process_face_detection(
+                    faces = process_face_detection(
                         image,
                         min_face_size=min_face_size,
                     )
 
                     current_fps = manager.update_fps(client_id)
-                    faces = await process_face_tracking(
+                    faces = process_face_tracking(
                         faces, image, current_fps, client_id
                     )
-                    faces = await process_liveness_detection(
+                    faces = process_liveness_detection(
                         faces, image, enable_liveness_detection
                     )
 

@@ -141,7 +141,7 @@ class FaceRecognizer:
             self._persons_cache = None
             self._cache_timestamp = 0
 
-    async def recognize_face(
+    def recognize_face(
         self,
         image: np.ndarray,
         landmarks_5: List,
@@ -181,7 +181,7 @@ class FaceRecognizer:
                 "error": str(e),
             }
 
-    async def register_person(
+    def register_person(
         self, person_id: str, image: np.ndarray, landmarks_5: List
     ) -> Dict:
         try:
