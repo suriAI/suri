@@ -50,7 +50,6 @@ async def lifespan(app: FastAPI):
             model_path=str(LIVENESS_DETECTOR_CONFIG["model_path"]),
             model_img_size=LIVENESS_DETECTOR_CONFIG["model_img_size"],
             confidence_threshold=LIVENESS_DETECTOR_CONFIG["confidence_threshold"],
-            min_face_size=LIVENESS_DETECTOR_CONFIG["min_face_size"],
             bbox_inc=LIVENESS_DETECTOR_CONFIG["bbox_inc"],
             temporal_alpha=LIVENESS_DETECTOR_CONFIG[
                 "temporal_alpha"

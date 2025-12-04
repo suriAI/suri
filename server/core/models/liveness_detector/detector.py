@@ -21,21 +21,17 @@ class LivenessDetector:
         model_path: str,
         model_img_size: int,
         confidence_threshold: float,
-        min_face_size: int,
         bbox_inc: float,
         temporal_alpha: Optional[float] = None,
         enable_temporal_smoothing: bool = True,
     ):
         self.model_img_size = model_img_size
         self.confidence_threshold = confidence_threshold
-        self.min_face_size = min_face_size
         self.bbox_inc = bbox_inc
         self.enable_temporal_smoothing = enable_temporal_smoothing
 
         self.ort_session, self.input_name = self._init_session_(model_path)
 
-        # Initialize temporal smoother if enabled
-        # Use config value directly (single source of truth)
         if self.enable_temporal_smoothing:
             if temporal_alpha is None:
                 raise ValueError(
@@ -45,53 +41,34 @@ class LivenessDetector:
         else:
             self.temporal_smoother = None
 
-        # Global frame counter for proper frame tracking
         self.frame_counter = 0
 
     def _init_session_(self, onnx_model_path: str):
-        """Initialize ONNX Runtime session"""
         return init_onnx_session(onnx_model_path)
 
     def postprocessing(self, prediction: np.ndarray) -> np.ndarray:
-        """
-        Apply softmax to batch predictions.
-
-        Args:
-            prediction: Raw logits with shape [N, 3] where N is batch size
-
-        Returns:
-            np.ndarray: Softmax probabilities with shape [N, 3]
-        """
         return softmax(prediction)
 
     def increased_crop(
         self, img: np.ndarray, bbox: tuple, bbox_inc: float
     ) -> np.ndarray:
-        """Crop face with expanded bounding box"""
         return crop_with_margin(img, bbox, bbox_inc)
 
     def detect_faces(
         self, image: np.ndarray, face_detections: List[Dict]
     ) -> List[Dict]:
-        """Process face detections with anti-spoofing"""
         if not face_detections:
             return []
 
-        # Increment global frame counter (one per video frame, not per detection)
         self.frame_counter += 1
 
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Validate detections and filter by minimum face size
-        # Note: ByteTrack already handles deduplication via track_id
-        # Face detector NMS already removes overlapping detections
         results = []
         valid_detections_for_cropping = []
 
         for detection in face_detections:
-            is_valid, liveness_status = validate_detection(
-                detection, self.min_face_size
-            )
+            is_valid, liveness_status = validate_detection(detection)
 
             if not is_valid:
                 if liveness_status:
@@ -110,7 +87,6 @@ class LivenessDetector:
             )
         )
 
-        # Mark skipped detections (failed cropping) as error to prevent bypass
         for skipped in skipped_results:
             if "liveness" not in skipped:
                 skipped["liveness"] = {
@@ -123,10 +99,8 @@ class LivenessDetector:
         results.extend(skipped_results)
 
         if not face_crops:
-            # Return results (should never be empty, but fail-safe if it is)
             return results
 
-        # Run batch inference (processes all faces in a single batch for better performance)
         raw_predictions = run_batch_inference(
             face_crops,
             self.ort_session,
@@ -135,17 +109,15 @@ class LivenessDetector:
             self.model_img_size,
         )
 
-        # Assemble liveness results with temporal smoothing
         results = assemble_liveness_results(
             valid_detections,
             raw_predictions,
             self.confidence_threshold,
             results,
             self.temporal_smoother,
-            self.frame_counter,  # Pass global frame number
+            self.frame_counter,
         )
 
-        # Cleanup stale tracks periodically (optimized - runs every N frames)
         if self.temporal_smoother:
             self.temporal_smoother.cleanup_stale_tracks()
 

@@ -7,11 +7,9 @@ def process_detection(
     min_face_size: int,
     landmarks_5: np.ndarray,
 ) -> Dict:
-    """Process a single face detection and format output."""
     x, y, w, h = face[:4]
     conf = float(face[14])
 
-    # Keep float precision until final conversion (no clipping - handled in frontend for UI)
     x1_orig = float(x)
     y1_orig = float(y)
     x2_orig = float(x + w)
@@ -20,7 +18,6 @@ def process_detection(
     face_width_orig = x2_orig - x1_orig
     face_height_orig = y2_orig - y1_orig
 
-    # Keep float precision - no conversion to int
     detection = {
         "bbox": {
             "x": x1_orig,
@@ -32,7 +29,6 @@ def process_detection(
         "landmarks_5": landmarks_5.tolist(),
     }
 
-    # Check liveness detection conditions if enabled
     if min_face_size > 0:
         is_bounding_box_too_small = (
             face_width_orig < min_face_size or face_height_orig < min_face_size

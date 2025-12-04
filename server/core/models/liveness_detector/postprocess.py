@@ -4,15 +4,6 @@ from .preprocess import preprocess_batch
 
 
 def softmax(prediction: np.ndarray) -> np.ndarray:
-    """
-    Apply numerically stable softmax to batch predictions.
-
-    Args:
-        prediction: Input logits with shape [N, 3] where N is batch size
-
-    Returns:
-        np.ndarray: Softmax probabilities with shape [N, 3]
-    """
     exp_pred = np.exp(prediction - np.max(prediction, axis=-1, keepdims=True))
     return exp_pred / np.sum(exp_pred, axis=-1, keepdims=True)
 
@@ -42,17 +33,8 @@ def process_prediction(raw_pred: np.ndarray, confidence_threshold: float) -> Dic
 
 
 def validate_detection(
-    detection: Dict, min_face_size: int
+    detection: Dict
 ) -> Tuple[bool, Optional[Dict]]:
-    """
-    Validate detection and check if it meets minimum face size requirement.
-
-    Returns:
-        Tuple of (is_valid, liveness_status_dict)
-        - is_valid: True if detection should be processed, False if skipped
-        - liveness_status_dict: None if valid, or liveness dict if marked as too_small
-    """
-    # Skip if already marked as too_small
     if "liveness" in detection and detection["liveness"].get("status") == "too_small":
         return False, None
 
@@ -66,18 +48,6 @@ def validate_detection(
     if w <= 0 or h <= 0:
         return False, None
 
-    # Check minimum face size
-    if min_face_size > 0:
-        if w < min_face_size or h < min_face_size:
-            liveness_status = {
-                "is_real": False,
-                "status": "too_small",
-                "live_score": 0.0,
-                "spoof_score": 1.0,
-                "confidence": 0.0,
-            }
-            return False, liveness_status
-
     return True, None
 
 
@@ -88,31 +58,15 @@ def run_batch_inference(
     postprocess_fn,
     model_img_size: int,
 ) -> List[np.ndarray]:
-    """
-    Run batch inference on multiple face crops simultaneously.
-
-    Args:
-        face_crops: List of face crop images (each is [H, W, 3] RGB)
-        ort_session: ONNX Runtime inference session
-        input_name: Name of the input tensor
-        postprocess_fn: Function to apply softmax postprocessing
-        model_img_size: Target image size for preprocessing
-
-    Returns:
-        List of raw predictions, each with shape [3] (live, print, replay scores).
-    """
     if not face_crops:
         return []
 
     if not ort_session:
         raise RuntimeError("ONNX session is not available")
 
-    # Preprocess all face crops into a single batch tensor: [N, 3, H, W]
     batch_input = preprocess_batch(face_crops, model_img_size)
-
-    # Run batch inference
     onnx_results = ort_session.run([], {input_name: batch_input})
-    logits = onnx_results[0]  # Shape: [N, 3]
+    logits = onnx_results[0]
 
     if len(logits.shape) != 2 or logits.shape[1] != 3:
         raise ValueError(
@@ -125,10 +79,7 @@ def run_batch_inference(
             f"for {len(face_crops)} face crops"
         )
 
-    # Apply softmax to all predictions at once
-    predictions = postprocess_fn(logits)  # Shape: [N, 3]
-
-    # Convert batch predictions to list of individual predictions
+    predictions = postprocess_fn(logits)
     raw_predictions = [predictions[i] for i in range(len(face_crops))]
 
     return raw_predictions
@@ -142,17 +93,6 @@ def assemble_liveness_results(
     temporal_smoother=None,
     frame_number: int = 0,
 ) -> List[Dict]:
-    """
-    Assemble liveness results from predictions and add to results list.
-
-    Args:
-        valid_detections: List of valid face detections
-        raw_predictions: List of raw model predictions, each with shape [3]
-        confidence_threshold: Threshold for liveness classification
-        results: List to append results to
-        temporal_smoother: Optional TemporalSmoother instance
-        frame_number: Current video frame number (for proper frame tracking)
-    """
     if len(valid_detections) != len(raw_predictions):
         raise ValueError(
             f"Length mismatch: {len(valid_detections)} detections but "
@@ -162,7 +102,6 @@ def assemble_liveness_results(
     for detection, raw_pred in zip(valid_detections, raw_predictions):
         prediction = process_prediction(raw_pred, confidence_threshold)
 
-        # Apply temporal smoothing if enabled
         live_score = prediction["live_score"]
         spoof_score = prediction["spoof_score"]
 
@@ -173,7 +112,6 @@ def assemble_liveness_results(
                     track_id, live_score, spoof_score, frame_number
                 )
 
-        # Recalculate is_real and status with smoothed scores
         max_confidence = max(live_score, spoof_score)
         is_real = live_score >= confidence_threshold
 
