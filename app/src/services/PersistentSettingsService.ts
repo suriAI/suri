@@ -72,7 +72,20 @@ class PersistentSettingsService {
   async getAttendanceSettings() {
     const settings =
       await this.get<typeof defaultSettings.attendance>("attendance");
-    return settings || defaultSettings.attendance;
+    
+    // If no settings exist (first start), initialize with current time
+    if (!settings) {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const initialSettings = {
+        ...defaultSettings.attendance,
+        classStartTime: currentTime,
+      };
+      await this.set("attendance", initialSettings);
+      return initialSettings;
+    }
+    
+    return settings;
   }
 
   async setAttendanceSettings(
