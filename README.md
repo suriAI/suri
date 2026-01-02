@@ -644,21 +644,9 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ---
 
-## 📈 Statistics
-
-- **Total Lines of Code**: ~15,000+ (Python: 8,000 | TypeScript: 7,000)
-- **AI Models**: 3 ONNX models (detection, recognition, liveness)
-- **Database Tables**: 5 (groups, members, records, sessions, settings)
-- **API Endpoints**: 30+ REST endpoints
-- **WebSocket Streams**: 2 (detection, notifications)
-- **Supported Platforms**: Windows, macOS, Linux
-- **GPU Support**: NVIDIA CUDA, AMD/Intel DirectML, CPU fallback
-
----
-
 <div align="center">
 
-**Built with ❤️ for education and workplace safety**
+**Built with ❤️ for education and workplace**
 
 If you find Suri useful, please ⭐ star the repository!
 
