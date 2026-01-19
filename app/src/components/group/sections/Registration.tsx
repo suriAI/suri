@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 
-import { AssistedCameraRegistration, BulkFaceRegistration } from "../modals";
+import { CameraQueue } from "./registration/CameraQueue";
+import { BulkRegistration } from "./registration/BulkRegistration";
 import { FaceCapture } from "../sections";
 import type {
   AttendanceGroup,
@@ -81,7 +82,7 @@ export function Registration({
 
   if (mode === "bulk" && source === "upload") {
     return (
-      <BulkFaceRegistration
+      <BulkRegistration
         group={group}
         members={members}
         onRefresh={onRefresh}
@@ -92,7 +93,7 @@ export function Registration({
 
   if (mode === "queue" && source === "camera") {
     return (
-      <AssistedCameraRegistration
+      <CameraQueue
         group={group}
         members={members}
         onRefresh={onRefresh}

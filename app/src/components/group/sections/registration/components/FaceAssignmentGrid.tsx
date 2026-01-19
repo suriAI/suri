@@ -1,4 +1,4 @@
-import type { AttendanceMember } from "../../../../types/recognition";
+import type { AttendanceMember } from "../../../../../types/recognition";
 import type { DetectedFace } from "../types";
 
 interface FaceAssignmentGridProps {
@@ -62,9 +62,6 @@ export function FaceAssignmentGrid({
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/80">
-                  <div
-                    className={`h-1 w-1 rounded-full ${face.confidence > 0.8 ? "bg-cyan-400" : "bg-yellow-400"}`}
-                  />
                   <span className="text-xs text-white">
                     {Math.round(face.confidence * 100)}%
                   </span>
@@ -80,21 +77,6 @@ export function FaceAssignmentGrid({
 
               {/* Assignment */}
               <div className="p-3 space-y-2">
-                {/* Quality Bar */}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${face.qualityScore >= 60 ? "bg-gradient-to-r from-cyan-400 to-cyan-500" : "bg-gradient-to-r from-yellow-400 to-orange-400"}`}
-                      style={{ width: `${face.qualityScore}%` }}
-                    />
-                  </div>
-                  <span
-                    className={`text-[10px] ${face.qualityScore >= 60 ? "text-cyan-300" : "text-yellow-300"}`}
-                  >
-                    {Math.round(face.qualityScore)}
-                  </span>
-                </div>
-
                 {/* Member Select */}
                 {!face.assignedPersonId ? (
                   <div className="relative">

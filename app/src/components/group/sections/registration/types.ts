@@ -1,24 +1,28 @@
-export type CaptureSource = "upload" | "live";
-
-export type FrameStatus =
-  | "pending"
-  | "processing"
-  | "ready"
-  | "error"
-  | "registered";
-
-export type BoundingBox = [number, number, number, number];
-
-export interface CapturedFrame {
-  id: string;
-  angle: string;
-  label: string;
-  dataUrl: string;
-  width: number;
-  height: number;
-  status: FrameStatus;
-  confidence?: number;
-  bbox?: BoundingBox;
+export interface DetectedFace {
+  faceId: string;
+  imageId: string;
+  bbox: [number, number, number, number];
+  confidence: number;
   landmarks_5?: number[][];
+  qualityScore: number;
+  isAcceptable: boolean;
+  suggestions: string[];
+  assignedPersonId: string | null;
+  previewUrl: string;
+}
+
+export interface BulkRegistrationResult {
+  personId: string;
+  memberName: string;
+  success: boolean;
   error?: string;
+  qualityWarning?: string;
+}
+
+export interface BulkRegisterResponseItem {
+  person_id: string;
+  member_name?: string;
+  success: boolean;
+  error?: string;
+  quality_warning?: string;
 }

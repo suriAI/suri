@@ -1,5 +1,10 @@
 import { useCallback } from "react";
-import { makeId, toBase64Payload, readFileAsDataUrl, getImageDimensions } from "../../../../../utils/imageHelpers";
+import {
+  makeId,
+  toBase64Payload,
+  readFileAsDataUrl,
+  getImageDimensions,
+} from "../../../../../utils/imageHelpers";
 
 export { makeId, toBase64Payload, readFileAsDataUrl, getImageDimensions };
 

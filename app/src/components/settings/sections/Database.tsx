@@ -73,12 +73,16 @@ export function Database({
       </div>
 
       {/* Groups with Members */}
-      <div className={`space-y-2 ${filteredData.length === 0 ? "h-24" : "h-auto"}`}>
+      <div
+        className={`space-y-2 ${filteredData.length === 0 ? "h-24" : "h-auto"}`}
+      >
         {filteredData.length === 0 ? (
           <div className="text-center py-12 text-white/50">
             <div className="text-sm">No groups or members found</div>
             {groups.length === 0 && (
-              <div className="text-xs mt-1">Create groups in the Menu to get started</div>
+              <div className="text-xs mt-1">
+                Create groups in the Menu to get started
+              </div>
             )}
           </div>
         ) : (
@@ -122,7 +126,12 @@ export function Database({
             </>
           ) : (
             <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -139,7 +148,12 @@ export function Database({
           disabled={isLoading}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-sm font-medium text-red-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -153,4 +167,3 @@ export function Database({
     </div>
   );
 }
-
