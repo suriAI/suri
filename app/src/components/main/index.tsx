@@ -728,6 +728,7 @@ export default function Main() {
           trackedFaces={trackedFaces}
           trackingMode={trackingMode}
           isStreaming={isStreaming}
+          isVideoLoading={isVideoLoading}
           persistentCooldowns={persistentCooldowns}
           attendanceCooldownSeconds={attendanceCooldownSeconds}
           attendanceEnabled={attendanceEnabled}

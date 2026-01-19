@@ -32,6 +32,7 @@ interface SidebarProps {
   trackedFaces: Map<string, TrackedFace>;
   trackingMode: "auto" | "manual";
   isStreaming: boolean;
+  isVideoLoading: boolean;
 
   // Cooldown props
   persistentCooldowns: Map<string, CooldownInfo>;
@@ -63,6 +64,7 @@ export const Sidebar = memo(function Sidebar({
   trackedFaces,
   trackingMode,
   isStreaming,
+  isVideoLoading,
   persistentCooldowns,
   attendanceCooldownSeconds,
   attendanceEnabled,
@@ -369,6 +371,7 @@ export const Sidebar = memo(function Sidebar({
                   trackedFaces={trackedFaces}
                   groupMembers={groupMembers}
                   isStreaming={isStreaming}
+                  isVideoLoading={isVideoLoading}
                 />
               </div>
             </div>

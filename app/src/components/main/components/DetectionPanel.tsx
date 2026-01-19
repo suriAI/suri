@@ -11,6 +11,7 @@ interface DetectionPanelProps {
   trackedFaces: Map<string, TrackedFace>;
   groupMembers: AttendanceMember[];
   isStreaming: boolean;
+  isVideoLoading: boolean;
 }
 
 // Memoized individual detection card - compact border-status design with enhanced spoof UI
@@ -142,6 +143,7 @@ export function DetectionPanel({
   trackedFaces,
   groupMembers,
   isStreaming,
+  isVideoLoading,
 }: DetectionPanelProps) {
   // Create display name map for members
   const displayNameMap = useMemo(() => {
@@ -182,42 +184,50 @@ export function DetectionPanel({
           <div className="relative flex flex-col items-center gap-4">
             {/* AI Scanning Frame */}
             <div className="relative w-20 h-20">
-              {/* Outer pulsing ring - only animate when streaming */}
-              <div className={`absolute inset-0 rounded-2xl border ${isStreaming ? 'border-cyan-500/30 ai-pulse-ring' : 'border-white/20'}`} />
+              {isVideoLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-14 h-14 border-2 border-white/20 border-t-white/60 rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Outer pulsing ring - only animate when streaming */}
+                  <div className={`absolute inset-0 rounded-2xl border ${isStreaming ? 'border-cyan-500/30 ai-pulse-ring' : 'border-white/20'}`} />
 
-              {/* Main scanner frame */}
-              <div className={`absolute inset-1 rounded-xl border overflow-hidden ${isStreaming ? 'border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent' : 'border-white/10 bg-white/5'}`}>
-                {/* Scanning line - only show when streaming */}
-                {isStreaming && (
-                  <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent ai-scan-line" />
-                )}
+                  {/* Main scanner frame */}
+                  <div className={`absolute inset-1 rounded-xl border overflow-hidden ${isStreaming ? 'border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent' : 'border-white/10 bg-white/5'}`}>
+                    {/* Scanning line - only show when streaming */}
+                    {isStreaming && (
+                      <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent ai-scan-line" />
+                    )}
 
-                {/* Face icon */}
-                <svg
-                  className={`w-full h-full p-4 ${isStreaming ? 'text-cyan-400/50' : 'text-white/30 animate-pulse'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
+                    {/* Face icon */}
+                    <svg
+                      className={`w-full h-full p-4 ${isStreaming ? 'text-cyan-400/50' : 'text-white/30 animate-pulse'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
 
-              {/* Corner accents */}
-              <div className={`absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 rounded-tl-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
-              <div className={`absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 rounded-tr-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
-              <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 rounded-bl-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
-              <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 rounded-br-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
+                  {/* Corner accents */}
+                  <div className={`absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 rounded-tl-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
+                  <div className={`absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 rounded-tr-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
+                  <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 rounded-bl-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
+                  <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 rounded-br-lg ${isStreaming ? 'border-cyan-400/40' : 'border-white/20'}`} />
+                </>
+              )}
             </div>
 
             {/* Text - different based on streaming state */}
             <div className={`text-sm font-medium ${isStreaming ? 'text-cyan-400/60' : 'text-white/40'}`}>
-              {isStreaming ? (
+              {isVideoLoading ? null : isStreaming ? (
                 <span className="flex items-center gap-1">
                   <span>Tracking</span>
                   <span className="flex gap-0.5">
