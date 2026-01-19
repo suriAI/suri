@@ -50,7 +50,7 @@ export default function WindowBar() {
       }
     >
       <div className="flex items-center ml-3 space-x-1 flex-1">
-        <img src="./icons/icon-1024.png" alt="Suri" className="w-9 h-9" />
+        <img src="./icons/suri_mark_logo_transparent.png" alt="Suri" className="w-9 h-9" />
         <span className="text-white/60 text-[11px] font-medium">
           AI Attendance Tracker
         </span>

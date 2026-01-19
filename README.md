@@ -1,6 +1,6 @@
 still in development...
 
-<!-- <h3 align="center"><img width="120" alt="Suri AI Attendance Tracker: Real-time face recognition attendance tracking that runs 100% offline" src="app/public/icons/icon-1024.png"></h3>
+<!-- <h3 align="center"><img width="120" alt="Suri AI Attendance Tracker: Real-time face recognition attendance tracking that runs 100% offline" src="app/public/icons/suri_mark_logo_transparent.png"></h3>
 
 <h3 align="center">AI-Powered Attendance Tracking. Local-First, Privacy-Focused</h3>
 

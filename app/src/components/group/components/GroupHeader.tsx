@@ -11,7 +11,7 @@ export function GroupHeader({
     <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
       {!isCollapsed && (
         <div className="flex items-center gap-2">
-          <img src="./icons/icon-1024.png" alt="Suri" className="w-9 h-9" />
+          <img src="./icons/suri_mark_logo_transparent.png" alt="Suri" className="w-9 h-9" />
           <h1 className="text-lg font-semibold text-white">Group</h1>
         </div>
       )}
