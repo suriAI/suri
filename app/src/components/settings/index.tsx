@@ -762,17 +762,23 @@ export const Settings: React.FC<SettingsProps> = ({
   );
 
   if (isModal) {
+    // Header height: 46px, Footer height: 28px (h-7)
+    // We position the settings modal/fullscreen container between header and footer
+    // to prevent overflow and ensure window controls remain accessible.
+    // z-[60] ensures it sits above the Sidebar (z-50) but allows interaction with window controls
+    const safeAreaClass = "fixed top-[46px] bottom-[28px] left-0 right-0 z-[60]";
+
     if (isFullScreen) {
       return (
-        <div className="fixed inset-0 bg-[#0f0f0f] z-50 overflow-hidden">
+        <div className={`${safeAreaClass} bg-[#0f0f0f] overflow-hidden`}>
           {mainContent}
         </div>
       );
     }
 
     return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-        <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl w-full max-w-5xl h-[85vh] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden">
+      <div className={`${safeAreaClass} bg-black/70 flex items-center justify-center`}>
+        <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl w-full max-w-5xl h-[90%] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden">
           {mainContent}
         </div>
       </div>
