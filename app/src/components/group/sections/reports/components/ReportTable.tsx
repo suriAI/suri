@@ -46,7 +46,7 @@ export function ReportTable({
         </thead>
         <tbody className="text-sm divide-y divide-white/5">
           {Object.keys(groupedRows).length === 0 ||
-            Object.values(groupedRows).every((rows) => rows.length === 0) ? (
+          Object.values(groupedRows).every((rows) => rows.length === 0) ? (
             <tr>
               <td colSpan={visibleColDefs.length} className="py-24">
                 <div className="flex flex-col items-center justify-center text-center px-6">

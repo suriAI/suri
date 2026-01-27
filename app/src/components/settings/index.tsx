@@ -68,12 +68,15 @@ export const Settings: React.FC<SettingsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
   const [triggerCreateGroup, setTriggerCreateGroup] = useState(0);
-  const [registrationSource, setRegistrationSource] = useState<
-    "upload" | "camera" | null
-  >(null);
-  const [registrationMode, setRegistrationMode] = useState<
-    "single" | "bulk" | "queue" | null
-  >(null);
+  const registrationSource = useGroupUIStore(
+    (state) => state.lastRegistrationSource,
+  );
+  const registrationMode = useGroupUIStore(
+    (state) => state.lastRegistrationMode,
+  );
+  const setRegistrationState = useGroupUIStore(
+    (state) => state.setRegistrationState,
+  );
   const [deselectMemberTrigger, setDeselectMemberTrigger] = useState(0);
   const [hasSelectedMember, setHasSelectedMember] = useState(false);
   const [reportsExportHandlers, setReportsExportHandlers] = useState<{
@@ -543,7 +546,9 @@ export const Settings: React.FC<SettingsProps> = ({
                 <span>Group</span>
               </div>
               <i
-                className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${isGroupExpanded ? "" : "-rotate-90"}`}
+                className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${
+                  isGroupExpanded ? "" : "-rotate-90"
+                }`}
               ></i>
             </button>
 
@@ -559,11 +564,12 @@ export const Settings: React.FC<SettingsProps> = ({
                       // Reset trigger when switching subsections to prevent accidental modal opening
                       setTriggerCreateGroup(0);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeSection === "group" &&
+                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                      activeSection === "group" &&
                       groupInitialSection === subsection.id
-                      ? "bg-white/10 text-white"
-                      : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                      }`}
+                        ? "bg-white/10 text-white"
+                        : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                    }`}
                   >
                     <i className={`${subsection.icon} text-xs w-4`}></i>
                     {subsection.label}
@@ -578,10 +584,11 @@ export const Settings: React.FC<SettingsProps> = ({
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeSection === section.id
-                ? "bg-white/10 text-white"
-                : "text-white/60 hover:bg-white/5 hover:text-white/80"
-                }`}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                activeSection === section.id
+                  ? "bg-white/10 text-white"
+                  : "text-white/60 hover:bg-white/5 hover:text-white/80"
+              }`}
             >
               {section.icon && (
                 <i className={`${section.icon} text-sm w-4`}></i>
@@ -656,12 +663,10 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
               )}
             {activeSection === "group" &&
-              groupInitialSection === "registration" && (
+              groupInitialSection === "registration" &&
+              (registrationSource || registrationMode) && (
                 <button
                   onClick={() => {
-                    // Update store for consistent state across components
-                    const uiStore = useGroupUIStore.getState();
-
                     // If in FaceCapture (single mode) and a member is selected, deselect member first
                     if (registrationMode === "single" && hasSelectedMember) {
                       setDeselectMemberTrigger(Date.now());
@@ -670,17 +675,10 @@ export const Settings: React.FC<SettingsProps> = ({
 
                     if (registrationMode) {
                       // If in a mode (Individual/Batch/Queue), go back to mode selection
-                      setRegistrationMode(null);
-                      uiStore.setRegistrationState(registrationSource, null);
+                      setRegistrationState(registrationSource, null);
                     } else if (registrationSource) {
                       // If in mode selection, go back to source selection
-                      setRegistrationSource(null);
-                      uiStore.setRegistrationState(null, null);
-                    } else {
-                      // If in source selection, go back to members list
-                      setActiveSection("group");
-                      setGroupInitialSection("members");
-                      uiStore.setActiveSection("members");
+                      setRegistrationState(null, null);
                     }
                   }}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all text-[11px] font-bold uppercase tracking-wider"
@@ -701,9 +699,14 @@ export const Settings: React.FC<SettingsProps> = ({
                 initialSection={groupInitialSection}
                 initialGroup={validInitialGroup}
                 triggerCreateGroup={triggerCreateGroup}
-                onRegistrationSourceChange={setRegistrationSource}
+                // Store integration for registration source and mode
+                onRegistrationSourceChange={(source) =>
+                  setRegistrationState(source, null)
+                }
                 registrationSource={registrationSource}
-                onRegistrationModeChange={setRegistrationMode}
+                onRegistrationModeChange={(mode) =>
+                  setRegistrationState(registrationSource, mode)
+                }
                 registrationMode={registrationMode}
                 deselectMemberTrigger={deselectMemberTrigger}
                 onHasSelectedMemberChange={setHasSelectedMember}

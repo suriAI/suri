@@ -132,28 +132,31 @@ export function Members({
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={() => setRegistrationFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${registrationFilter === "all"
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              registrationFilter === "all"
                 ? "bg-white/10 text-white border border-white/20"
                 : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
-              }`}
+            }`}
           >
             All
           </button>
           <button
             onClick={() => setRegistrationFilter("non-registered")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${registrationFilter === "non-registered"
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              registrationFilter === "non-registered"
                 ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
                 : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
-              }`}
+            }`}
           >
             Unregistered
           </button>
           <button
             onClick={() => setRegistrationFilter("registered")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${registrationFilter === "registered"
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              registrationFilter === "registered"
                 ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/30"
                 : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
-              }`}
+            }`}
           >
             Registered
           </button>

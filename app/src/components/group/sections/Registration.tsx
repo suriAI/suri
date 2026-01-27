@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { CameraQueue } from "./registration/CameraQueue";
 import { BulkRegistration } from "./registration/BulkRegistration";
 import { FaceCapture } from "../sections";
@@ -29,28 +29,23 @@ export function Registration({
   onAddMember,
 }: RegistrationProps) {
   // Store integration
-  const lastSource = useGroupUIStore((state) => state.lastRegistrationSource);
-  const lastMode = useGroupUIStore((state) => state.lastRegistrationMode);
+  // Store integration
+  const source = useGroupUIStore((state) => state.lastRegistrationSource);
+  const mode = useGroupUIStore((state) => state.lastRegistrationMode);
   const preSelectedId = useGroupUIStore((state) => state.preSelectedMemberId);
   const setRegistrationState = useGroupUIStore(
     (state) => state.setRegistrationState,
   );
 
-  const [source, setSource] = useState<SourceType>(lastSource);
-  const [mode, setMode] = useState<RegistrationMode>(lastMode);
-
   // Handle Deep Linking / Pre-selection
   useEffect(() => {
-    if (preSelectedId) {
-      setSource("camera"); // Default to camera for direct links
-      setMode("single");
-      // Don't reset preSelectedId yet, FaceCapture needs it
+    if (preSelectedId && !source && !mode) {
+      setRegistrationState("camera", "single");
     }
-  }, [preSelectedId]);
+  }, [preSelectedId, source, mode, setRegistrationState]);
 
   const handleSourceChange = useCallback(
     (newSource: SourceType) => {
-      setSource(newSource);
       setRegistrationState(newSource, mode);
     },
     [mode, setRegistrationState],
@@ -58,7 +53,6 @@ export function Registration({
 
   const handleModeChange = useCallback(
     (newMode: RegistrationMode) => {
-      setMode(newMode);
       setRegistrationState(source, newMode);
     },
     [source, setRegistrationState],
@@ -66,10 +60,8 @@ export function Registration({
 
   const handleBack = useCallback(() => {
     if (mode) {
-      setMode(null);
       setRegistrationState(source, null);
     } else {
-      setSource(null);
       setRegistrationState(null, null);
     }
     // Also clear pre-selection when going back
@@ -109,9 +101,9 @@ export function Registration({
         initialSource={source === "camera" ? "live" : source}
         deselectMemberTrigger={deselectMemberTrigger}
         onSelectedMemberChange={onHasSelectedMemberChange}
-      // preSelectedMemberId is handled internally by FaceCapture reading from store if needed
-      // but it's better if we just use FaceCapture's internal selection logic.
-      // Let's ensure FaceCapture picks up the preSelectedId.
+        // preSelectedMemberId is handled internally by FaceCapture reading from store if needed
+        // but it's better if we just use FaceCapture's internal selection logic.
+        // Let's ensure FaceCapture picks up the preSelectedId.
       />
     );
   }
@@ -130,8 +122,7 @@ export function Registration({
               Add your first member
             </h3>
             <p className="text-xs text-white/30 leading-relaxed">
-              Create a member profile first so we can attach
-              face data to it.
+              Create a member profile first so we can attach face data to it.
             </p>
           </div>
           {onAddMember && (

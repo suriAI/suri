@@ -94,10 +94,11 @@ export function ReportToolbar({
           <div className="relative" ref={columnDropdownRef}>
             <button
               onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-[11px] font-bold uppercase tracking-wider ${showColumnDropdown
+              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-[11px] font-bold uppercase tracking-wider ${
+                showColumnDropdown
                   ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
                   : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
-                }`}
+              }`}
             >
               <i className="fa-solid fa-columns text-[9px]"></i>
               Options
@@ -183,10 +184,11 @@ export function ReportToolbar({
             ) : (
               <div className="flex items-center">
                 <button
-                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 transition-colors border-r border-white/5 ${isDirty
+                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 transition-colors border-r border-white/5 ${
+                    isDirty
                       ? "text-amber-500 hover:text-amber-400"
                       : "text-white/30 hover:text-white/60"
-                    }`}
+                  }`}
                   onClick={onSave}
                 >
                   {isDirty ? "Unsaved" : "Saved"}
@@ -217,10 +219,11 @@ export function ReportToolbar({
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${active
+                className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                  active
                     ? "bg-cyan-500/20 text-cyan-400 shadow-sm"
                     : "text-white/20 hover:text-white/40 hover:bg-white/5"
-                  }`}
+                }`}
               >
                 {st === "all" ? "All" : st === "no_records" ? "N/A" : st}
               </button>
