@@ -129,7 +129,6 @@ declare global {
     isReady: () => Promise<boolean>;
   }
 
-  // Backend Service API interface is now the primary interface for face recognition functionality
   interface StoreAPI {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<boolean>;
@@ -139,20 +138,15 @@ declare global {
   }
 
   interface BackendServiceAPI {
-    // Face Recognition Database API (File-based)
     saveFaceDatabase: (
       databaseData: Record<string, number[]>,
     ) => Promise<unknown>;
     loadFaceDatabase: () => Promise<unknown>;
     removeFacePerson: (personId: string) => Promise<unknown>;
     getAllFacePersons: () => Promise<unknown>;
-    // Generic IPC invoke method
     invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
-    // Backend readiness check (models are loaded on server side)
     backend_ready: BackendReadyAPI;
-    // Backend Service API
     backend: BackendAPI;
-    // Store API
     store: StoreAPI;
   }
 

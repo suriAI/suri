@@ -10,7 +10,6 @@ import type {
 } from "../types/recognition.js";
 import { getLocalDateString } from "../utils/index.js";
 
-// API Configuration
 const API_BASE_URL = "http://127.0.0.1:8700";
 const API_ENDPOINTS = {
   groups: "/attendance/groups",
@@ -22,7 +21,6 @@ const API_ENDPOINTS = {
   stats: "/attendance/stats",
 };
 
-// HTTP Client utility
 class HttpClient {
   private baseUrl: string;
 
@@ -92,22 +90,14 @@ export class AttendanceManager {
 
   constructor() {
     this.httpClient = new HttpClient(API_BASE_URL);
-    // Load settings from backend on startup
     this.loadSettingsWhenReady();
   }
 
-  /**
-   * Wait for backend to be ready before loading settings
-   * This prevents ERR_CONNECTION_REFUSED errors during startup
-   */
   private async loadSettingsWhenReady(): Promise<void> {
-    // Wait for backend to be ready (check via backend_ready API)
-    // Increased timeout to 60 seconds to match WebSocket initialization timeout
-    const maxWaitTime = 60000; // 60 seconds max wait (models can take time to load)
-    const checkInterval = 100; // Check every 100ms
+    const maxWaitTime = 60000;
+    const checkInterval = 100;
     const startTime = Date.now();
 
-    // Check immediately first (no delay)
     try {
       if (window.electronAPI && "backend_ready" in window.electronAPI) {
         const ready = await window.electronAPI.backend_ready.isReady();
@@ -125,23 +115,18 @@ export class AttendanceManager {
 
     while (Date.now() - startTime < maxWaitTime) {
       try {
-        // Check if backend is ready via the proper API
         if (window.electronAPI && "backend_ready" in window.electronAPI) {
           const ready = await window.electronAPI.backend_ready.isReady();
           if (ready) {
-            // Backend is ready, now load settings
             await this.loadSettings();
             return;
           }
         } else {
-          // If electronAPI is not available yet, wait a bit and retry
           await new Promise((resolve) => setTimeout(resolve, checkInterval));
           continue;
         }
-        // Not ready yet, wait a bit
         await new Promise((resolve) => setTimeout(resolve, checkInterval));
       } catch (error) {
-        // Log error for debugging but continue waiting
         console.debug(
           "[AttendanceManager] Error checking backend readiness:",
           error,
@@ -150,7 +135,6 @@ export class AttendanceManager {
       }
     }
 
-    // Timeout - try to load settings anyway (backend might be ready but API check failed)
     console.warn(
       "[AttendanceManager] Backend not ready after timeout, attempting to load settings anyway...",
     );
@@ -174,11 +158,9 @@ export class AttendanceManager {
         "[AttendanceManager] Failed to load settings, using defaults:",
         error,
       );
-      // Keep default settings if backend is not available
     }
   }
 
-  // Group Management
   async createGroup(
     name: string,
     description?: string,
@@ -264,7 +246,6 @@ export class AttendanceManager {
     }
   }
 
-  // Member Management
   async addMember(
     groupId: string,
     name: string,
@@ -288,7 +269,6 @@ export class AttendanceManager {
         email: options?.email,
       };
 
-      // Only include person_id if explicitly provided
       if (options?.personId) {
         memberData.person_id = options.personId;
       }
@@ -317,15 +297,12 @@ export class AttendanceManager {
         joined_at: new Date(member.joined_at),
       };
     } catch {
-      // Silently return undefined if member not found (person_id exists in face DB but not in attendance)
-      // This is normal when someone is recognized but not enrolled in the current group
       return undefined;
     }
   }
 
   async getGroupMembers(groupId: string): Promise<AttendanceMember[]> {
     try {
-      // Use the persons endpoint which includes face data status
       const members = await this.httpClient.get<
         Array<{
           person_id: string;
@@ -381,7 +358,6 @@ export class AttendanceManager {
     }
   }
 
-  // Attendance Tracking
   async processAttendanceEvent(
     personId: string,
     confidence: number,
@@ -403,7 +379,6 @@ export class AttendanceManager {
         eventData,
       );
 
-      // Convert timestamp to Date object
       const processedEvent: AttendanceEvent = {
         ...event,
         timestamp: new Date(event.timestamp),
@@ -417,7 +392,6 @@ export class AttendanceManager {
     }
   }
 
-  // Statistics and Reports
   async getGroupStats(groupId: string, date?: Date): Promise<AttendanceStats> {
     try {
       const params: Record<string, string> = {};
@@ -446,8 +420,6 @@ export class AttendanceManager {
     endDate: Date,
   ): Promise<AttendanceReport> {
     try {
-      // For now, we'll implement a basic report generation
-      // This would typically be a dedicated backend endpoint
       const [group, members, , sessions] = await Promise.all([
         this.getGroup(groupId),
         this.getGroupMembers(groupId),
@@ -467,47 +439,38 @@ export class AttendanceManager {
         throw new Error("Group not found");
       }
 
-      // Calculate the total number of days in the selected range (inclusive)
       const timeDiff = Math.abs(endDate.getTime() - startDate.getTime());
-      const totalDaysInRange = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end
+      const totalDaysInRange = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
 
       const memberReports = members.map((member) => {
-        // Handle joined_at date - convert to Date if needed and validate
         let memberJoinedAt: Date;
         if (member.joined_at instanceof Date) {
           memberJoinedAt = member.joined_at;
         } else if (member.joined_at) {
           memberJoinedAt = new Date(member.joined_at);
           if (Number.isNaN(memberJoinedAt.getTime())) {
-            // Invalid date, use report start date as fallback
             memberJoinedAt = startDate;
           }
         } else {
-          // No joined_at date, use report start date as fallback
           memberJoinedAt = startDate;
         }
 
-        // Calculate effective date range (start from member's join date or report start date, whichever is later)
         const effectiveStartDate =
           memberJoinedAt > startDate ? memberJoinedAt : startDate;
         const effectiveEndDate = endDate;
 
-        // Calculate total days the member was actually in the group during the report period
         const memberTimeDiff = Math.abs(
           effectiveEndDate.getTime() - effectiveStartDate.getTime(),
         );
         const totalDaysMemberWasInGroup =
           Math.ceil(memberTimeDiff / (1000 * 60 * 60 * 24)) + 1;
 
-        // Only count sessions after the member joined (including the join date itself)
-        // Filter out any old sessions that might exist for dates before joined_at
         const memberSessions = sessions.filter((s) => {
           if (s.person_id !== member.person_id) return false;
           const sessionDate = new Date(s.date);
           sessionDate.setHours(0, 0, 0, 0);
           const joinedDate = new Date(memberJoinedAt);
           joinedDate.setHours(0, 0, 0, 0);
-          // Include sessions on or after the join date
           return sessionDate >= joinedDate;
         });
 
@@ -515,7 +478,6 @@ export class AttendanceManager {
           (s) => s.status !== "absent",
         ).length;
 
-        // Only count absent days for the period when member was actually in the group
         const absentDays =
           totalDaysMemberWasInGroup > 0
             ? totalDaysMemberWasInGroup - presentDays
@@ -562,7 +524,7 @@ export class AttendanceManager {
         date_range: { start: startDate, end: endDate },
         members: memberReports,
         summary: {
-          total_working_days: totalDaysInRange, // Use the total days in the selected range
+          total_working_days: totalDaysInRange,
           average_attendance_rate:
             Math.round(averageAttendanceRate * 100) / 100,
           most_punctual: mostPunctual,
@@ -575,7 +537,6 @@ export class AttendanceManager {
     }
   }
 
-  // Data Access Methods
   async getRecords(filters?: {
     group_id?: string;
     person_id?: string;
@@ -623,7 +584,6 @@ export class AttendanceManager {
         params,
       );
 
-      // Convert check_in_time strings to Date objects
       return sessions.map((session) => ({
         ...session,
         check_in_time: session.check_in_time
@@ -636,9 +596,7 @@ export class AttendanceManager {
     }
   }
 
-  // Settings
   async getSettings(): Promise<AttendanceSettings> {
-    // If settings not loaded yet, load them now
     if (!this.settings) {
       await this.loadSettings();
     }
@@ -660,7 +618,6 @@ export class AttendanceManager {
     }
   }
 
-  // Export/Import
   async exportData(): Promise<string> {
     try {
       const [groups, members, records, sessions, settings] = await Promise.all([
@@ -694,8 +651,6 @@ export class AttendanceManager {
 
   async importData(): Promise<boolean> {
     try {
-      // This would require a dedicated import endpoint on the backend
-      // For now, we'll throw an error indicating this needs backend support
       throw new Error("Import functionality requires backend implementation");
     } catch (err) {
       console.error(
@@ -706,7 +661,6 @@ export class AttendanceManager {
     }
   }
 
-  // Cleanup old data
   async cleanupOldData(daysToKeep: number = 90): Promise<void> {
     try {
       await this.httpClient.post("/attendance/cleanup", {
@@ -718,7 +672,6 @@ export class AttendanceManager {
     }
   }
 
-  // Health check
   async isBackendAvailable(): Promise<boolean> {
     try {
       await this.httpClient.get("/");
@@ -728,7 +681,6 @@ export class AttendanceManager {
     }
   }
 
-  // Get backend statistics
   async getBackendStats(): Promise<Record<string, unknown>> {
     try {
       return await this.httpClient.get<Record<string, unknown>>(
@@ -740,7 +692,6 @@ export class AttendanceManager {
     }
   }
 
-  // Group-Specific Person Management
   async getGroupPersons(groupId: string): Promise<
     Array<{
       person_id: string;
@@ -844,5 +795,4 @@ export class AttendanceManager {
   }
 }
 
-// Singleton instance
 export const attendanceManager = new AttendanceManager();

@@ -10,13 +10,8 @@ import type {
   PersonInfo,
 } from "../types/recognition.js";
 
-/**
- * Backend Service for integrating with FastAPI face detection backend
- * Uses IPC for fast, zero-overhead communication with Python backend
- */
-
 interface DetectionRequest {
-  image: string; // base64 encoded image
+  image: string;
   model_type?: string;
   confidence_threshold?: number;
   nms_threshold?: number;
@@ -52,7 +47,6 @@ interface IPCMessage {
   error?: string;
   timestamp?: number;
   data?: unknown;
-  // Detection response properties
   faces?: Array<{
     bbox?: number[];
     confidence?: number;
@@ -84,7 +78,7 @@ export class BackendService {
   private pingInterval: number | null = null;
   private isConnecting = false;
   private connectionPromise: Promise<void> | null = null;
-  private enableLivenessDetection: boolean = true; // Synced from store via useBackendService hook
+  private enableLivenessDetection: boolean = true;
 
   constructor(config?: Partial<BackendConfig>) {
     this.config = {
@@ -97,9 +91,6 @@ export class BackendService {
     this.clientId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * Check if the backend is available
-   */
   async isBackendAvailable(): Promise<boolean> {
     try {
       const response = await fetch(`${this.config.baseUrl}/`, {
@@ -112,16 +103,12 @@ export class BackendService {
     }
   }
 
-  /**
-   * Check if the backend is ready for face recognition (models loaded)
-   */
   async checkReadiness(): Promise<{
     ready: boolean;
     modelsLoaded: boolean;
     error?: string;
   }> {
     try {
-      // First check if backend is available
       const isAvailable = await this.isBackendAvailable();
       if (!isAvailable) {
         return {
@@ -131,7 +118,6 @@ export class BackendService {
         };
       }
 
-      // Check if critical models are loaded
       const models = await this.getAvailableModels();
       const requiredModels = ["face_detector", "face_recognizer"];
       const loadedModels = Object.keys(models).filter((key) =>
@@ -159,9 +145,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Get available models from the backend
-   */
   async getAvailableModels(): Promise<Record<string, ModelInfo>> {
     try {
       const response = await fetch(`${this.config.baseUrl}/models`, {
@@ -180,9 +163,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Detect faces using HTTP API
-   */
   async detectFaces(
     imageData: string,
     options: {
@@ -221,12 +201,10 @@ export class BackendService {
   }
 
   async connectWebSocket(): Promise<void> {
-    // If already connecting, return the existing promise
     if (this.isConnecting && this.connectionPromise) {
       return this.connectionPromise;
     }
 
-    // If already connected, return immediately
     if (this.ws?.readyState === WebSocket.OPEN) {
       return Promise.resolve();
     }
@@ -234,7 +212,6 @@ export class BackendService {
     this.isConnecting = true;
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
-        // Close existing connection if any
         if (this.ws) {
           this.ws.close();
           this.ws = null;
@@ -253,7 +230,6 @@ export class BackendService {
           this.isConnecting = false;
           this.connectionPromise = null;
           this.startPingInterval();
-          // Send initial config with liveness detection setting
           this.sendConfig();
           resolve();
         };
@@ -350,17 +326,11 @@ export class BackendService {
     }
   }
 
-  /**
-   * Update liveness detection setting and send config to backend
-   */
   setLivenessDetection(enabled: boolean): void {
     this.enableLivenessDetection = enabled;
     this.sendConfig();
   }
 
-  /**
-   * Send config message to WebSocket with current settings
-   */
   private sendConfig(): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(
@@ -473,11 +443,6 @@ export class BackendService {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  // Face Recognition Methods
-
-  /**
-   * Recognize a face from image data (via IPC)
-   */
   async recognizeFace(
     imageData: ArrayBuffer,
     bbox?: number[],
@@ -485,7 +450,6 @@ export class BackendService {
     landmarks_5?: number[][],
   ): Promise<FaceRecognitionResponse> {
     try {
-      // Convert ArrayBuffer to Base64
       const blob = new Blob([imageData], { type: "image/jpeg" });
       const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -507,9 +471,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Register a new face with person ID (via IPC)
-   */
   async registerFace(
     imageData: string,
     personId: string,
@@ -530,9 +491,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Remove a person from the database (via IPC)
-   */
   async removePerson(personId: string): Promise<PersonRemovalResponse> {
     try {
       return await window.electronAPI.backend.removePerson(personId);
@@ -542,9 +500,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Update person ID (via IPC)
-   */
   async updatePerson(
     oldPersonId: string,
     newPersonId: string,
@@ -560,9 +515,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Get all registered persons (via IPC)
-   */
   async getAllPersons(): Promise<PersonInfo[]> {
     try {
       const result = await window.electronAPI.backend.getAllPersons();
@@ -573,9 +525,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Set similarity threshold for recognition (via IPC)
-   */
   async setSimilarityThreshold(
     threshold: number,
   ): Promise<SimilarityThresholdResponse> {
@@ -587,9 +536,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Clear the face database (via IPC)
-   */
   async clearDatabase(): Promise<{ success: boolean; message: string }> {
     try {
       return await window.electronAPI.backend.clearDatabase();
@@ -599,9 +545,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Clear backend cache (liveness cache)
-   */
   async clearCache(): Promise<{ success: boolean; message: string }> {
     try {
       const response = await fetch(`${this.config.baseUrl}/recognize`, {
@@ -610,7 +553,7 @@ export class BackendService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          image: "", // Empty image
+          image: "",
           clear_cache: true,
           cache_duration: 0.0,
         }),
@@ -637,9 +580,6 @@ export class BackendService {
     }
   }
 
-  /**
-   * Get database statistics (via IPC)
-   */
   async getDatabaseStats(): Promise<DatabaseStatsResponse> {
     try {
       return await window.electronAPI.backend.getFaceStats();
@@ -649,8 +589,6 @@ export class BackendService {
     }
   }
 
-  // Private methods
-
   private handleMessage(data: IPCMessage): void {
     const messageType = data.type || "unknown";
     const handler = this.messageHandlers.get(messageType);
@@ -658,7 +596,6 @@ export class BackendService {
       handler(data);
     }
 
-    // Always invoke the generic broadcast handler if registered
     const broadcastHandler = this.messageHandlers.get("*");
     if (broadcastHandler && messageType !== "*") {
       broadcastHandler(data);
@@ -666,5 +603,4 @@ export class BackendService {
   }
 }
 
-// Singleton instance for global use
 export const backendService = new BackendService();

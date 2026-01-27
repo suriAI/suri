@@ -5,7 +5,7 @@ import type {
   TrackedFace,
   CooldownInfo,
 } from "../types";
-import type { ExtendedFaceRecognitionResponse } from "../index";
+import type { ExtendedFaceRecognitionResponse } from "../utils";
 import { AttendancePanel } from "./AttendancePanel";
 import { CooldownList } from "./CooldownList";
 import { DetectionPanel } from "./DetectionPanel";

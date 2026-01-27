@@ -27,7 +27,6 @@ function GroupContentComponent({
   onDaysTrackedChange,
   onExportHandlersReady,
 }: GroupContentProps) {
-  // Zustand stores - use selectors to prevent unnecessary re-renders
   const selectedGroup = useGroupStore((state) => state.selectedGroup);
   const groupsLength = useGroupStore((state) => state.groups.length);
   const members = useGroupStore((state) => state.members);
@@ -39,7 +38,6 @@ function GroupContentComponent({
   const openEditGroup = useGroupUIStore((state) => state.openEditGroup);
   const openCreateGroup = useGroupUIStore((state) => state.openCreateGroup);
 
-  // Handlers that use store actions
   const handleMembersChange = () => {
     if (selectedGroup) {
       fetchGroupDetails(selectedGroup.id);
@@ -47,12 +45,9 @@ function GroupContentComponent({
     onMembersChange();
   };
 
-  // Show EmptyState if no selectedGroup OR if selectedGroup doesn't exist in groups list (was deleted)
-  // Get groups from store only when needed to check existence
   const selectedGroupId = selectedGroup?.id;
   const hasSelectedGroup = useMemo(() => {
     if (!selectedGroup || !selectedGroupId) return false;
-    // Get fresh groups from store to check existence
     const currentGroups = useGroupStore.getState().groups;
     return currentGroups.some((g) => g.id === selectedGroupId);
   }, [selectedGroup, selectedGroupId]);
@@ -66,7 +61,6 @@ function GroupContentComponent({
     );
   }
 
-  // At this point, selectedGroup is guaranteed to be non-null and exist in groups
   return (
     <>
       {activeSection === "overview" && (
@@ -122,8 +116,6 @@ function GroupContentComponent({
             }
             const groupId = selectedGroup.id;
             await useGroupStore.getState().deleteGroup(groupId);
-            // After deletion, selectedGroup should be null and EmptyState will show
-            // No need to call handleMembersChange as store is already updated
           }}
           onExportData={exportData}
           onRefresh={handleMembersChange}

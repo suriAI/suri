@@ -8,30 +8,25 @@ import type {
 } from "../../../types/recognition";
 
 interface GroupState {
-  // Group data
   selectedGroup: AttendanceGroup | null;
   groups: AttendanceGroup[];
   members: AttendanceMember[];
 
-  // Loading and error states
   loading: boolean;
   error: string | null;
-  lastDeletedGroupId: string | null; // Track last deleted group to prevent restoration
+  lastDeletedGroupId: string | null;
 
-  // Actions
   setSelectedGroup: (group: AttendanceGroup | null) => void;
   setGroups: (groups: AttendanceGroup[]) => void;
   setMembers: (members: AttendanceMember[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
-  // Async actions
   fetchGroups: () => Promise<void>;
   fetchGroupDetails: (groupId: string) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;
   exportData: () => Promise<void>;
 
-  // Reset state
   reset: () => void;
 }
 
@@ -47,7 +42,6 @@ const initialState = {
 export const useGroupStore = create<GroupState>((set, get) => ({
   ...initialState,
 
-  // Synchronous actions
   setSelectedGroup: (group) => {
     set({ selectedGroup: group });
     if (group) {
@@ -67,7 +61,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 
-  // Async actions
   fetchGroups: async () => {
     set({ loading: true, error: null });
     try {
@@ -79,7 +72,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         return;
       }
 
-      // Preserve existing selection if it still exists
       const currentSelected = get().selectedGroup;
       if (currentSelected) {
         const stillExists = allGroups.find(
@@ -121,7 +113,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       await attendanceManager.deleteGroup(groupId);
       const currentSelected = get().selectedGroup;
 
-      // Dispatch selectGroup event to notify Main component immediately
       window.dispatchEvent(
         new CustomEvent("selectGroup", {
           detail: { group: null },

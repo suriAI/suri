@@ -2,9 +2,7 @@ import { useEffect, useRef, useCallback, lazy, Suspense } from "react";
 const Settings = lazy(() =>
   import("../settings").then((module) => ({ default: module.Settings })),
 );
-// Import all services
 import { attendanceManager, BackendService } from "../../services";
-// Import all hooks
 import {
   useStreamState,
   useAttendanceCooldown,
@@ -17,15 +15,12 @@ import {
   useBackendService,
   useCameraControl,
 } from "./hooks";
-// Import all utils
-import type { ExtendedFaceRecognitionResponse } from "./utils";
 import {
   cleanupStream,
   cleanupVideo,
   cleanupAnimationFrame,
   resetLastDetectionRef,
 } from "./utils";
-// Import all stores
 import {
   useCameraStore,
   useDetectionStore,
@@ -40,10 +35,7 @@ import { GroupManagementModal } from "./components/GroupManagementModal";
 import { DeleteConfirmationModal } from "./components/DeleteConfirmationModal";
 import type { DetectionResult } from "./types";
 
-export type { ExtendedFaceRecognitionResponse };
-
 export default function Main() {
-  // ===== REFS (Created in main, passed to hooks) =====
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -75,7 +67,6 @@ export default function Main() {
   const videoRectRef = useRef<DOMRect | null>(null);
   const lastVideoRectUpdateRef = useRef<number>(0);
 
-  // ===== ZUSTAND STORES =====
   const {
     isStreaming,
     isVideoLoading,
@@ -94,12 +85,6 @@ export default function Main() {
     trackedFaces,
     currentRecognitionResults: rawCurrentRecognitionResults,
   } = useDetectionStore();
-
-  // Ensure currentRecognitionResults is always a Map
-  const currentRecognitionResults =
-    rawCurrentRecognitionResults instanceof Map
-      ? rawCurrentRecognitionResults
-      : new Map();
 
   const {
     currentGroup,
@@ -136,7 +121,10 @@ export default function Main() {
 
   const recognitionEnabled = true;
 
-  // ===== HOOKS INITIALIZATION =====
+  const currentRecognitionResults =
+    rawCurrentRecognitionResults instanceof Map
+      ? rawCurrentRecognitionResults
+      : new Map();
 
   // 1. Stream State Hook
   useStreamState({
@@ -213,8 +201,6 @@ export default function Main() {
       videoRectRef,
       lastVideoRectUpdateRef,
     });
-
-  // ===== FUNCTIONS THAT STAY IN MAIN =====
 
   // 9. Backend Service Hook
   const stopCameraRef = useRef<((forceCleanup: boolean) => void) | null>(null);

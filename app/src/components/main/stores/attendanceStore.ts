@@ -8,27 +8,22 @@ import type { CooldownInfo } from "../types";
 import { persistentSettings } from "../../../services/PersistentSettingsService";
 
 interface AttendanceState {
-  // Group state
   currentGroup: AttendanceGroup | null;
   attendanceGroups: AttendanceGroup[];
   groupMembers: AttendanceMember[];
   recentAttendance: AttendanceRecord[];
 
-  // Group management UI
   showGroupManagement: boolean;
   showDeleteConfirmation: boolean;
   groupToDelete: AttendanceGroup | null;
   newGroupName: string;
 
-  // Cooldowns
   persistentCooldowns: Map<string, CooldownInfo>;
 
-  // Settings
   trackingMode: "auto" | "manual";
   attendanceCooldownSeconds: number;
   enableSpoofDetection: boolean;
 
-  // Actions
   setCurrentGroup: (group: AttendanceGroup | null) => void;
   setAttendanceGroups: (groups: AttendanceGroup[]) => void;
   setGroupMembers: (members: AttendanceMember[]) => void;
@@ -47,7 +42,6 @@ interface AttendanceState {
   setEnableSpoofDetection: (enabled: boolean) => void;
 }
 
-// Load initial settings from persistent store (async, will be set after store loads)
 const loadInitialSettings = async () => {
   const attendanceSettings = await persistentSettings.getAttendanceSettings();
   return {
@@ -58,7 +52,6 @@ const loadInitialSettings = async () => {
 };
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
-  // Initial state
   currentGroup: null,
   attendanceGroups: [],
   groupMembers: [],
@@ -70,12 +63,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   persistentCooldowns: new Map(),
   trackingMode: "auto",
   attendanceCooldownSeconds: 10,
-  enableSpoofDetection: true, // Will be loaded from store
+  enableSpoofDetection: true,
 
-  // Actions
   setCurrentGroup: (group) => {
     set({ currentGroup: group });
-    // Save to persistent settings asynchronously (don't block)
     persistentSettings
       .setUIState({
         selectedGroupId: group?.id || null,
@@ -116,9 +107,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 }));
 
-// Load settings from store on initialization
 if (typeof window !== "undefined") {
   loadInitialSettings().then((settings) => {
-    useAttendanceStore.setState(settings);
+    useAttendanceStore.setState(settings as Partial<AttendanceState>);
   });
 }

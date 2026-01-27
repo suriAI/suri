@@ -75,10 +75,6 @@ export const colors = {
   },
 } as const;
 
-/**
- * Tailwind CSS class mappings
- * Use these classes in components for consistent styling
- */
 export const colorClasses = {
   // Backgrounds
   bgPrimary: "bg-black",

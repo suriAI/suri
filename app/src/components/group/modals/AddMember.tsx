@@ -81,9 +81,7 @@ export function AddMember({
 
   // Reset confirmation when name changes
   useEffect(() => {
-    if (confirmDuplicate) {
-      setConfirmDuplicate(false);
-    }
+    setConfirmDuplicate(false);
   }, [newMemberName]);
 
   const handleAddMember = async () => {

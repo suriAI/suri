@@ -1,10 +1,6 @@
-/**
- * Face Recognition Types and Interfaces
- */
-
 export interface FaceRecognitionRequest {
-  image: string; // base64 encoded image
-  bbox?: number[]; // Optional bounding box [x, y, width, height]
+  image: string;
+  bbox?: number[];
   group_id?: string;
 }
 
@@ -17,9 +13,9 @@ export interface FaceRecognitionResponse {
 }
 
 export interface FaceRegistrationRequest {
-  image: string; // base64 encoded image
+  image: string;
   person_id: string;
-  bbox?: number[]; // Optional bounding box [x, y, width, height]
+  bbox?: number[];
   group_id?: string;
 }
 
@@ -99,7 +95,7 @@ export interface FaceWithRecognition {
     height: number;
   };
   confidence: number;
-  track_id?: number; // ByteTrack tracker ID for consistent face tracking across frames
+  track_id?: number;
   liveness?: {
     is_real: boolean | null;
     logit_diff?: number;
@@ -119,10 +115,6 @@ export interface DetectionWithRecognitionResult {
   model_used: string;
 }
 
-/**
- * Attendance System Types and Interfaces
- */
-
 export type AttendanceStatus = "present" | "absent";
 
 export interface AttendanceGroup {
@@ -134,7 +126,7 @@ export interface AttendanceGroup {
   settings: {
     late_threshold_minutes?: number;
     late_threshold_enabled?: boolean;
-    class_start_time?: string; // HH:MM format (e.g., "08:00")
+    class_start_time?: string;
   };
 }
 
@@ -146,7 +138,7 @@ export interface AttendanceMember {
   email?: string;
   joined_at: Date;
   is_active: boolean;
-  has_face_data?: boolean; // Face registration status
+  has_face_data?: boolean;
 }
 
 export interface AttendanceRecord {
@@ -165,7 +157,7 @@ export interface AttendanceSession {
   id: string;
   person_id: string;
   group_id: string;
-  date: string; // YYYY-MM-DD format
+  date: string;
   check_in_time?: Date;
   status: AttendanceStatus;
   is_late: boolean;
@@ -206,7 +198,7 @@ export interface AttendanceReport {
 export interface AttendanceSettings {
   late_threshold_minutes: number;
   enable_location_tracking: boolean;
-  attendance_cooldown_seconds: number; // Cooldown period to prevent duplicate attendance logging
+  attendance_cooldown_seconds: number;
 }
 
 export interface AttendanceEvent {

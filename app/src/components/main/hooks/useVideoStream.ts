@@ -22,7 +22,6 @@ export function useVideoStream(options: UseVideoStreamOptions) {
     isStartingRef,
   } = options;
 
-  // Zustand stores
   const {
     cameraDevices,
     selectedCamera,

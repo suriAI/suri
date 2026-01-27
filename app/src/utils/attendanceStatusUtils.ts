@@ -1,10 +1,5 @@
 import type { AttendanceSession } from "../types/recognition.js";
 
-/**
- * Centralized attendance status labels and utilities
- * This ensures consistent status display across the entire application
- */
-
 export type AttendanceStatusDisplay =
   | "present"
   | "absent"
@@ -13,21 +8,15 @@ export type AttendanceStatusDisplay =
 
 export interface StatusConfig {
   label: string;
-  shortLabel?: string; // For compact displays
+  shortLabel?: string;
   className: string;
   color: string;
 }
 
-/**
- * Get status display configuration
- * Centralizes all status label logic in one place
- */
 export function getStatusConfig(
   session: AttendanceSession | null | undefined,
   statusOverride?: "present" | "absent" | "no_records",
 ): StatusConfig {
-  // If status override is provided (e.g., from frontend logic), use it
-  // This handles the case where we know the status but session is null
   if (statusOverride === "no_records") {
     return {
       label: "No records",
@@ -46,12 +35,7 @@ export function getStatusConfig(
     };
   }
 
-  // No session = check if it's "no records" or "absent"
-  // Default to "Absent" if no session exists (member was enrolled but didn't track)
-  // This is a fallback - frontend should provide statusOverride for accuracy
   if (!session) {
-    // Default to "Absent" for missing sessions (enrolled but didn't track)
-    // Frontend should explicitly pass "no_records" for pre-enrollment dates
     return {
       label: "Absent",
       shortLabel: "absent",
@@ -60,7 +44,6 @@ export function getStatusConfig(
     };
   }
 
-  // Present but late
   if (session.status === "present" && session.is_late) {
     return {
       label: "Late",
@@ -70,7 +53,6 @@ export function getStatusConfig(
     };
   }
 
-  // Present
   if (session.status === "present") {
     return {
       label: "Present",
@@ -80,7 +62,6 @@ export function getStatusConfig(
     };
   }
 
-  // Absent
   return {
     label: "Absent",
     shortLabel: "absent",
@@ -89,36 +70,24 @@ export function getStatusConfig(
   };
 }
 
-/**
- * Get status label for display
- */
 export function getStatusLabel(
   session: AttendanceSession | null | undefined,
 ): string {
   return getStatusConfig(session).label;
 }
 
-/**
- * Get status short label for compact displays
- */
 export function getStatusShortLabel(
   session: AttendanceSession | null | undefined,
 ): string {
   return getStatusConfig(session).shortLabel || getStatusLabel(session);
 }
 
-/**
- * Get status CSS classes for styling
- */
 export function getStatusClassName(
   session: AttendanceSession | null | undefined,
 ): string {
   return getStatusConfig(session).className;
 }
 
-/**
- * Get status color class
- */
 export function getStatusColor(
   session: AttendanceSession | null | undefined,
 ): string {
