@@ -190,21 +190,8 @@ export function Members({
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
               <div className="flex-1 min-w-0 relative z-10">
-                <div className="flex items-center gap-2.5 mb-1">
-                  <div className="text-[15px] font-bold text-white tracking-tight leading-none">
-                    {member.displayName}
-                  </div>
-                  {isRegistered ? (
-                    <div
-                      className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"
-                      title="Registered"
-                    />
-                  ) : (
-                    <div
-                      className="w-1.5 h-1.5 rounded-full bg-amber-500/50"
-                      title="Unregistered"
-                    />
-                  )}
+                <div className="text-[15px] font-bold text-white tracking-tight mb-1">
+                  {member.displayName}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -260,8 +247,7 @@ export function Members({
                   </button>
                 ) : (
                   <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30 flex items-center gap-1.5">
-                    <i className="fa-solid fa-fingerprint text-[9px] text-cyan-500/50"></i>
-                    Ready
+                    Registered
                   </div>
                 )}
               </div>

@@ -124,10 +124,10 @@ export function MemberSidebar({
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               registrationFilter === "non-registered"
                 ? "bg-amber-500/20 text-amber-200 border border-amber-500/30"
-                : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/8 hover:text-white/80"
+                : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/88 hover:text-white/80"
             }`}
           >
-            Needs Registration
+            Unregistered
           </button>
           <button
             onClick={() => setRegistrationFilter("registered")}
@@ -170,71 +170,59 @@ export function MemberSidebar({
             <button
               key={member.person_id}
               onClick={() => onSelectMember(member.person_id)}
-              className={`group relative w-full rounded-xl border px-3 py-3 text-left transition-all ${
+              className={`group relative w-full rounded-2xl border transition-all px-4 py-4 flex flex-col gap-3 ${
                 isSelected
-                  ? "border-cyan-400/50 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 shadow-lg shadow-cyan-500/10"
+                  ? "border-cyan-500/50 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
                   : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/5"
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-4 w-full relative z-10">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`text-sm font-medium truncate transition-colors ${
-                        isSelected ? "text-cyan-100" : "text-white"
-                      }`}
-                    >
-                      {member.displayName}
-                    </div>
+                  <div
+                    className={`text-[15px] font-bold tracking-tight mb-1 transition-colors ${
+                      isSelected ? "text-cyan-100" : "text-white"
+                    }`}
+                  >
+                    {member.displayName}
                   </div>
-                  {member.role && (
-                    <div className="text-xs text-white/40 truncate mt-0.5">
-                      {member.role}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {member.role ? (
+                      <div
+                        className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider ${
+                          isSelected ? "text-cyan-300/50" : "text-white/40"
+                        }`}
+                      >
+                        <i className="fa-solid fa-briefcase text-[9px]"></i>
+                        {member.role}
+                      </div>
+                    ) : (
+                      <div
+                        className={`text-[11px] font-bold uppercase tracking-wider italic ${
+                          isSelected ? "text-cyan-300/20" : "text-white/20"
+                        }`}
+                      >
+                        Member
+                      </div>
+                    )}
+                  </div>
                 </div>
+
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {hasEmbeddings && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/30">
-                      <svg
-                        className="w-3 h-3 text-cyan-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      <span className="text-xs font-medium text-cyan-300">
-                        Registered
-                      </span>
-                    </span>
-                  )}
-                  {isSelected && (
-                    <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30 flex items-center gap-1.5">
+                      Registered
+                    </div>
                   )}
                 </div>
               </div>
+
               {hasEmbeddings && isSelected && (
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveFaceData(member);
                   }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onRemoveFaceData(member);
-                    }
-                  }}
-                  className="mt-2 w-full rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors cursor-pointer"
+                  className="w-full rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-center relative z-20"
                 >
                   Remove Face Data
                 </div>

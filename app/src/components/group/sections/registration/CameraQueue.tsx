@@ -432,7 +432,7 @@ export function CameraQueue({
                     className="min-w-[170px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:bg-white/10 focus:outline-none"
                   >
                     <option value="all">All members</option>
-                    <option value="non-registered">Needs registration</option>
+                    <option value="non-registered">Unregistered</option>
                     <option value="registered">Registered</option>
                   </select>
                 </div>
@@ -575,7 +575,7 @@ export function CameraQueue({
                   <span
                     className={`text-xs uppercase ${isVideoReady ? "text-cyan-300" : "text-yellow-200"}`}
                   >
-                    {isVideoReady ? "● Ready" : "○ Loading"}
+                    {isVideoReady ? "● Active" : "○ Loading"}
                   </span>
                 </div>
               </div>
