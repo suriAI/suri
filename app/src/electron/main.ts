@@ -423,8 +423,8 @@ ipcMain.handle("system:get-stats", () => {
       total: memory.total,
       free: memory.free,
       // approximate application usage (RSS)
-      appUsage: process.memoryUsage().rss
-    }
+      appUsage: process.memoryUsage().rss,
+    },
   };
 });
 
@@ -501,10 +501,10 @@ function createWindow(): void {
       if (y >= height - radius) {
         const offset = Math.ceil(
           radius -
-          Math.sqrt(
-            radius * radius -
-            (y - (height - radius)) * (y - (height - radius)),
-          ),
+            Math.sqrt(
+              radius * radius -
+                (y - (height - radius)) * (y - (height - radius)),
+            ),
         );
         startX = offset;
       }
@@ -513,10 +513,10 @@ function createWindow(): void {
       if (y >= height - radius) {
         const offset = Math.ceil(
           radius -
-          Math.sqrt(
-            radius * radius -
-            (y - (height - radius)) * (y - (height - radius)),
-          ),
+            Math.sqrt(
+              radius * radius -
+                (y - (height - radius)) * (y - (height - radius)),
+            ),
         );
         endX = width - offset;
       }

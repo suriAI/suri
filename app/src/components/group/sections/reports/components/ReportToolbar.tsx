@@ -80,7 +80,7 @@ export function ReportToolbar({
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-white/20 text-[10px]"></i>
             <input
               type="search"
-              placeholder="Search reports..."
+              placeholder="Search..."
               className="w-full bg-white/5 border border-white/5 rounded-lg pl-8 pr-3 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/30 transition-all font-medium"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -95,18 +95,20 @@ export function ReportToolbar({
             <button
               onClick={() => setShowColumnDropdown(!showColumnDropdown)}
               className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-[11px] font-bold uppercase tracking-wider ${showColumnDropdown
-                ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
-                : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
+                  ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
+                  : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
                 }`}
             >
               <i className="fa-solid fa-columns text-[9px]"></i>
-              Columns
+              Options
             </button>
 
             {showColumnDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-1 mb-1 border-b border-white/5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Display</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/20">
+                    Columns
+                  </span>
                 </div>
                 {allColumns.map((c) => (
                   <label
@@ -123,14 +125,18 @@ export function ReportToolbar({
                           if (checked) {
                             setVisibleColumns([...visibleColumns, c.key]);
                           } else {
-                            setVisibleColumns(visibleColumns.filter((k) => k !== c.key));
+                            setVisibleColumns(
+                              visibleColumns.filter((k) => k !== c.key),
+                            );
                           }
                         }}
                         className="peer h-3.5 w-3.5 appearance-none rounded border border-white/10 bg-white/5 checked:bg-cyan-500 checked:border-cyan-500 transition-all cursor-pointer"
                       />
                       <i className="fa-solid fa-check absolute opacity-0 peer-checked:opacity-100 text-[9px] text-black left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></i>
                     </div>
-                    <span className="text-[11px] text-white/50 peer-checked:text-white/90 font-medium">{c.label}</span>
+                    <span className="text-[11px] text-white/50 peer-checked:text-white/90 font-medium">
+                      {c.label}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -149,14 +155,18 @@ export function ReportToolbar({
               style={{ colorScheme: "dark" }}
               value={activeViewIndex ?? ""}
               onChange={(e) => {
-                const val = e.target.value === "" ? null : Number(e.target.value);
+                const val =
+                  e.target.value === "" ? null : Number(e.target.value);
                 onViewChange(val);
               }}
             >
-              <option className="bg-[#0f0f0f]" value="">Default View</option>
+              <option className="bg-[#0f0f0f]" value="">
+                Default View
+              </option>
               {views.map((v, i) => (
                 <option className="bg-[#0f0f0f]" key={v.name + i} value={i}>
-                  {defaultViewName === v.name ? "★ " : ""}{v.name}
+                  {defaultViewName === v.name ? "★ " : ""}
+                  {v.name}
                 </option>
               ))}
             </select>
@@ -173,11 +183,13 @@ export function ReportToolbar({
             ) : (
               <div className="flex items-center">
                 <button
-                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 transition-colors border-r border-white/5 ${isDirty ? 'text-amber-500 hover:text-amber-400' : 'text-white/30 hover:text-white/60'
+                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 transition-colors border-r border-white/5 ${isDirty
+                      ? "text-amber-500 hover:text-amber-400"
+                      : "text-white/30 hover:text-white/60"
                     }`}
                   onClick={onSave}
                 >
-                  {isDirty ? 'Unsaved' : 'Saved'}
+                  {isDirty ? "Unsaved" : "Saved"}
                 </button>
                 <button
                   className="text-[10px] font-black uppercase tracking-widest px-3 py-1 text-white/30 hover:text-white/60 transition-colors border-r border-white/5"
@@ -206,8 +218,8 @@ export function ReportToolbar({
                 key={st}
                 onClick={() => setStatusFilter(st)}
                 className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${active
-                  ? "bg-cyan-500/20 text-cyan-400 shadow-sm"
-                  : "text-white/20 hover:text-white/40 hover:bg-white/5"
+                    ? "bg-cyan-500/20 text-cyan-400 shadow-sm"
+                    : "text-white/20 hover:text-white/40 hover:bg-white/5"
                   }`}
               >
                 {st === "all" ? "All" : st === "no_records" ? "N/A" : st}
@@ -218,16 +230,24 @@ export function ReportToolbar({
 
         {/* Right: Grouping */}
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Group</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-white/20">
+            Group
+          </span>
           <select
             className="bg-white/5 text-[11px] font-bold text-white/60 border border-white/5 rounded-lg px-2 py-1 focus:outline-none focus:border-cyan-500/30 cursor-pointer"
             style={{ colorScheme: "dark" }}
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as GroupByKey)}
           >
-            <option className="bg-[#0f0f0f]" value="none">None</option>
-            <option className="bg-[#0f0f0f]" value="person">Person</option>
-            <option className="bg-[#0f0f0f]" value="date">Date</option>
+            <option className="bg-[#0f0f0f]" value="none">
+              None
+            </option>
+            <option className="bg-[#0f0f0f]" value="person">
+              Person
+            </option>
+            <option className="bg-[#0f0f0f]" value="date">
+              Date
+            </option>
           </select>
         </div>
       </div>

@@ -20,7 +20,9 @@ export function ReportHeader({
       <div className="flex items-center gap-3">
         <div className="flex bg-white/5 border border-white/5 rounded-lg p-0.5 items-center">
           <label className="flex items-center gap-1.5 px-2 py-1 cursor-pointer hover:bg-white/5 transition-colors rounded-md">
-            <span className="text-[9px] uppercase font-bold tracking-widest text-white/20">From</span>
+            <span className="text-[9px] uppercase font-bold tracking-widest text-white/20">
+              From
+            </span>
             <input
               type="date"
               value={startDate}
@@ -31,7 +33,9 @@ export function ReportHeader({
           </label>
           <div className="w-px h-3 bg-white/5" />
           <label className="flex items-center gap-1.5 px-2 py-1 cursor-pointer hover:bg-white/5 transition-colors rounded-md">
-            <span className="text-[9px] uppercase font-bold tracking-widest text-white/20">To</span>
+            <span className="text-[9px] uppercase font-bold tracking-widest text-white/20">
+              To
+            </span>
             <input
               type="date"
               value={endDate}
@@ -50,9 +54,11 @@ export function ReportHeader({
           </div>
           <div className="flex flex-col">
             <span className="text-[11px] font-bold text-cyan-100/90 leading-none">
-              {daysTracked} {daysTracked === 1 ? 'Day' : 'Days'}
+              {daysTracked} {daysTracked === 1 ? "Day" : "Days"}
             </span>
-            <span className="text-[8px] font-bold uppercase tracking-widest text-cyan-500/40 leading-none mt-0.5">Tracked</span>
+            <span className="text-[8px] font-bold uppercase tracking-widest text-cyan-500/40 leading-none mt-0.5">
+              Tracked
+            </span>
           </div>
         </div>
       )}

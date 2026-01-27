@@ -10,7 +10,9 @@ export default function WindowFooter() {
 
       {/* Right: Version Info */}
       <div className="flex items-center">
-        <span className="text-white/30 text-[10px] font-medium tracking-wider font-mono">v1.0.0</span>
+        <span className="text-white/30 text-[10px] font-medium tracking-wider font-mono">
+          v1.0.0
+        </span>
       </div>
     </div>
   );

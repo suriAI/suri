@@ -1,5 +1,8 @@
 import type { QuickSettings } from "../components/settings/types.js";
-import { defaultSettings } from "./persistentSettingsDefaults.js";
+import {
+  defaultSettings,
+  type PersistentSettingsSchema,
+} from "./persistentSettingsDefaults.js";
 
 class PersistentSettingsService {
   /**
@@ -105,19 +108,13 @@ class PersistentSettingsService {
   /**
    * UI State
    */
-  async getUIState() {
-    const state = await this.get<typeof defaultSettings.ui>("ui");
+  async getUIState(): Promise<PersistentSettingsSchema["ui"]> {
+    const state = await this.get<PersistentSettingsSchema["ui"]>("ui");
     return state || defaultSettings.ui;
   }
 
   async setUIState(
-    state: Partial<{
-      sidebarCollapsed: boolean;
-      sidebarWidth: number;
-      selectedGroupId: string | null;
-      groupSidebarCollapsed: boolean;
-      selectedCamera: string;
-    }>,
+    state: Partial<PersistentSettingsSchema["ui"]>,
   ): Promise<void> {
     const current = await this.getUIState();
     await this.set("ui", { ...current, ...state });

@@ -11,10 +11,6 @@ import { EmptyState } from "../shared";
 
 interface GroupContentProps {
   onMembersChange: () => void;
-  onRegistrationSourceChange?: (source: "upload" | "camera" | null) => void;
-  registrationSource?: "upload" | "camera" | null;
-  onRegistrationModeChange?: (mode: "single" | "bulk" | "queue" | null) => void;
-  registrationMode?: "single" | "bulk" | "queue" | null;
   deselectMemberTrigger?: number;
   onHasSelectedMemberChange?: (hasSelectedMember: boolean) => void;
   onDaysTrackedChange?: (daysTracked: number, loading: boolean) => void;
@@ -26,10 +22,6 @@ interface GroupContentProps {
 
 function GroupContentComponent({
   onMembersChange,
-  onRegistrationSourceChange,
-  registrationSource,
-  onRegistrationModeChange,
-  registrationMode,
   deselectMemberTrigger,
   onHasSelectedMemberChange,
   onDaysTrackedChange,
@@ -108,10 +100,6 @@ function GroupContentComponent({
           group={selectedGroup}
           members={members}
           onRefresh={handleMembersChange}
-          onSourceChange={onRegistrationSourceChange}
-          registrationSource={registrationSource}
-          onModeChange={onRegistrationModeChange}
-          registrationMode={registrationMode}
           deselectMemberTrigger={deselectMemberTrigger}
           onHasSelectedMemberChange={onHasSelectedMemberChange}
           onAddMember={openAddMember}

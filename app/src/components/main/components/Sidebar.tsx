@@ -279,10 +279,11 @@ export const Sidebar = memo(function Sidebar({
             }}
           >
             <div
-              className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${isResizing
-                ? "bg-blue-500/70 h-16"
-                : "bg-white/10 group-hover:bg-blue-500/50"
-                }`}
+              className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${
+                isResizing
+                  ? "bg-blue-500/70 h-16"
+                  : "bg-white/10 group-hover:bg-blue-500/50"
+              }`}
             />
           </div>
         )}
@@ -329,9 +330,7 @@ export const Sidebar = memo(function Sidebar({
           className={`sidebar flex-1 flex flex-col overflow-hidden transition-opacity duration-200 ${isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
           {/* Attendance Management or Recent Logs - Using AttendancePanel Component */}
-          <AttendancePanel
-            handleSelectGroup={handleSelectGroup}
-          />
+          <AttendancePanel handleSelectGroup={handleSelectGroup} />
 
           {/* Face Detection Display - Half of remaining space */}
           <div className="flex-1 border-t border-white/[0.08] flex flex-col min-h-0 bg-black">

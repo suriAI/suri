@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
-
+import { useState, useEffect, useCallback } from "react";
 import { CameraQueue } from "./registration/CameraQueue";
 import { BulkRegistration } from "./registration/BulkRegistration";
 import { FaceCapture } from "../sections";
+import { useGroupUIStore } from "../stores";
 import type {
   AttendanceGroup,
   AttendanceMember,
@@ -12,10 +12,6 @@ interface RegistrationProps {
   group: AttendanceGroup;
   members: AttendanceMember[];
   onRefresh: () => void;
-  onSourceChange?: (source: "upload" | "camera" | null) => void;
-  registrationSource?: "upload" | "camera" | null;
-  onModeChange?: (mode: "single" | "bulk" | "queue" | null) => void;
-  registrationMode?: "single" | "bulk" | "queue" | null;
   deselectMemberTrigger?: number;
   onHasSelectedMemberChange?: (hasSelectedMember: boolean) => void;
   onAddMember?: () => void;
@@ -28,57 +24,59 @@ export function Registration({
   group,
   members,
   onRefresh,
-  onSourceChange,
-  registrationSource,
-  onModeChange,
-  registrationMode,
   deselectMemberTrigger,
   onHasSelectedMemberChange,
   onAddMember,
 }: RegistrationProps) {
-  const [source, setSource] = useState<SourceType>(registrationSource || null);
-  const [mode, setMode] = useState<RegistrationMode>(registrationMode || null);
+  // Store integration
+  const lastSource = useGroupUIStore((state) => state.lastRegistrationSource);
+  const lastMode = useGroupUIStore((state) => state.lastRegistrationMode);
+  const preSelectedId = useGroupUIStore((state) => state.preSelectedMemberId);
+  const setRegistrationState = useGroupUIStore(
+    (state) => state.setRegistrationState,
+  );
 
-  // Sync with parent state
+  const [source, setSource] = useState<SourceType>(lastSource);
+  const [mode, setMode] = useState<RegistrationMode>(lastMode);
+
+  // Handle Deep Linking / Pre-selection
   useEffect(() => {
-    if (registrationSource !== undefined) {
-      setSource(registrationSource);
+    if (preSelectedId) {
+      setSource("camera"); // Default to camera for direct links
+      setMode("single");
+      // Don't reset preSelectedId yet, FaceCapture needs it
     }
-  }, [registrationSource]);
+  }, [preSelectedId]);
 
-  useEffect(() => {
-    if (registrationMode !== undefined) {
-      setMode(registrationMode);
-    }
-  }, [registrationMode]);
+  const handleSourceChange = useCallback(
+    (newSource: SourceType) => {
+      setSource(newSource);
+      setRegistrationState(newSource, mode);
+    },
+    [mode, setRegistrationState],
+  );
 
-  const handleSourceChange = (newSource: SourceType) => {
-    setSource(newSource);
-    if (onSourceChange) {
-      onSourceChange(newSource);
-    }
-  };
+  const handleModeChange = useCallback(
+    (newMode: RegistrationMode) => {
+      setMode(newMode);
+      setRegistrationState(source, newMode);
+    },
+    [source, setRegistrationState],
+  );
 
-  const handleModeChange = (newMode: RegistrationMode) => {
-    setMode(newMode);
-    if (onModeChange) {
-      onModeChange(newMode);
-    }
-  };
-
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (mode) {
       setMode(null);
-      if (onModeChange) {
-        onModeChange(null);
-      }
+      setRegistrationState(source, null);
     } else {
       setSource(null);
-      if (onSourceChange) {
-        onSourceChange(null);
-      }
+      setRegistrationState(null, null);
     }
-  };
+    // Also clear pre-selection when going back
+    useGroupUIStore.setState({ preSelectedMemberId: null });
+  }, [mode, source, setRegistrationState]);
+
+  // --- Sub-View Routing ---
 
   if (mode === "bulk" && source === "upload") {
     return (
@@ -111,27 +109,37 @@ export function Registration({
         initialSource={source === "camera" ? "live" : source}
         deselectMemberTrigger={deselectMemberTrigger}
         onSelectedMemberChange={onHasSelectedMemberChange}
+      // preSelectedMemberId is handled internally by FaceCapture reading from store if needed
+      // but it's better if we just use FaceCapture's internal selection logic.
+      // Let's ensure FaceCapture picks up the preSelectedId.
       />
     );
   }
 
+  // --- Main View (Wizard / Quick Start) ---
+
   if (members.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center px-6">
-        <div className="flex flex-col items-center justify-center space-y-3 max-w-md text-center">
-          <div className="text-white/70 text-sm font-medium">
-            Add your first member to start registration
+        <div className="flex flex-col items-center justify-center space-y-4 max-w-sm text-center">
+          <div className="w-16 h-16 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-center mb-2">
+            <i className="fa-solid fa-user-plus text-2xl text-white/10"></i>
           </div>
-          <div className="text-white/40 text-xs">
-            Create a member profile first so we can attach face data to it.
+          <div>
+            <h3 className="text-base font-bold text-white/80 mb-1">
+              Add your first member
+            </h3>
+            <p className="text-xs text-white/30 leading-relaxed">
+              Create a member profile first so we can attach
+              face data to it.
+            </p>
           </div>
           {onAddMember && (
             <button
               onClick={onAddMember}
-              className="px-4 py-2 text-xs bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] rounded text-white/70 hover:text-white/90 transition-colors flex items-center gap-2"
+              className="px-6 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-xl text-cyan-400 text-xs font-black uppercase tracking-widest transition-all active:scale-95"
             >
-              <i className="fa-solid fa-user-plus text-xs"></i>
-              Add Member
+              Get Started
             </button>
           )}
         </div>
@@ -142,25 +150,50 @@ export function Registration({
   if (!source) {
     return (
       <div className="h-full flex flex-col items-center justify-center px-6">
-        <div className="w-full max-w-lg space-y-4">
-          <div className="text-center text-white/60 text-sm">
-            Choose how you want to capture faces for <span className="text-white">{group.name}</span>.
+        <div className="w-full max-w-lg space-y-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black text-white/90 tracking-tight">
+              How would you like to add faces?
+            </h2>
+            <p className="text-sm text-white/30 max-w-xs mx-auto font-medium leading-relaxed">
+              How would you like to capture faces for{" "}
+              <span className="text-cyan-400/80">{group.name}</span>?
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-2 gap-6">
             <button
-              onClick={() => handleSourceChange("upload")}
-              className="flex flex-col items-center gap-4 p-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all"
+              onClick={() => handleSourceChange("camera")}
+              className="group relative flex flex-col items-center gap-6 p-10 rounded-[2.5rem] border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] transition-all duration-300"
             >
-              <i className="fa-solid fa-cloud-arrow-up text-5xl text-white/80 mb-2"></i>
-              <span className="text-base font-medium text-white">Upload</span>
+              <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center group-hover:scale-110 group-hover:shadow-[0_0_30px_rgba(34,211,238,0.15)] transition-all duration-500">
+                <i className="fa-solid fa-camera-retro text-4xl text-white/40 group-hover:text-cyan-400 transition-colors"></i>
+              </div>
+              <div className="text-center">
+                <span className="block text-lg font-black text-white/80 group-hover:text-white transition-colors">
+                  Camera
+                </span>
+                <span className="text-[10px] uppercase font-black tracking-widest text-white/20 group-hover:text-cyan-500/50 transition-colors">
+                  Live Capture
+                </span>
+              </div>
             </button>
 
             <button
-              onClick={() => handleSourceChange("camera")}
-              className="flex flex-col items-center gap-4 p-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all"
+              onClick={() => handleSourceChange("upload")}
+              className="group relative flex flex-col items-center gap-6 p-10 rounded-[2.5rem] border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] transition-all duration-300"
             >
-              <i className="fa-solid fa-video text-5xl text-white/80 mb-2"></i>
-              <span className="text-base font-medium text-white">Camera</span>
+              <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center group-hover:scale-110 group-hover:shadow-[0_0_30px_rgba(34,211,238,0.15)] transition-all duration-500">
+                <i className="fa-solid fa-cloud-arrow-up text-4xl text-white/40 group-hover:text-cyan-400 transition-colors"></i>
+              </div>
+              <div className="text-center">
+                <span className="block text-lg font-black text-white/80 group-hover:text-white transition-colors">
+                  File
+                </span>
+                <span className="text-[10px] uppercase font-black tracking-widest text-white/20 group-hover:text-cyan-500/50 transition-colors">
+                  Local Photos
+                </span>
+              </div>
             </button>
           </div>
         </div>
@@ -170,37 +203,79 @@ export function Registration({
 
   return (
     <div className="h-full flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-lg space-y-4">
-        <div className="text-center text-white/60 text-sm">
-          Pick a registration mode for <span className="text-white">{group.name}</span>.
+      <div className="w-full max-w-lg space-y-8">
+        <div className="text-center space-y-2 relative">
+          <button
+            onClick={handleBack}
+            className="absolute -left-12 top-1 text-white/20 hover:text-white transition-colors p-2"
+            title="Go Back"
+          >
+            <i className="fa-solid fa-arrow-left"></i>
+          </button>
+          <h2 className="text-2xl font-black text-white/90 tracking-tight">
+            Registration Method
+          </h2>
+          <p className="text-sm text-white/30 max-w-xs mx-auto font-medium leading-relaxed uppercase tracking-widest text-[9px]">
+            Selected Source:{" "}
+            <span className="text-cyan-400/80">
+              {source === "camera" ? "Live Camera" : "Photo Upload"}
+            </span>
+          </p>
         </div>
-        <div className="grid gap-3">
+
+        <div className="grid gap-4">
           <button
             onClick={() => handleModeChange("single")}
-            className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
+            className="group p-6 rounded-[2rem] border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] transition-all duration-300 flex items-center gap-6"
           >
-            <span className="text-base font-medium text-white">Individual</span>
+            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-cyan-500/10 transition-colors">
+              <i className="fa-solid fa-user text-xl text-white/30 group-hover:text-cyan-400"></i>
+            </div>
+            <div className="text-left">
+              <span className="block text-lg font-black text-white/80 group-hover:text-white">
+                One person
+              </span>
+              <span className="text-[10px] uppercase font-black tracking-widest text-white/20 group-hover:text-cyan-500/50">
+                One member at a time
+              </span>
+            </div>
           </button>
 
           {source === "upload" && (
             <button
               onClick={() => handleModeChange("bulk")}
-              className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
+              className="group p-6 rounded-[2rem] border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] transition-all duration-300 flex items-center gap-6"
             >
-              <span className="text-base font-medium text-white">
-                Batch Upload
-              </span>
+              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-cyan-500/10 transition-colors">
+                <i className="fa-solid fa-layer-group text-xl text-white/30 group-hover:text-cyan-400"></i>
+              </div>
+              <div className="text-left">
+                <span className="block text-lg font-black text-white/80 group-hover:text-white">
+                  Multiple photos
+                </span>
+                <span className="text-[10px] uppercase font-black tracking-widest text-white/20 group-hover:text-cyan-500/50">
+                  Upload several portraits
+                </span>
+              </div>
             </button>
           )}
 
           {source === "camera" && (
             <button
               onClick={() => handleModeChange("queue")}
-              className="p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-center"
+              className="group p-6 rounded-[2rem] border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.03] transition-all duration-300 flex items-center gap-6"
             >
-              <span className="text-base font-medium text-white">
-                Camera Queue
-              </span>
+              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-cyan-500/10 transition-colors">
+                <i className="fa-solid fa-users-viewfinder text-xl text-white/30 group-hover:text-cyan-400"></i>
+              </div>
+              <div className="text-left">
+                <span className="block text-lg font-black text-white/80 group-hover:text-white">
+                  Quick sequence
+                </span>
+                <span className="text-[10px] uppercase font-black tracking-widest text-white/20 group-hover:text-cyan-500/50">
+                  Fast multi-person capture
+                </span>
+              </div>
             </button>
           )}
         </div>

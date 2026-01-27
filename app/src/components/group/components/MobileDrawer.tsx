@@ -91,7 +91,11 @@ export function MobileDrawer() {
           {/* Menu Header */}
           <div className="px-4 pt-1 pb-3 border-b border-white/[0.08]">
             <div className="flex items-center gap-2">
-              <img src="./icons/suri_mark_logo_transparent.png" alt="Suri" className="w-9 h-9" />
+              <img
+                src="./icons/suri_mark_logo_transparent.png"
+                alt="Suri"
+                className="w-9 h-9"
+              />
               <h1 className="text-lg font-semibold text-white">Menu</h1>
             </div>
           </div>

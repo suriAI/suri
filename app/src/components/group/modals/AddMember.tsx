@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { attendanceManager } from "../../../services";
-import type { AttendanceGroup, AttendanceMember } from "../../../types/recognition.js";
+import type {
+  AttendanceGroup,
+  AttendanceMember,
+} from "../../../types/recognition.js";
 
 interface AddMemberProps {
   group: AttendanceGroup;
@@ -73,9 +76,7 @@ export function AddMember({
   const isDuplicate = useMemo(() => {
     if (!newMemberName.trim()) return false;
     const normalizedName = newMemberName.trim().toLowerCase();
-    return existingMembers.some(
-      (m) => m.name.toLowerCase() === normalizedName,
-    );
+    return existingMembers.some((m) => m.name.toLowerCase() === normalizedName);
   }, [newMemberName, existingMembers]);
 
   // Reset confirmation when name changes
@@ -173,7 +174,7 @@ export function AddMember({
       <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-2xl shadow-[0_40px_80px_rgba(0,0,0,0.6)] max-h-[90vh] overflow-y-auto">
         <h3 className="text-xl font-semibold mb-2">Add Members</h3>
         <p className="text-sm text-white/60 mb-4">
-          Add one or multiple members to the group
+          Add one or more people to the group
         </p>
 
         {/* Tab selector */}
@@ -189,7 +190,7 @@ export function AddMember({
               : "text-white/60 hover:text-white"
               }`}
           >
-            Single Member
+            One person
           </button>
           <button
             onClick={() => {
@@ -234,8 +235,8 @@ export function AddMember({
               />
               {isDuplicate && !confirmDuplicate && (
                 <div className="mt-2 text-xs text-amber-300 flex items-center gap-2">
-                  <i className="fa-solid fa-triangle-exclamation"></i>
-                  A member with this name already exists.
+                  <i className="fa-solid fa-triangle-exclamation"></i>A member
+                  with this name already exists.
                 </div>
               )}
             </label>

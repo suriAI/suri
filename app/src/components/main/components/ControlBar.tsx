@@ -23,7 +23,8 @@ export function ControlBar({
     selectedCamera.trim() !== "" &&
     cameraDevices.some((device) => device.deviceId === selectedCamera);
   const hasCameraDevices = cameraDevices.length > 0;
-  const canStartTracking = (isCameraSelected || hasCameraDevices) && !isStreaming;
+  const canStartTracking =
+    (isCameraSelected || hasCameraDevices) && !isStreaming;
   // Button should be enabled if streaming (to allow stop) OR if ready to start
   const isButtonEnabled = isStreaming || canStartTracking;
 
@@ -65,18 +66,18 @@ export function ControlBar({
             className={`min-w-[140px] px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ease-in-out flex items-center justify-center gap-2 ${
               isStreaming
                 ? "bg-red-500/20 border border-red-400/40 text-red-200 hover:bg-red-500/30"
-              : isButtonEnabled
-                ? "bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 shadow-lg shadow-cyan-500/10"
-                : "bg-white/5 border border-white/10 text-white/40 cursor-not-allowed opacity-50"
-          }`}
-          title={
-            !hasCameraDevices
-              ? "No camera detected"
-              : !isCameraSelected
-                ? "Select a camera or use the first available"
-                : isStreaming
-                  ? "Stop tracking attendance"
-                  : "Start tracking attendance"
+                : isButtonEnabled
+                  ? "bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 shadow-lg shadow-cyan-500/10"
+                  : "bg-white/5 border border-white/10 text-white/40 cursor-not-allowed opacity-50"
+            }`}
+            title={
+              !hasCameraDevices
+                ? "No camera detected"
+                : !isCameraSelected
+                  ? "Select a camera or use the first available"
+                  : isStreaming
+                    ? "Stop tracking attendance"
+                    : "Start tracking attendance"
             }
           >
             {isStreaming ? "Stop Tracking" : "Start Tracking"}

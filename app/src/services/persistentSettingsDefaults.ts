@@ -22,6 +22,8 @@ export interface PersistentSettingsSchema {
     selectedGroupId: string | null;
     groupSidebarCollapsed: boolean;
     selectedCamera: string;
+    lastRegistrationSource: string | null;
+    lastRegistrationMode: string | null;
   };
 
   // Report Views (per group)
@@ -51,6 +53,8 @@ export const defaultSettings: PersistentSettingsSchema = {
     selectedGroupId: null,
     groupSidebarCollapsed: false,
     selectedCamera: "",
+    lastRegistrationSource: null,
+    lastRegistrationMode: null,
   },
   reportViews: {},
   reportDefaultViewNames: {},

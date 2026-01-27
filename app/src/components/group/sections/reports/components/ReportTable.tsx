@@ -36,7 +36,7 @@ export function ReportTable({
               return (
                 <th
                   key={c.key}
-                  className={`px-4 py-4 border-b border-white/10 text-[10px] uppercase font-bold tracking-widest text-white/30 bg-[#0f0f0f] ${alignClass} ${i === 0 ? 'rounded-tl-xl' : ''} ${i === visibleColDefs.length - 1 ? 'rounded-tr-xl' : ''}`}
+                  className={`px-4 py-4 border-b border-white/10 text-[10px] uppercase font-bold tracking-widest text-white/30 bg-[#0f0f0f] ${alignClass} ${i === 0 ? "rounded-tl-xl" : ""} ${i === visibleColDefs.length - 1 ? "rounded-tr-xl" : ""}`}
                 >
                   {c.label}
                 </th>
@@ -46,31 +46,33 @@ export function ReportTable({
         </thead>
         <tbody className="text-sm divide-y divide-white/5">
           {Object.keys(groupedRows).length === 0 ||
-            Object.values(groupedRows).every(rows => rows.length === 0) ? (
+            Object.values(groupedRows).every((rows) => rows.length === 0) ? (
             <tr>
               <td colSpan={visibleColDefs.length} className="py-24">
                 <div className="flex flex-col items-center justify-center text-center px-6">
                   {/* Icon with contextual pulse */}
                   <div className="relative mb-6">
                     <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-center shadow-inner">
-                      <i className={`fa-solid ${search ? 'fa-magnifying-glass-slash' : 'fa-calendar-xmark'} text-3xl text-white/10`}></i>
+                      <i
+                        className={`fa-solid ${search ? "fa-magnifying-glass-slash" : "fa-calendar-xmark"} text-3xl text-white/10`}
+                      ></i>
                     </div>
                   </div>
 
                   <h3 className="text-base font-bold text-white/80 mb-2">
                     {search
                       ? `No matches for "${search}"`
-                      : statusFilter !== 'all'
-                        ? `No records found for "${statusFilter}"`
-                        : "No records found"}
+                      : statusFilter !== "all"
+                        ? `No results for "${statusFilter}"`
+                        : "No results found"}
                   </h3>
 
                   <p className="text-xs text-white/30 max-w-[280px] mb-8 leading-relaxed">
                     {search
-                      ? "We couldn't find any members or notes matching your search term. Try a different keyword."
-                      : statusFilter !== 'all'
-                        ? `None of the records in this date range are currently marked as ${statusFilter}.`
-                        : "There is no attendance data recorded for the selected group during this time period."}
+                      ? "We couldn't find anything matching your search. Try a different keyword."
+                      : statusFilter !== "all"
+                        ? `None of the records currently match the "${statusFilter}" filter.`
+                        : "There are no attendance records for this period."}
                   </p>
 
                   <div className="flex items-center gap-3">
@@ -82,7 +84,7 @@ export function ReportTable({
                         Clear Search
                       </button>
                     )}
-                    {(statusFilter !== 'all') && (
+                    {statusFilter !== "all" && (
                       <button
                         onClick={onResetFilter}
                         className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
@@ -90,12 +92,18 @@ export function ReportTable({
                         Reset Filter
                       </button>
                     )}
-                    {!search && statusFilter === 'all' && (
+                    {!search && statusFilter === "all" && (
                       <div className="flex flex-col items-center gap-2">
-                        <span className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mb-2">Suggestions</span>
+                        <span className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mb-2">
+                          Suggestions
+                        </span>
                         <div className="flex gap-2">
-                          <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] text-white/40 font-bold">Try Previous Week</span>
-                          <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] text-white/40 font-bold">Expand Range</span>
+                          <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] text-white/40 font-bold">
+                            Try Previous Week
+                          </span>
+                          <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] text-white/40 font-bold">
+                            Expand Range
+                          </span>
                         </div>
                       </div>
                     )}
@@ -115,9 +123,12 @@ export function ReportTable({
                         className="px-4 py-3 bg-white/[0.03] border-b border-white/5"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-cyan-100/90 tracking-wide">{groupInfo}</span>
+                          <span className="text-xs font-bold text-cyan-100/90 tracking-wide">
+                            {groupInfo}
+                          </span>
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/5 border border-white/5 text-[10px] text-white/40 font-medium">
-                            {rows.length} {rows.length === 1 ? 'record' : 'records'}
+                            {rows.length}{" "}
+                            {rows.length === 1 ? "record" : "records"}
                           </span>
                         </div>
                       </td>
@@ -134,10 +145,17 @@ export function ReportTable({
 
                         if (c.key === "status") {
                           const s = row.status;
-                          let badgeClass = "bg-white/5 text-white/40 border-white/10";
-                          if (s === "present") badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-                          if (s === "absent") badgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/20";
-                          if (s === "no_records") badgeClass = "bg-white/[0.02] text-white/20 border-white/5";
+                          let badgeClass =
+                            "bg-white/5 text-white/40 border-white/10";
+                          if (s === "present")
+                            badgeClass =
+                              "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                          if (s === "absent")
+                            badgeClass =
+                              "bg-rose-500/10 text-rose-400 border-rose-500/20";
+                          if (s === "no_records")
+                            badgeClass =
+                              "bg-white/[0.02] text-white/20 border-white/5";
 
                           content = (
                             <div
@@ -160,7 +178,9 @@ export function ReportTable({
                             content = (
                               <div className="flex flex-col">
                                 <span className="text-white/90 font-medium">
-                                  {new Date(row.check_in_time).toLocaleTimeString([], {
+                                  {new Date(
+                                    row.check_in_time,
+                                  ).toLocaleTimeString([], {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}
@@ -187,11 +207,14 @@ export function ReportTable({
                         } else if (c.key === "date") {
                           content = (
                             <span className="text-white/60 font-medium">
-                              {new Date(row.date).toLocaleDateString(undefined, {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
+                              {new Date(row.date).toLocaleDateString(
+                                undefined,
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
                             </span>
                           );
                         } else if (c.key === "name") {
@@ -210,7 +233,7 @@ export function ReportTable({
                         return (
                           <td
                             key={c.key}
-                            className={`px-4 py-3.5 whitespace-nowrap border-b border-white/[0.04] ${alignClass} ${cIdx === 0 ? 'relative' : ''}`}
+                            className={`px-4 py-3.5 whitespace-nowrap border-b border-white/[0.04] ${alignClass} ${cIdx === 0 ? "relative" : ""}`}
                           >
                             {cIdx === 0 && (
                               <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity" />

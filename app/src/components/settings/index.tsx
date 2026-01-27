@@ -559,11 +559,12 @@ export const Settings: React.FC<SettingsProps> = ({
                       // Reset trigger when switching subsections to prevent accidental modal opening
                       setTriggerCreateGroup(0);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeSection === "group" &&
+                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                      activeSection === "group" &&
                       groupInitialSection === subsection.id
-                      ? "bg-white/10 text-white"
-                      : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                      }`}
+                        ? "bg-white/10 text-white"
+                        : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                    }`}
                   >
                     <i className={`${subsection.icon} text-xs w-4`}></i>
                     {subsection.label}
@@ -578,10 +579,11 @@ export const Settings: React.FC<SettingsProps> = ({
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeSection === section.id
-                ? "bg-white/10 text-white"
-                : "text-white/60 hover:bg-white/5 hover:text-white/80"
-                }`}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                activeSection === section.id
+                  ? "bg-white/10 text-white"
+                  : "text-white/60 hover:bg-white/5 hover:text-white/80"
+              }`}
             >
               {section.icon && (
                 <i className={`${section.icon} text-sm w-4`}></i>
@@ -768,7 +770,8 @@ export const Settings: React.FC<SettingsProps> = ({
     // We position the settings modal/fullscreen container between header and footer
     // to prevent overflow and ensure window controls remain accessible.
     // z-[60] ensures it sits above the Sidebar (z-50) but allows interaction with window controls
-    const safeAreaClass = "fixed top-[46px] bottom-[28px] left-0 right-0 z-[60]";
+    const safeAreaClass =
+      "fixed top-[46px] bottom-[28px] left-0 right-0 z-[60]";
 
     if (isFullScreen) {
       return (
@@ -779,7 +782,9 @@ export const Settings: React.FC<SettingsProps> = ({
     }
 
     return (
-      <div className={`${safeAreaClass} bg-black/70 flex items-center justify-center`}>
+      <div
+        className={`${safeAreaClass} bg-black/70 flex items-center justify-center`}
+      >
         <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl w-full max-w-5xl h-[90%] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden">
           {mainContent}
         </div>

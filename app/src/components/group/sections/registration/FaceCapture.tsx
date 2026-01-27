@@ -1,27 +1,27 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { attendanceManager } from "../../../../services";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useGroupUIStore } from "../../stores";
 import type {
   AttendanceGroup,
   AttendanceMember,
-} from "../../../../types/recognition";
-import { useCamera } from "./hooks/useCamera";
-import { useFaceCapture } from "./hooks/useFaceCapture";
-import type { CaptureSource } from "./types";
-
-import { MemberSidebar } from "./components/MemberSidebar";
+} from "../../../../types/recognition.js";
+import { useCamera } from "../registration/hooks/useCamera";
+import { useFaceCapture } from "../registration/hooks/useFaceCapture";
 import { CaptureControls } from "./components/CaptureControls";
 import { CameraFeed } from "./components/CameraFeed";
 import { UploadArea } from "./components/UploadArea";
+import { MemberSidebar } from "./components/MemberSidebar";
 import { ResultView } from "./components/ResultView";
 
 interface FaceCaptureProps {
-  group: AttendanceGroup | null;
+  group: AttendanceGroup;
   members: AttendanceMember[];
-  onRefresh?: () => Promise<void> | void;
-  initialSource?: CaptureSource;
+  onRefresh: () => void;
+  initialSource?: "live" | "upload";
   deselectMemberTrigger?: number;
   onSelectedMemberChange?: (hasSelectedMember: boolean) => void;
 }
+
+type CaptureSource = "live" | "upload";
 
 export function FaceCapture({
   group,
@@ -31,6 +31,9 @@ export function FaceCapture({
   deselectMemberTrigger,
   onSelectedMemberChange,
 }: FaceCaptureProps) {
+  // Store integration
+  const preSelectedId = useGroupUIStore((state) => state.preSelectedMemberId);
+
   // --- View State ---
   const [source, setSource] = useState<CaptureSource>(
     initialSource ?? "upload",
@@ -44,214 +47,166 @@ export function FaceCapture({
     new Map(),
   );
 
+  // Handle pre-selection from deep links
+  useEffect(() => {
+    if (preSelectedId) {
+      setSelectedMemberId(preSelectedId);
+    }
+  }, [preSelectedId]);
+
   // --- Hooks ---
   const {
     videoRef,
-    cameraDevices,
-    selectedCamera,
-    setSelectedCamera,
     isStreaming,
     isVideoReady,
     cameraError,
+    cameraDevices,
+    selectedCamera,
+    setSelectedCamera,
     startCamera,
     stopCamera,
   } = useCamera();
 
+  const loadStatus = useCallback(async () => {
+    const status = new Map<string, boolean>();
+    for (const member of members) {
+      status.set(member.person_id, !!member.has_face_data);
+    }
+    setMemberStatus(status);
+  }, [members]);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
+
   const {
     frames,
-    globalError,
-    successMessage,
     isRegistering,
-    setGlobalError,
+    successMessage,
+    globalError,
     setSuccessMessage,
-    resetFrames,
+    setGlobalError,
     captureProcessedFrame,
     handleRegister,
     handleRemoveFaceData,
+    resetFrames,
   } = useFaceCapture(group, members, onRefresh);
 
-  // --- Member Status Management ---
-  const loadMemberStatus = useCallback(async () => {
-    if (!group) {
-      setMemberStatus(new Map());
-      return;
-    }
-    try {
-      const persons = await attendanceManager.getGroupPersons(group.id);
-      const status = new Map<string, boolean>();
-      persons.forEach((person) =>
-        status.set(person.person_id, person.has_face_data),
-      );
-      setMemberStatus(status);
-    } catch (error) {
-      console.error("Failed to load member registration status:", error);
-    }
-  }, [group]);
+  const framesReady = frames.length > 0;
 
-  useEffect(() => {
-    loadMemberStatus();
-  }, [loadMemberStatus]);
-
-  // --- Selection Lifecycle ---
-  // Notify parent of selection change
+  // --- Lifecycle & Sync ---
   useEffect(() => {
     if (onSelectedMemberChange) {
       onSelectedMemberChange(!!selectedMemberId);
     }
   }, [selectedMemberId, onSelectedMemberChange]);
 
-  // Handle external deselect trigger
-  const deselectedMemberTriggerRef = useRef(deselectMemberTrigger ?? 0);
   useEffect(() => {
-    if (
-      deselectMemberTrigger !== undefined &&
-      deselectedMemberTriggerRef.current !== deselectMemberTrigger
-    ) {
-      deselectedMemberTriggerRef.current = deselectMemberTrigger;
-      if (selectedMemberId) {
-        setSelectedMemberId("");
-        resetFrames();
-      }
-    }
-  }, [deselectMemberTrigger, selectedMemberId, resetFrames]);
-
-  // Verify selection validity when group/members change
-  useEffect(() => {
-    if (!group) {
+    if (deselectMemberTrigger) {
       setSelectedMemberId("");
-      resetFrames();
-      setSuccessMessage(null);
-      setGlobalError(null);
-      return;
     }
-    if (selectedMemberId) {
-      const memberExists = members.some(
-        (m) => m.person_id === selectedMemberId,
-      );
-      if (!memberExists) {
-        setSelectedMemberId("");
-        resetFrames();
-        setSuccessMessage(null);
-        setGlobalError(null);
-      }
-    }
-  }, [
-    group,
-    resetFrames,
-    members,
-    selectedMemberId,
-    setGlobalError,
-    setSuccessMessage,
-  ]);
+  }, [deselectMemberTrigger]);
 
-  // Stop camera when switching modes
-  useEffect(() => {
-    if (source !== "live") {
-      stopCamera();
-    }
-  }, [source, stopCamera]);
-
-  // --- Actions ---
-  const handleCaptureFromCamera = useCallback(async () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    if (video.videoWidth === 0 || video.videoHeight === 0) return;
-
+  // --- Handlers ---
+  const handleCaptureFromCamera = useCallback(() => {
+    if (!videoRef.current || !selectedMemberId) return;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.drawImage(videoRef.current, 0, 0);
+    const url = canvas.toDataURL("image/jpeg", 0.95);
+    captureProcessedFrame("Front", url, canvas.width, canvas.height);
+  }, [videoRef, selectedMemberId, captureProcessedFrame]);
 
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    ctx.restore();
-
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    await captureProcessedFrame("Front", dataUrl, canvas.width, canvas.height);
-    stopCamera();
-  }, [captureProcessedFrame, stopCamera, videoRef]);
-
-  const handleWrapperRegister = useCallback(() => {
-    handleRegister(selectedMemberId, loadMemberStatus, memberStatus);
-  }, [handleRegister, selectedMemberId, loadMemberStatus, memberStatus]);
+  const handleWrapperRegister = useCallback(async () => {
+    if (!selectedMemberId) return;
+    await handleRegister(selectedMemberId, loadStatus, memberStatus);
+  }, [selectedMemberId, handleRegister, loadStatus, memberStatus]);
 
   const handleWrapperRemoveData = useCallback(
-    (member: AttendanceMember & { displayName: string }) => {
-      handleRemoveFaceData(member, loadMemberStatus);
+    async (member: AttendanceMember) => {
+      await handleRemoveFaceData(member, loadStatus);
     },
-    [handleRemoveFaceData, loadMemberStatus],
+    [handleRemoveFaceData, loadStatus],
   );
 
   const resetWorkflow = useCallback(() => {
     resetFrames();
-    setSuccessMessage(null);
-    setGlobalError(null);
-    // If we retake, wait, we might want to restart camera if it was live?
-    // Current behavior in filtered logic: if retake, we just clear frames.
-    // If source is live, the user can hit Start Camera again.
-  }, [resetFrames, setSuccessMessage, setGlobalError]);
-
-  // --- Derived ---
-  const framesReady = (() => {
-    const frame = frames.find((item) => item.angle === "Front");
-    return frame && (frame.status === "ready" || frame.status === "registered");
-  })();
+    if (source === "live") {
+      startCamera();
+    }
+  }, [resetFrames, source, startCamera]);
 
   const selectedMemberName = useMemo(() => {
     const m = members.find((m) => m.person_id === selectedMemberId);
-    return m ? m.name || "Member" : ""; // Use name, or we can use generated display name if passed down, but MemberSidebar generates it internally.
-    // We should probably rely on MemberSidebar passing the display name or regenerate it here.
-    // We'll regenerate simply.
+    return m ? m.name || "Member" : "";
   }, [members, selectedMemberId]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
       {/* Messages */}
       {successMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-cyan-500/30 bg-cyan-500/10 backdrop-blur-sm px-4 py-3 text-sm text-cyan-200 flex items-center gap-3 min-w-[500px] max-w-[95%] intro-y">
-          <span className="flex-1">{successMessage}</span>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-[1.5rem] border border-cyan-500/30 bg-black/80 backdrop-blur-xl p-5 text-sm text-cyan-200 flex flex-col items-center gap-4 min-w-[400px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b-cyan-500/50">
+          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-1">
+            <i className="fa-solid fa-check-double text-xl text-cyan-400"></i>
+          </div>
+          <div className="text-center">
+            <h4 className="text-base font-black text-white mb-1">Success</h4>
+            <p className="text-xs text-cyan-200/60 font-medium">
+              {successMessage}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 w-full pt-1">
+            <button
+              onClick={() => {
+                setSuccessMessage(null);
+                useGroupUIStore.getState().setActiveSection("reports");
+              }}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              See results
+            </button>
+            <button
+              onClick={() => {
+                setSuccessMessage(null);
+                setSelectedMemberId("");
+                resetFrames();
+              }}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              Next person
+            </button>
+          </div>
+
           <button
             onClick={() => setSuccessMessage(null)}
-            className="text-cyan-200/50 hover:text-cyan-100 transition-colors flex-shrink-0"
+            className="absolute top-4 right-4 text-white/20 hover:text-white transition-colors"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
       )}
+
       {globalError && (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-200 flex items-center gap-3 flex-shrink-0 mx-6 mt-6">
-          <span className="flex-1">{globalError}</span>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-[1.5rem] border border-red-500/30 bg-black/80 backdrop-blur-xl p-5 text-sm text-red-200 flex flex-col items-center gap-4 min-w-[400px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(239,68,68,0.2)]">
+          <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center mb-1">
+            <i className="fa-solid fa-triangle-exclamation text-xl text-red-400"></i>
+          </div>
+          <div className="text-center">
+            <h4 className="text-base font-black text-white mb-1">
+              Something went wrong
+            </h4>
+            <p className="text-xs text-red-200/60 font-medium">{globalError}</p>
+          </div>
+
           <button
             onClick={() => setGlobalError(null)}
-            className="text-red-200/50 hover:text-red-100 transition-colors"
+            className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all mt-2"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            Dismiss
           </button>
         </div>
       )}
@@ -274,18 +229,16 @@ export function FaceCapture({
         {selectedMemberId && (
           <div className="flex flex-col h-full overflow-hidden p-6 space-y-2">
             <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
-              {!initialSource && (
-                <CaptureControls
-                  source={source}
-                  setSource={setSource}
-                  hasRequiredFrame={!!framesReady}
-                  cameraDevices={cameraDevices}
-                  selectedCamera={selectedCamera}
-                  setSelectedCamera={setSelectedCamera}
-                  isStreaming={isStreaming}
-                  stopCamera={stopCamera}
-                />
-              )}
+              <CaptureControls
+                source={source}
+                setSource={setSource}
+                hasRequiredFrame={!!framesReady}
+                cameraDevices={cameraDevices}
+                selectedCamera={selectedCamera}
+                setSelectedCamera={setSelectedCamera}
+                isStreaming={isStreaming}
+                stopCamera={stopCamera}
+              />
 
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {!framesReady ? (
@@ -303,7 +256,7 @@ export function FaceCapture({
                     />
                   ) : (
                     <UploadArea
-                      onFileProcessed={(url, w, h) =>
+                      onFileProcessed={(url: string, w: number, h: number) =>
                         captureProcessedFrame("Front", url, w, h)
                       }
                       onError={setGlobalError}

@@ -63,7 +63,7 @@ export default function Main() {
 
   const lastDetectionRef = useRef<DetectionResult | null>(null);
   const lastFrameTimestampRef = useRef<number>(0);
-  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => { });
+  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => {});
   const fpsTrackingRef = useRef({
     timestamps: [] as number[],
     maxSamples: 10,
@@ -133,7 +133,6 @@ export default function Main() {
     quickSettings,
     setQuickSettings,
   } = useUIStore();
-
 
   const recognitionEnabled = true;
 
@@ -494,7 +493,8 @@ export default function Main() {
                   ?.late_threshold_enabled ?? false,
               lateThresholdMinutes:
                 currentGroup?.settings?.late_threshold_minutes ?? 15,
-              classStartTime: currentGroup?.settings?.class_start_time ?? "08:00",
+              classStartTime:
+                currentGroup?.settings?.class_start_time ?? "08:00",
               attendanceCooldownSeconds: attendanceCooldownSeconds,
               enableSpoofDetection: enableSpoofDetection,
             }}

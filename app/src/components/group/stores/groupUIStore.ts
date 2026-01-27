@@ -19,6 +19,9 @@ interface GroupUIState {
 
   // Modal data
   editingMember: AttendanceMember | null;
+  preSelectedMemberId: string | null;
+  lastRegistrationSource: "upload" | "camera" | null;
+  lastRegistrationMode: "single" | "bulk" | "queue" | null;
 
   // Actions - Navigation
   setActiveSection: (section: GroupSection) => void;
@@ -41,6 +44,13 @@ interface GroupUIState {
 
   // Reset
   reset: () => void;
+
+  // Audit 5.0 Deep Linking
+  jumpToRegistration: (memberId: string, source?: "upload" | "camera") => void;
+  setRegistrationState: (
+    source: "upload" | "camera" | null,
+    mode: "single" | "bulk" | "queue" | null,
+  ) => void;
 }
 
 const initialState = {
@@ -52,6 +62,9 @@ const initialState = {
   showCreateGroupModal: false,
   showEditGroupModal: false,
   editingMember: null as AttendanceMember | null,
+  preSelectedMemberId: null as string | null,
+  lastRegistrationSource: null as "upload" | "camera" | null,
+  lastRegistrationMode: null as "single" | "bulk" | "queue" | null,
 };
 
 export const useGroupUIStore = create<GroupUIState>((set, get) => ({
@@ -102,6 +115,28 @@ export const useGroupUIStore = create<GroupUIState>((set, get) => ({
   closeEditGroup: () => set({ showEditGroupModal: false }),
 
   reset: () => set(initialState),
+
+  jumpToRegistration: (memberId, source = "camera") => {
+    set({
+      activeSection: "registration",
+      preSelectedMemberId: memberId,
+      lastRegistrationSource: source,
+      lastRegistrationMode: "single",
+    });
+  },
+
+  setRegistrationState: (source, mode) => {
+    set({
+      lastRegistrationSource: source,
+      lastRegistrationMode: mode,
+    });
+    persistentSettings
+      .setUIState({
+        lastRegistrationSource: source,
+        lastRegistrationMode: mode,
+      })
+      .catch(console.error);
+  },
 }));
 
 // Load sidebar state from store on initialization
@@ -109,6 +144,15 @@ if (typeof window !== "undefined") {
   persistentSettings.getUIState().then((uiState) => {
     useGroupUIStore.setState({
       isSidebarCollapsed: uiState.groupSidebarCollapsed,
+      lastRegistrationSource: uiState.lastRegistrationSource as
+        | "upload"
+        | "camera"
+        | null,
+      lastRegistrationMode: uiState.lastRegistrationMode as
+        | "single"
+        | "bulk"
+        | "queue"
+        | null,
     });
   });
 }

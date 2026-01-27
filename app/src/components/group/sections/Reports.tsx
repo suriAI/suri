@@ -145,9 +145,12 @@ export function Reports({
             <div className="w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(34,211,238,0.1)]">
               <i className="fa-solid fa-users-slash text-3xl text-cyan-400/60"></i>
             </div>
-            <h2 className="text-lg font-bold text-white mb-2">No members found</h2>
+            <h2 className="text-lg font-bold text-white mb-2">
+              No members found
+            </h2>
             <p className="text-sm text-white/40 mb-8 leading-relaxed">
-              This group doesn't have any members registered yet. Add some members to start tracking attendance.
+              This group doesn't have any members registered yet. Add some
+              members to start tracking attendance.
             </p>
             {onAddMember && (
               <button

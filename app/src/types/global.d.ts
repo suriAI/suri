@@ -9,7 +9,7 @@ import type {
   DatabaseClearResponse,
 } from "./recognition.js";
 
-export { };
+export {};
 
 declare global {
   interface SuriWSClientAPI {

@@ -1,10 +1,7 @@
 import { useState, useMemo, useEffect, memo, useCallback } from "react";
 import { createDisplayNameMap } from "../../../utils";
 import { Dropdown } from "../../shared";
-import type {
-  AttendanceGroup,
-  AttendanceRecord,
-} from "../types";
+import type { AttendanceGroup, AttendanceRecord } from "../types";
 
 import { useAttendanceStore, useUIStore } from "../stores";
 
@@ -186,7 +183,7 @@ export const AttendancePanel = memo(function AttendancePanel({
                 }))}
                 value={
                   currentGroup &&
-                    attendanceGroups.some((g) => g.id === currentGroup.id)
+                  attendanceGroups.some((g) => g.id === currentGroup.id)
                     ? currentGroup.id
                     : null
                 }

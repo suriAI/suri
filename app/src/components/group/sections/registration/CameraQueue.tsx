@@ -423,7 +423,10 @@ export function CameraQueue({
                     value={registrationFilter}
                     onChange={(e) =>
                       setRegistrationFilter(
-                        e.target.value as "all" | "registered" | "non-registered",
+                        e.target.value as
+                          | "all"
+                          | "registered"
+                          | "non-registered",
                       )
                     }
                     className="min-w-[170px] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:bg-white/10 focus:outline-none"
@@ -437,7 +440,9 @@ export function CameraQueue({
                 <div className="max-h-64 overflow-y-auto space-y-1.5 custom-scroll">
                   {members.length === 0 && (
                     <div className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-3 py-8 text-center">
-                      <div className="text-xs text-white/40">No members yet</div>
+                      <div className="text-xs text-white/40">
+                        No members yet
+                      </div>
                     </div>
                   )}
 
@@ -522,7 +527,9 @@ export function CameraQueue({
                               </span>
                             )}
                             {isInQueue && (
-                              <span className="text-cyan-300 text-xs">Queued</span>
+                              <span className="text-cyan-300 text-xs">
+                                Queued
+                              </span>
                             )}
                           </div>
                         </div>
@@ -727,9 +734,7 @@ export function CameraQueue({
             {/* Queue Status */}
             <div className="space-y-3 flex flex-col h-full overflow-hidden">
               <div className="flex items-center justify-between flex-shrink-0">
-                <h3 className="text-sm font-semibold text-white">
-                  Queue
-                </h3>
+                <h3 className="text-sm font-semibold text-white">Queue</h3>
                 <span className="text-xs text-white/50">
                   {completedMembers}/{totalMembers}
                 </span>
@@ -742,11 +747,11 @@ export function CameraQueue({
                       ? "border-cyan-400/60 bg-cyan-500/10"
                       : member.status === "skipped"
                         ? "border-white/20 bg-white/5"
-                      : member.status === "error"
-                        ? "border-red-400/60 bg-red-500/10"
-                        : isCurrent
-                          ? "border-white/20 bg-white/10"
-                          : "border-white/10 bg-white/5";
+                        : member.status === "error"
+                          ? "border-red-400/60 bg-red-500/10"
+                          : isCurrent
+                            ? "border-white/20 bg-white/10"
+                            : "border-white/10 bg-white/5";
 
                   return (
                     <div
@@ -773,22 +778,22 @@ export function CameraQueue({
                               ? "bg-cyan-500/20 text-cyan-200"
                               : member.status === "skipped"
                                 ? "bg-white/10 text-white/60"
-                              : member.status === "error"
-                                ? "bg-red-500/20 text-red-200"
-                                : member.status === "processing"
-                                  ? "bg-amber-500/20 text-amber-200"
-                                  : "bg-white/10 text-white/60"
+                                : member.status === "error"
+                                  ? "bg-red-500/20 text-red-200"
+                                  : member.status === "processing"
+                                    ? "bg-amber-500/20 text-amber-200"
+                                    : "bg-white/10 text-white/60"
                           }`}
                         >
                           {member.status === "completed"
                             ? "✓ Done"
                             : member.status === "skipped"
                               ? "Skipped"
-                            : member.status === "error"
-                              ? "✕"
-                            : member.status === "processing"
-                              ? "..."
-                              : "Pending"}
+                              : member.status === "error"
+                                ? "✕"
+                                : member.status === "processing"
+                                  ? "..."
+                                  : "Pending"}
                         </span>
                       </div>
                       {member.capturedAngles.length > 0 && (
