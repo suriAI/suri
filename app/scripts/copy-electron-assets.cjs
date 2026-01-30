@@ -28,7 +28,6 @@ for (const file of electronFiles) {
 
   if (fs.existsSync(srcPath)) {
     fs.copyFileSync(srcPath, destPath);
-    console.log(`✅ Copied ${file}`);
   } else {
     console.warn(`⚠️  Not found: ${srcPath}`);
   }
@@ -41,10 +40,7 @@ for (const file of iconFiles) {
 
   if (fs.existsSync(srcPath)) {
     fs.copyFileSync(srcPath, destPath);
-    console.log(`✅ Copied ${file}`);
   } else {
     console.warn(`⚠️  Icon not found: ${srcPath}`);
   }
 }
-
-console.log("✅ Assets copied");
