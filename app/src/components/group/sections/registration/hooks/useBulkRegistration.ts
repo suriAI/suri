@@ -14,6 +14,12 @@ import {
 
 const API_BASE_URL = "http://127.0.0.1:8700";
 
+// Type for pending duplicate files that need confirmation
+export interface PendingDuplicateFiles {
+  duplicates: File[];
+  newFiles: File[];
+}
+
 export function useBulkRegistration(
   group: AttendanceGroup,
   members: AttendanceMember[],
@@ -27,6 +33,9 @@ export function useBulkRegistration(
   const [registrationResults, setRegistrationResults] = useState<
     BulkRegistrationResult[] | null
   >(null);
+
+  // Pending duplicates that need user confirmation
+  const [pendingDuplicates, setPendingDuplicates] = useState<PendingDuplicateFiles | null>(null);
 
   const availableMembers = useMemo(() => {
     const assignedIds = new Set(
@@ -188,29 +197,96 @@ export function useBulkRegistration(
     [uploadedFiles, group.id, createFacePreview],
   );
 
+  // Helper to check if a file is a duplicate (same name and size)
+  const isFileDuplicate = useCallback(
+    (file: File): boolean => {
+      return uploadedFiles.some(
+        (existing) =>
+          existing.name === file.name && existing.size === file.size,
+      );
+    },
+    [uploadedFiles],
+  );
+
+  // Process files (either new or after duplicate confirmation)
+  const processFiles = useCallback(
+    async (filesToProcess: File[]) => {
+      if (filesToProcess.length === 0) return;
+
+      const startIndex = uploadedFiles.length;
+      setUploadedFiles((prev) => [...prev, ...filesToProcess]);
+      // Append new files faces detection
+      await handleDetectFaces(filesToProcess, startIndex);
+    },
+    [handleDetectFaces, uploadedFiles.length],
+  );
+
   const handleFilesSelected = useCallback(
     async (files: FileList | null) => {
       if (!files) return;
 
-      const newFiles = Array.from(files).filter((file) =>
+      const imageFiles = Array.from(files).filter((file) =>
         file.type.startsWith("image/"),
       );
 
-      if (newFiles.length === 0) return;
+      if (imageFiles.length === 0) return;
 
-      const startIndex = uploadedFiles.length;
-      setUploadedFiles((prev) => [...prev, ...newFiles]);
-      // Append new files faces detection
-      await handleDetectFaces(newFiles, startIndex);
+      // Check for duplicates
+      const duplicates: File[] = [];
+      const newFiles: File[] = [];
+
+      for (const file of imageFiles) {
+        if (isFileDuplicate(file)) {
+          duplicates.push(file);
+        } else {
+          newFiles.push(file);
+        }
+      }
+
+      // If there are duplicates, show confirmation modal
+      if (duplicates.length > 0) {
+        setPendingDuplicates({ duplicates, newFiles });
+        return;
+      }
+
+      // No duplicates, process all files directly
+      await processFiles(newFiles);
     },
-    [handleDetectFaces, uploadedFiles.length],
+    [isFileDuplicate, processFiles],
   );
+
+  // Confirm adding duplicate files
+  const handleConfirmDuplicates = useCallback(async () => {
+    if (!pendingDuplicates) return;
+
+    const allFiles = [...pendingDuplicates.newFiles, ...pendingDuplicates.duplicates];
+    setPendingDuplicates(null);
+    await processFiles(allFiles);
+  }, [pendingDuplicates, processFiles]);
+
+  // Cancel duplicate upload - only add new files
+  const handleCancelDuplicates = useCallback(async () => {
+    if (!pendingDuplicates) return;
+
+    const newFilesOnly = pendingDuplicates.newFiles;
+    setPendingDuplicates(null);
+
+    if (newFilesOnly.length > 0) {
+      await processFiles(newFilesOnly);
+    }
+  }, [pendingDuplicates, processFiles]);
+
+  // Dismiss duplicate modal without adding any files
+  const handleDismissDuplicates = useCallback(() => {
+    setPendingDuplicates(null);
+  }, []);
 
   const handleClearFiles = useCallback(() => {
     setUploadedFiles([]);
     setDetectedFaces([]);
     setError(null);
     setRegistrationResults(null);
+    setPendingDuplicates(null);
   }, []);
 
   const handleAssignMember = useCallback((faceId: string, personId: string) => {
@@ -303,7 +379,11 @@ export function useBulkRegistration(
     setError,
     registrationResults,
     availableMembers,
+    pendingDuplicates,
     handleFilesSelected,
+    handleConfirmDuplicates,
+    handleCancelDuplicates,
+    handleDismissDuplicates,
     handleAssignMember,
     handleUnassign,
     handleBulkRegister,

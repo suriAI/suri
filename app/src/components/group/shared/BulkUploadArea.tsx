@@ -17,12 +17,12 @@ export function BulkUploadArea({
         <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
           <div className="flex items-center gap-3">
             {isDetecting ? (
-              <div className="h-10 w-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-300">
-                <i className="fa-solid fa-circle-notch fa-spin text-xl"></i>
+              <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-300">
+                <i className="fa-solid fa-circle-notch fa-spin text-lg"></i>
               </div>
             ) : (
-              <div className="h-10 w-10 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-300">
-                <i className="fa-solid fa-check text-xl"></i>
+              <div className="h-10 w-10 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-300">
+                <i className="fa-solid fa-check text-lg"></i>
               </div>
             )}
 
@@ -76,19 +76,27 @@ export function BulkUploadArea({
   }
 
   return (
-    <div className="mb-6">
-      <label className="group relative flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-gradient-to-br from-white/5 to-transparent hover:border-white/20 hover:from-white/10 transition-all overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/0 group-hover:from-white/5 group-hover:to-transparent transition-all" />
-        <div className="relative flex flex-col items-center gap-3">
+    <div className="flex-1 flex items-center justify-center p-6">
+      <label className="group relative flex w-full max-w-lg cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04] transition-all p-12 overflow-hidden">
+        {/* Hover glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all rounded-2xl" />
+
+        <div className="relative flex flex-col items-center gap-4">
+          {/* Upload icon */}
+          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 group-hover:border-white/20 transition-all">
+            <i className="fa-solid fa-cloud-arrow-up text-2xl text-white/40 group-hover:text-white/60 transition-colors"></i>
+          </div>
+
           <div className="text-center">
-            <div className="text-sm text-white/70 mb-1">
+            <div className="text-sm font-medium text-white/70 mb-1 group-hover:text-white/90 transition-colors">
               Drop images or click to browse
             </div>
             <div className="text-xs text-white/40">
-              Up to 50 photos • Class or individual
+              Up to 50 photos • JPG, PNG supported
             </div>
           </div>
         </div>
+
         <input
           type="file"
           accept="image/*"
