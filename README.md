@@ -17,10 +17,15 @@
 <br />
 <div align="center">
   <a href="https://github.com/suriAI/suri">
-    <img src="app/public/icons/suri_mark_logo_transparent.png" alt="Logo" width="100" height="100">
+    <img src="app/public/icons/suri_mark_logo_round_c.png" alt="Logo" width="100" height="100">
   </a>
 
-<h3 align="center">Suri</h3>
+  <h1 style="font-size: 4rem; margin-bottom: 0; border-bottom: none;">Suri</h1>
+  <p style="font-size: 1.5rem; font-style: italic; margin-top: 0; margin-bottom: 1rem; color: #888;">[su-rì] • verb (Tagalog)</p>
+  <p style="font-size: 1.2rem; line-height: 1.6;">
+    1. To analyze; to examine closely.<br />
+    2. Next-gen AI attendance tracking.
+  </p>
 
   <p align="center">
     The Enterprise-Grade, Local-First AI Attendance Platform.
@@ -34,10 +39,6 @@
     &middot;
     <a href="https://github.com/suriAI/suri/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
-</div>
-
-<div align="center">
-  <img src="app/public/assets/suri-header.png" alt="Suri Header" width="100%" />
 </div>
 
 <br />
