@@ -126,7 +126,10 @@ async def update_group(
         update_data = {}
         for field, value in updates.model_dump(exclude_unset=True).items():
             if field == "settings" and value:
-                update_data[field] = value.model_dump()
+                if isinstance(value, dict):
+                    update_data[field] = value
+                else:
+                    update_data[field] = value.model_dump()
             elif value is not None:
                 update_data[field] = value
 
