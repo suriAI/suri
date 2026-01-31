@@ -47,6 +47,12 @@
 
 Unlike cloud-based services, Suri executes all processing on the local hardware (CPU/GPU). This approach eliminates network latency and keeps data within the local infrastructure.
 
+<div align="center">
+  <br />
+  <img src="app/public/assets/suri-main.jfif" alt="Suri Application Screenshot" width="100%" />
+  <br />
+</div>
+
 ---
 
 ### Why Suri?
