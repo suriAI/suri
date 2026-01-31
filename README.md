@@ -23,8 +23,7 @@
   <h1 style="font-size: 4rem; margin-bottom: 0; border-bottom: none;">Suri</h1>
   <p style="font-size: 1.5rem; font-style: italic; margin-top: 0; margin-bottom: 1rem; color: #888;">[su-rì] • verb (Tagalog)</p>
   <p style="font-size: 1.2rem; line-height: 1.6;">
-    1. To analyze; to examine closely.<br />
-    2. Next-gen AI attendance tracking.
+    To analyze; examine.<br />
   </p>
 
   <p align="center">
