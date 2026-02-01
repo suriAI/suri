@@ -21,14 +21,16 @@ logger = logging.getLogger(__name__)
 class FaceDatabaseManager:
     """Async wrapper for Face database operations using SQLAlchemy"""
 
-    def __init__(self, legacy_database_path: Optional[str] = None):
+    def __init__(self, legacy_database_path: Optional[str] = None, organization_id: Optional[str] = None):
         """
         Initialize the database manager.
 
         Args:
             legacy_database_path: Path to the old SQLite face.db for migration.
+            organization_id: Optional organization ID for multi-tenant isolation.
         """
         self.legacy_path = Path(legacy_database_path) if legacy_database_path else None
+        self.organization_id = organization_id
 
         # Trigger migration in background or wait for it?
         # For a desktop app, we'll do it on first access or during startup check.
@@ -48,7 +50,7 @@ class FaceDatabaseManager:
         """Add or update a person's face embedding"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 embedding_blob = self._embedding_to_blob(embedding)
                 await repo.upsert_face(
                     person_id, embedding_blob, len(embedding), image_hash
@@ -62,7 +64,7 @@ class FaceDatabaseManager:
         """Get a person's face embedding"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 face = await repo.get_face(person_id)
                 if face:
                     return self._blob_to_embedding(face.embedding)
@@ -75,7 +77,7 @@ class FaceDatabaseManager:
         """Remove a person from the database"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 return await repo.remove_face(person_id)
         except Exception as e:
             logger.error(f"Failed to remove person {person_id}: {e}")
@@ -85,7 +87,7 @@ class FaceDatabaseManager:
         """Get all persons and their embeddings"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 faces = await repo.get_all_faces()
                 return {
                     f.person_id: self._blob_to_embedding(f.embedding) for f in faces
@@ -98,7 +100,7 @@ class FaceDatabaseManager:
         """Get list of all person IDs"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 faces = await repo.get_all_faces()
                 return [f.person_id for f in faces]
         except Exception as e:
@@ -109,7 +111,7 @@ class FaceDatabaseManager:
         """Clear all persons from the database"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 return await repo.clear_faces()
         except Exception as e:
             logger.error(f"Failed to clear database: {e}")
@@ -119,7 +121,7 @@ class FaceDatabaseManager:
         """Get database statistics"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 stats = await repo.get_stats()
                 return {
                     "total_persons": stats["total_faces"],
@@ -133,7 +135,7 @@ class FaceDatabaseManager:
         """Get all persons with detailed information"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 faces = await repo.get_all_faces()
                 return [
                     {
@@ -155,7 +157,7 @@ class FaceDatabaseManager:
         """Update a person's ID in the database"""
         try:
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 success = await repo.update_person_id(old_person_id, new_person_id)
                 return 1 if success else 0
         except Exception as e:
@@ -182,7 +184,7 @@ class FaceDatabaseManager:
 
             migrated_count = 0
             async with AsyncSessionLocal() as session:
-                repo = FaceRepository(session)
+                repo = FaceRepository(session, self.organization_id)
                 for row in rows:
                     await repo.upsert_face(
                         row["person_id"], row["embedding"], row["embedding_dimension"]

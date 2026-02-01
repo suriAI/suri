@@ -16,8 +16,9 @@ from database.models import (
 class AttendanceRepository:
     """Repository pattern for Attendance database operations"""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, organization_id: Optional[str] = None):
         self.session = session
+        self.organization_id = organization_id
 
     # Group Methods
     async def create_group(self, group_data: Dict[str, Any]) -> AttendanceGroup:
@@ -29,6 +30,7 @@ class AttendanceRepository:
             late_threshold_minutes=settings.get("late_threshold_minutes"),
             late_threshold_enabled=settings.get("late_threshold_enabled", False),
             class_start_time=settings.get("class_start_time", "08:00"),
+            organization_id=self.organization_id,
             is_active=True,
             is_deleted=False,
         )
@@ -41,8 +43,11 @@ class AttendanceRepository:
         query = (
             select(AttendanceGroup)
             .where(AttendanceGroup.is_deleted.is_(False))
-            .order_by(AttendanceGroup.name)
         )
+        if self.organization_id:
+            query = query.where(AttendanceGroup.organization_id == self.organization_id)
+        
+        query = query.order_by(AttendanceGroup.name)
         if active_only:
             query = query.where(AttendanceGroup.is_active)
         result = await self.session.execute(query)
@@ -100,11 +105,17 @@ class AttendanceRepository:
         return member
 
     async def get_member(self, person_id: str) -> Optional[AttendanceMember]:
-        query = select(AttendanceMember).where(
-            AttendanceMember.person_id == person_id,
-            AttendanceMember.is_active,
-            AttendanceMember.is_deleted.is_(False),
+        query = (
+            select(AttendanceMember)
+            .where(
+                AttendanceMember.person_id == person_id,
+                AttendanceMember.is_active,
+                AttendanceMember.is_deleted.is_(False),
+            )
         )
+        if self.organization_id:
+            query = query.where(AttendanceMember.organization_id == self.organization_id)
+            
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
@@ -116,8 +127,11 @@ class AttendanceRepository:
                 AttendanceMember.is_active,
                 AttendanceMember.is_deleted.is_(False),
             )
-            .order_by(AttendanceMember.name)
         )
+        if self.organization_id:
+            query = query.where(AttendanceMember.organization_id == self.organization_id)
+            
+        query = query.order_by(AttendanceMember.name)
         result = await self.session.execute(query)
         return result.scalars().all()
 
@@ -342,8 +356,9 @@ class AttendanceRepository:
 class FaceRepository:
     """Repository pattern for Face database operations"""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, organization_id: Optional[str] = None):
         self.session = session
+        self.organization_id = organization_id
 
     async def upsert_face(
         self,
@@ -358,6 +373,7 @@ class FaceRepository:
                 embedding=embedding,
                 embedding_dimension=dimension,
                 hash=image_hash,
+                organization_id=self.organization_id,
                 is_deleted=False,  # Ensure it's active if re-added
             )
         )
@@ -369,11 +385,15 @@ class FaceRepository:
         query = select(Face).where(
             Face.person_id == person_id, Face.is_deleted.is_(False)
         )
+        if self.organization_id:
+            query = query.where(Face.organization_id == self.organization_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def get_all_faces(self) -> List[Face]:
         query = select(Face).where(Face.is_deleted.is_(False))
+        if self.organization_id:
+            query = query.where(Face.organization_id == self.organization_id)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
@@ -409,7 +429,8 @@ class FaceRepository:
         return True
 
     async def get_stats(self) -> Dict[str, Any]:
-        count = await self.session.scalar(
-            select(func.count()).select_from(Face).where(Face.is_deleted.is_(False))
-        )
+        query = select(func.count()).select_from(Face).where(Face.is_deleted.is_(False))
+        if self.organization_id:
+            query = query.where(Face.organization_id == self.organization_id)
+        count = await self.session.scalar(query)
         return {"total_faces": count}
