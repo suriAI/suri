@@ -213,6 +213,9 @@ export function useCamera() {
     if (!video) return;
 
     const interval = setInterval(() => {
+      // Ignore checks if video element is no longer in the DOM (e.g. unmounted)
+      if (!video.isConnected) return;
+
       const isHealthy =
         !!video.srcObject &&
         video.videoWidth > 0 &&
@@ -220,7 +223,13 @@ export function useCamera() {
         !cameraError;
 
       if (!isHealthy) {
-        console.warn("Video stream became unhealthy");
+        let reason = "unknown";
+        if (!video.srcObject) reason = "no srcObject";
+        else if (video.videoWidth <= 0) reason = "videoWidth is 0";
+        else if (video.paused) reason = "video is paused";
+        else if (cameraError) reason = `cameraError: ${cameraError}`;
+
+        console.warn(`Video stream became unhealthy: ${reason}`);
         setIsVideoReady(false);
       }
     }, 1000);
