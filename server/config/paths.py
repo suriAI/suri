@@ -46,13 +46,16 @@ ALEMBIC_CONFIG_PATH = BASE_DIR / "alembic.ini"
 MIGRATIONS_DIR = BASE_DIR / "migrations"
 PROJECT_ROOT = BASE_DIR.parent if not IS_FROZEN else BASE_DIR
 
+
 # Helpers for specific path retrieval if needed dynamically,
 # though constants above are usually sufficient.
 def get_weights_dir() -> Path:
     return WEIGHTS_DIR
 
+
 def get_alembic_config_path() -> Path:
     return ALEMBIC_CONFIG_PATH
+
 
 def get_migrations_dir() -> Path:
     return MIGRATIONS_DIR

@@ -74,4 +74,3 @@ def get_logging_config():
         config["handlers"]["console"]["level"] = "WARNING"
 
     return config
-

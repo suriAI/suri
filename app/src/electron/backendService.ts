@@ -94,7 +94,7 @@ export class BackendService {
     this.config = {
       port: 8700,
       host: "127.0.0.1",
-      timeout: 30000,
+      timeout: 60000, // Increased to 60s for slower machines
       maxRetries: 3,
       healthCheckInterval: 10000,
       ...config,
@@ -282,24 +282,39 @@ export class BackendService {
         env,
       });
 
+      // Prepare log file stream
+      const logFile = path.join(app.getPath("userData"), "backend-startup.log");
+      // Clear previous log
+      fs.writeFileSync(
+        logFile,
+        `[${new Date().toISOString()}] Backend starting...\n`,
+      );
+
+      const logStream = fs.createWriteStream(logFile, { flags: "a" });
+
       // Optionally log backend output for debugging
       if (this.process.stdout) {
         this.process.stdout.on("data", (data) => {
+          const str = data.toString();
+          logStream.write(`[STDOUT] ${str}`);
+
           // Only log in development mode
           if (isDev()) {
-            console.log(`[Backend] ${data.toString().trim()}`);
+            console.log(`[Backend] ${str.trim()}`);
           }
         });
       }
       if (this.process.stderr) {
         this.process.stderr.on("data", (data) => {
-          const msg = data.toString().trim();
+          const msg = data.toString();
+          logStream.write(`[STDERR] ${msg}`);
+
           const looksLikeError =
             /(\bERROR\b|\bCRITICAL\b|Traceback|Exception)/.test(msg);
           if (looksLikeError) {
-            console.error(`[Backend Error] ${msg}`);
+            console.error(`[Backend Error] ${msg.trim()}`);
           } else {
-            console.log(`[Backend] ${msg}`);
+            console.log(`[Backend] ${msg.trim()}`);
           }
         });
       }

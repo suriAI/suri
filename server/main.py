@@ -3,17 +3,28 @@ import os
 import uvicorn
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
 from core.lifespan import lifespan
 from api.endpoints import router
 from middleware.cors import setup_cors
-from config.logging_config import get_logging_config
-from fastapi.responses import JSONResponse
-from fastapi import Request
 
+# Configure logging immediately
+# We need to do this BEFORE other logic runs
 if not logging.getLogger().handlers:
-    logging.basicConfig(level=logging.INFO)
+    from config.logging_config import get_logging_config
+
+    try:
+        logging_config = get_logging_config()
+        logging.config.dictConfig(logging_config)
+    except Exception as e:
+        # Fallback if config fails
+        logging.basicConfig(level=logging.INFO)
+        print(f"Failed to load logging config: {e}")
+
 logger = logging.getLogger(__name__)
+logger.info("Server script started")
 
 
 app = FastAPI(
@@ -100,7 +111,12 @@ if __name__ == "__main__":
     # Run database migrations before starting the server
     run_migrations()
 
+    # logging_config is already applied at module level, but uvicorn needs it passed or it will reconfigure
+    # We re-fetch it to pass to uvicorn
+    from config.logging_config import get_logging_config
+
     logging_config = get_logging_config()
+
     uvicorn.run(
         app,
         host="127.0.0.1",

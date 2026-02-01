@@ -46,7 +46,24 @@ class HttpClient {
       headers["Content-Type"] = "application/json";
     }
 
-    const response = await fetch(url, { ...options, headers });
+    const makeRequest = async (attempt = 1): Promise<Response> => {
+      try {
+        return await fetch(url, { ...options, headers });
+      } catch (error) {
+        if (
+          error instanceof TypeError &&
+          error.message === "Failed to fetch" &&
+          attempt <= 5
+        ) {
+          const delay = 500 * Math.pow(1.5, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return makeRequest(attempt + 1);
+        }
+        throw error;
+      }
+    };
+
+    const response = await makeRequest();
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
