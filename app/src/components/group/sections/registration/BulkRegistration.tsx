@@ -52,7 +52,7 @@ export function BulkRegistration({
           <div className="absolute inset-0 bg-black/40 z-40" />
 
           {/* Modal */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-[1.5rem] border border-amber-500/30 bg-black/90 backdrop-blur-xl p-6 min-w-[360px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(0,0,0,0.7)]">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-[1.5rem] border border-amber-500/30 bg-black/90 p-6 min-w-[360px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(0,0,0,0.7)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center">
                 <i className="fa-solid fa-triangle-exclamation text-xl text-amber-400"></i>
@@ -132,11 +132,10 @@ export function BulkRegistration({
 
       {/* Main Content */}
       <div
-        className={`flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent ${
-          !registrationResults && uploadedFiles.length === 0
+        className={`flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent ${!registrationResults && uploadedFiles.length === 0
             ? "flex flex-col justify-center"
             : ""
-        }`}
+          }`}
       >
         {/* Step 1: Upload Files */}
         {!registrationResults && (

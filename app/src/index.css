@@ -426,7 +426,7 @@ body {
 .app-header {
   padding: 1.5rem 2rem;
   border-bottom: 1px solid var(--border-primary);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.8); /* Fallback for transparency */
   position: sticky;
   top: 0;
   z-index: 50;
@@ -734,8 +734,6 @@ body {
 
 .glass-card {
   background: var(--gradient-surface);
-  backdrop-filter: blur(var(--card-blur));
-  -webkit-backdrop-filter: blur(var(--card-blur));
   border: var(--card-border-width) solid var(--card-border);
   transition: all 0.3s ease;
   position: relative;
@@ -756,8 +754,6 @@ body {
 
 .menu-card {
   background: var(--gradient-surface);
-  backdrop-filter: blur(var(--card-blur));
-  -webkit-backdrop-filter: blur(var(--card-blur));
   border: var(--card-border-width) solid var(--card-border);
   transition: all 0.5s ease;
   position: relative;

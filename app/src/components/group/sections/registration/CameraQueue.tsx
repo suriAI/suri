@@ -193,10 +193,10 @@ export function CameraQueue({
         prev.map((m, idx) =>
           idx === currentIndex
             ? {
-                ...m,
-                status: "processing" as CaptureStatus,
-                previewUrl: dataUrl,
-              }
+              ...m,
+              status: "processing" as CaptureStatus,
+              previewUrl: dataUrl,
+            }
             : m,
         ),
       );
@@ -219,14 +219,14 @@ export function CameraQueue({
         prev.map((m, idx) =>
           idx === currentIndex
             ? {
-                ...m,
-                capturedAngles: [REQUIRED_ANGLE],
-                status: "completed" as CaptureStatus,
-                qualityWarning:
-                  bestFace.confidence && bestFace.confidence < 0.8
-                    ? "Low confidence - consider retaking"
-                    : undefined,
-              }
+              ...m,
+              capturedAngles: [REQUIRED_ANGLE],
+              status: "completed" as CaptureStatus,
+              qualityWarning:
+                bestFace.confidence && bestFace.confidence < 0.8
+                  ? "Low confidence - consider retaking"
+                  : undefined,
+            }
             : m,
         ),
       );
@@ -252,10 +252,10 @@ export function CameraQueue({
         prev.map((m, idx) =>
           idx === currentIndex
             ? {
-                ...m,
-                status: "error" as CaptureStatus,
-                error: message,
-              }
+              ...m,
+              status: "error" as CaptureStatus,
+              error: message,
+            }
             : m,
         ),
       );
@@ -504,11 +504,10 @@ export function CameraQueue({
                             );
                           });
                         }}
-                        className={`group w-full rounded-xl border px-3 py-2 text-left transition-all ${
-                          isInQueue
+                        className={`group w-full rounded-xl border px-3 py-2 text-left transition-all ${isInQueue
                             ? "border-cyan-400/50 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5"
                             : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/5"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
@@ -736,7 +735,7 @@ export function CameraQueue({
                       }
                     }}
                     disabled={!currentMember}
-                    className="px-3 py-2 rounded-md backdrop-blur-sm border border-white/10 bg-black/40 text-white/70 hover:text-white hover:bg-black/60 text-xs font-medium transition-all disabled:opacity-40"
+                    className="px-3 py-2 rounded-md border border-white/10 bg-black/40 text-white/70 hover:text-white hover:bg-black/60 text-xs font-medium transition-all disabled:opacity-40"
                   >
                     Skip
                   </button>
@@ -750,7 +749,7 @@ export function CameraQueue({
                       !currentMember ||
                       !!cameraError
                     }
-                    className="flex-1 px-4 py-2 rounded-md backdrop-blur-sm border border-cyan-400/50 bg-cyan-500/40 text-cyan-100 hover:bg-cyan-500/50 text-xs font-medium transition-all disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 rounded-md border border-cyan-400/50 bg-cyan-500/40 text-cyan-100 hover:bg-cyan-500/50 text-xs font-medium transition-all disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed"
                   >
                     {isProcessing ? (
                       <span className="flex items-center justify-center gap-2">
@@ -771,18 +770,18 @@ export function CameraQueue({
                             prev.map((m, idx) =>
                               idx === currentIndex
                                 ? {
-                                    ...m,
-                                    status: "pending" as CaptureStatus,
-                                    error: undefined,
-                                    qualityWarning: undefined,
-                                  }
+                                  ...m,
+                                  status: "pending" as CaptureStatus,
+                                  error: undefined,
+                                  qualityWarning: undefined,
+                                }
                                 : m,
                             ),
                           );
                           setError(null);
                         }
                       }}
-                      className="px-3 py-2 rounded-md backdrop-blur-sm border border-amber-400/50 bg-amber-500/40 text-amber-100 hover:bg-amber-500/50 text-xs font-medium transition-all"
+                      className="px-3 py-2 rounded-md border border-amber-400/50 bg-amber-500/40 text-amber-100 hover:bg-amber-500/50 text-xs font-medium transition-all"
                     >
                       Retry
                     </button>
@@ -795,23 +794,21 @@ export function CameraQueue({
                   currentMember.status !== "capturing" && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20">
                       <div
-                        className={`px-6 py-4 rounded-2xl border ${
-                          currentMember.status === "completed"
+                        className={`px-6 py-4 rounded-2xl border ${currentMember.status === "completed"
                             ? "bg-cyan-500/20 border-cyan-500/30"
                             : currentMember.status === "skipped"
                               ? "bg-white/10 border-white/20"
                               : "bg-red-500/20 border-red-500/30"
-                        }`}
+                          }`}
                       >
                         <div className="text-center">
                           <div
-                            className={`text-2xl mb-1 ${
-                              currentMember.status === "completed"
+                            className={`text-2xl mb-1 ${currentMember.status === "completed"
                                 ? "text-cyan-400"
                                 : currentMember.status === "skipped"
                                   ? "text-white/60"
                                   : "text-red-400"
-                            }`}
+                              }`}
                           >
                             {currentMember.status === "completed" && (
                               <i className="fa-solid fa-check-circle"></i>
@@ -903,16 +900,14 @@ export function CameraQueue({
                         setCurrentIndex(idx);
                         setError(null);
                       }}
-                      className={`w-full text-left rounded-lg px-2 py-1.5 transition-all flex items-center gap-2 ${
-                        isCurrent
+                      className={`w-full text-left rounded-lg px-2 py-1.5 transition-all flex items-center gap-2 ${isCurrent
                           ? "bg-white/10 border border-white/20"
                           : "hover:bg-white/5 border border-transparent"
-                      }`}
+                        }`}
                     >
                       {/* Status Icon */}
                       <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
-                          member.status === "completed"
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${member.status === "completed"
                             ? "bg-cyan-500/20 text-cyan-400"
                             : member.status === "skipped"
                               ? "bg-white/10 text-white/40"
@@ -923,7 +918,7 @@ export function CameraQueue({
                                   : isCurrent
                                     ? "bg-white/20 text-white/60"
                                     : "bg-white/5 text-white/30"
-                        }`}
+                          }`}
                       >
                         {statusIcon ? (
                           <i className={`fa-solid ${statusIcon}`}></i>
@@ -934,9 +929,8 @@ export function CameraQueue({
                       {/* Name */}
                       <div className="flex-1 min-w-0">
                         <div
-                          className={`text-xs font-medium truncate ${
-                            isCurrent ? "text-white" : "text-white/70"
-                          }`}
+                          className={`text-xs font-medium truncate ${isCurrent ? "text-white" : "text-white/70"
+                            }`}
                         >
                           {member.name}
                         </div>

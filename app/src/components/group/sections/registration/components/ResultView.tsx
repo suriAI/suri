@@ -37,7 +37,7 @@ export function ResultView({
       <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5">
         <button
           onClick={onRetake}
-          className="px-2 py-2 rounded-md backdrop-blur-sm border border-white/10 bg-black/40 text-white/70 hover:text-white hover:bg-black/60 text-xs font-medium transition-all min-w-[100px]"
+          className="px-2 py-2 rounded-md border border-white/10 bg-black/40 text-white/70 hover:text-white hover:bg-black/60 text-xs font-medium transition-all min-w-[100px]"
         >
           Retake
         </button>
@@ -45,7 +45,7 @@ export function ResultView({
         <button
           onClick={onRegister}
           disabled={!framesReady || isRegistering}
-          className="px-2 py-2 rounded-md backdrop-blur-sm border border-cyan-400/50 bg-cyan-500/40 text-cyan-100 hover:bg-cyan-500/50 text-xs font-medium transition-all min-w-[100px] flex items-center justify-center gap-2 disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed"
+          className="px-2 py-2 rounded-md border border-cyan-400/50 bg-cyan-500/40 text-cyan-100 hover:bg-cyan-500/50 text-xs font-medium transition-all min-w-[100px] flex items-center justify-center gap-2 disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed"
         >
           {isRegistering ? (
             <>

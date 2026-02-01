@@ -155,7 +155,7 @@ export function FaceCapture({
           <div className="absolute inset-0 bg-black/40 z-40" />
 
           {/* Modal */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-[1.5rem] border border-cyan-500/30 bg-black/90 backdrop-blur-xl p-6 text-sm text-cyan-200 flex flex-col items-center gap-3 min-w-[280px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(0,0,0,0.7)] border-b-cyan-500/50">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-[1.5rem] border border-cyan-500/30 bg-black/90 p-6 text-sm text-cyan-200 flex flex-col items-center gap-3 min-w-[280px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(0,0,0,0.7)] border-b-cyan-500/50">
             <div className="text-center">
               <h4 className="text-base font-black text-white mb-1">Success</h4>
               <p className="text-xs text-cyan-200/60 font-medium">
@@ -178,7 +178,7 @@ export function FaceCapture({
       )}
 
       {globalError && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-[1.5rem] border border-red-500/30 bg-black/80 backdrop-blur-xl p-5 text-sm text-red-200 flex flex-col items-center gap-4 min-w-[400px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(239,68,68,0.2)]">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-[1.5rem] border border-red-500/30 bg-black/80 p-5 text-sm text-red-200 flex flex-col items-center gap-4 min-w-[400px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(239,68,68,0.2)]">
           <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center mb-1">
             <i className="fa-solid fa-triangle-exclamation text-xl text-red-400"></i>
           </div>

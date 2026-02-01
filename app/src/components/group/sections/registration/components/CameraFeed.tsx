@@ -90,7 +90,7 @@ export function CameraFeed({
             <button
               onClick={() => onCapture()}
               disabled={!isVideoReady || !!cameraError}
-              className="px-3 py-1.5 rounded-md backdrop-blur-sm border border-cyan-400/50 bg-cyan-500/40 text-xs font-medium text-cyan-100 hover:bg-cyan-500/50 disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed transition-all"
+              className="px-3 py-1.5 rounded-md border border-cyan-400/50 bg-cyan-500/40 text-xs font-medium text-cyan-100 hover:bg-cyan-500/50 disabled:bg-black/40 disabled:border-white/10 disabled:text-white/30 disabled:cursor-not-allowed transition-all"
             >
               Capture Face
             </button>
@@ -104,13 +104,12 @@ export function CameraFeed({
             disabled={!isStreaming && !isCameraSelected}
             // Note: parent logic was: disabled = !isButtonEnabled
             // isButtonEnabled = isStreaming || (isCameraSelected && !isStreaming)
-            className={`px-2 py-2 rounded-md backdrop-blur-sm border text-xs font-medium transition-all min-w-[100px] ${
-              isStreaming
+            className={`px-2 py-2 rounded-md border text-xs font-medium transition-all min-w-[100px] ${isStreaming
                 ? "bg-red-500/40 border-red-400/50 text-red-100 hover:bg-red-500/50"
                 : isCameraSelected
                   ? "bg-cyan-500/40 border-cyan-400/50 text-cyan-100 hover:bg-cyan-500/50"
                   : "bg-black/40 border-white/10 text-white/30 cursor-not-allowed opacity-50"
-            }`}
+              }`}
           >
             {isStreaming ? "Stop Camera" : "Start Camera"}
           </button>

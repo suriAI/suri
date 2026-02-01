@@ -160,7 +160,7 @@ function GroupPanelComponent({
 
       {/* Mobile Top Bar */}
       <div className="fixed inset-x-0 top-9 lg:hidden z-30">
-        <div className="h-12 px-3 flex items-center justify-between bg-white/[0.02] border-b border-white/[0.08] backdrop-blur-sm">
+        <div className="h-12 px-3 flex items-center justify-between bg-white/[0.02] border-b border-white/[0.08]">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
             className="px-3 py-1.5 rounded-md text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"

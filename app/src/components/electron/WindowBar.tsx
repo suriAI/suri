@@ -42,7 +42,7 @@ export default function WindowBar() {
 
   return (
     <div
-      className="w-full h-[46px] bg-black/60 backdrop-blur-xl flex items-center justify-between select-none flex-shrink-0 border-b border-white/[0.06] transition-all duration-300 relative z-50"
+      className="w-full h-[46px] bg-black/90 flex items-center justify-between select-none flex-shrink-0 border-b border-white/[0.06] transition-all duration-300 relative z-50"
       style={
         {
           WebkitAppRegion: isMaximized ? "no-drag" : "drag",

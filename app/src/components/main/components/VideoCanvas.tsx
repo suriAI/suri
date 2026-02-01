@@ -88,8 +88,8 @@ export const VideoCanvas = memo(function VideoCanvas({
         // Calculate button position below the bounding box
         const x = quickSettings.cameraMirrored
           ? displayWidth -
-            (bbox.x * scaleX + offsetX) -
-            (bbox.width * scaleX) / 2
+          (bbox.x * scaleX + offsetX) -
+          (bbox.width * scaleX) / 2
           : (bbox.x + bbox.width / 2) * scaleX + offsetX;
         const y = (bbox.y + bbox.height) * scaleY + offsetY + 8; // 8px below bbox
 
@@ -141,7 +141,7 @@ export const VideoCanvas = memo(function VideoCanvas({
               button.confidence,
             )
           }
-          className="absolute transform -translate-x-1/2 px-3 py-1.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-lg text-white text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg z-20"
+          className="absolute transform -translate-x-1/2 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg z-20"
           style={{
             left: `${button.x}px`,
             top: `${button.y}px`,
@@ -154,7 +154,7 @@ export const VideoCanvas = memo(function VideoCanvas({
       ))}
 
       {quickSettings.showFPS && detectionFps > 0 && (
-        <div className="absolute top-4 left-4 backdrop-blur-sm bg-white/5 px-3 py-1.5 rounded-full border border-white/10 pointer-events-none z-20">
+        <div className="absolute top-4 left-4 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 pointer-events-none z-20">
           <span className="text-white/80 text-sm font-medium">
             {detectionFps.toFixed(1)} FPS
           </span>

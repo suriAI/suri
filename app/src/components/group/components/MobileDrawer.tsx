@@ -58,7 +58,7 @@ export function MobileDrawer() {
       <div
         className={`
           fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white/[0.02]
-          border-r border-white/[0.08] z-50 lg:hidden backdrop-blur-sm
+          border-r border-white/[0.08] z-50 lg:hidden
           transform transition-transform duration-300 ease-out
           ${isMobileDrawerOpen ? "translate-x-0" : "-translate-x-full"}
         `}

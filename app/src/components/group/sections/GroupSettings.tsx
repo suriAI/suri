@@ -125,7 +125,7 @@ export function GroupSettings({
           </div>
 
           {/* Danger Zone - Enhanced */}
-          <div className="rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/[0.05] to-red-500/[0.02] p-6 backdrop-blur-sm">
+          <div className="rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/[0.05] to-red-500/[0.02] p-6">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                 <svg
