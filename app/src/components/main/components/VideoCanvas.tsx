@@ -34,6 +34,7 @@ interface VideoCanvasProps {
     offsetX: number;
     offsetY: number;
   } | null;
+  isPreferredCameraMissing?: boolean;
 }
 
 export const VideoCanvas = memo(function VideoCanvas({
@@ -53,6 +54,7 @@ export const VideoCanvas = memo(function VideoCanvas({
   handleManualLog,
   getVideoRect,
   calculateScaleFactors,
+  isPreferredCameraMissing,
 }: VideoCanvasProps) {
   // Create display name map for members
   const displayNameMap = useMemo(() => {
@@ -157,6 +159,15 @@ export const VideoCanvas = memo(function VideoCanvas({
         <div className="absolute top-4 left-4 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 pointer-events-none z-20">
           <span className="text-white/80 text-sm font-medium">
             {detectionFps.toFixed(1)} FPS
+          </span>
+        </div>
+      )}
+
+      {isPreferredCameraMissing && isStreaming && (
+        <div className="absolute top-4 right-4 bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-500/30 pointer-events-none z-20 backdrop-blur-md animate-pulse">
+          <span className="text-amber-400 text-[10px] font-black uppercase tracking-tighter flex items-center gap-2">
+            <i className="fa-solid fa-triangle-exclamation"></i>
+            Fallback Camera Active
           </span>
         </div>
       )}

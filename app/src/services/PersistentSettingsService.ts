@@ -5,6 +5,25 @@ import {
 } from "./persistentSettingsDefaults";
 
 class PersistentSettingsService {
+  private scope: string | null = null;
+
+  /**
+   * Set the organization/tenant scope for settings.
+   * When set, all get/set operations will be isolated to this scope.
+   */
+  setScope(scopeId: string | null): void {
+    this.scope = scopeId;
+  }
+
+  /**
+   * Helper to return a scoped key if a scope is set.
+   * Format: orgs.[scopeId].[key]
+   */
+  private scopedKey(key: string): string {
+    if (!this.scope) return key;
+    return `orgs.${this.scope}.${key}`;
+  }
+
   /**
    * Get the store API from window.electronAPI (with type safety)
    */
@@ -23,7 +42,8 @@ class PersistentSettingsService {
   async get<T = unknown>(key: string): Promise<T | undefined> {
     const store = this.getStoreAPI();
     if (!store) return undefined;
-    return store.get(key) as Promise<T | undefined>;
+    const finalKey = this.scopedKey(key);
+    return store.get(finalKey) as Promise<T | undefined>;
   }
 
   /**
@@ -32,7 +52,8 @@ class PersistentSettingsService {
   async set(key: string, value: unknown): Promise<void> {
     const store = this.getStoreAPI();
     if (!store) return;
-    await store.set(key, value);
+    const finalKey = this.scopedKey(key);
+    await store.set(finalKey, value);
   }
 
   /**
@@ -41,7 +62,8 @@ class PersistentSettingsService {
   async delete(key: string): Promise<void> {
     const store = this.getStoreAPI();
     if (!store) return;
-    await store.delete(key);
+    const finalKey = this.scopedKey(key);
+    await store.delete(finalKey);
   }
 
   /**

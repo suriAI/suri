@@ -79,6 +79,7 @@ export default function Main() {
     cameraDevices,
     selectedCamera,
     setSelectedCamera,
+    isPreferredCameraMissing,
   } = useCameraStore();
 
   const {
@@ -104,6 +105,7 @@ export default function Main() {
     setTrackingMode,
     attendanceCooldownSeconds,
     setAttendanceCooldownSeconds,
+    reLogCooldownSeconds,
     enableSpoofDetection,
     setEnableSpoofDetection,
     persistentCooldowns,
@@ -469,6 +471,7 @@ export default function Main() {
               handleManualLog={handleManualLog}
               getVideoRect={getVideoRect}
               calculateScaleFactors={calculateScaleFactors}
+              isPreferredCameraMissing={isPreferredCameraMissing}
             />
 
             {/* New Cooldown Overlay */}
@@ -550,6 +553,7 @@ export default function Main() {
               classStartTime:
                 currentGroup?.settings?.class_start_time ?? "08:00",
               attendanceCooldownSeconds: attendanceCooldownSeconds,
+              reLogCooldownSeconds: reLogCooldownSeconds,
               enableSpoofDetection: enableSpoofDetection,
             }}
             onAttendanceSettingsChange={async (updates) => {

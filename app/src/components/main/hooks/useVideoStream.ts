@@ -155,9 +155,6 @@ export function useVideoStream(options: UseVideoStreamOptions) {
         (device) => device.kind === "videoinput",
       );
       setCameraDevices(videoDevices);
-      if (videoDevices.length > 0 && !selectedCamera) {
-        setSelectedCamera(videoDevices[0].deviceId);
-      }
       return videoDevices;
     } catch {
       setError(
@@ -165,7 +162,7 @@ export function useVideoStream(options: UseVideoStreamOptions) {
       );
       return [];
     }
-  }, [selectedCamera, setError, setCameraDevices, setSelectedCamera]);
+  }, [setError, setCameraDevices]);
 
   useEffect(() => {
     getCameraDevices();
