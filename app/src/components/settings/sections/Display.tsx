@@ -18,11 +18,6 @@ export function Display({ quickSettings, toggleQuickSetting }: DisplayProps) {
       description: "Frame rate indicator",
     },
     {
-      key: "showLandmarks" as keyof QuickSettings,
-      label: "Facial Landmarks",
-      description: "5-point landmarks (eyes, nose, mouth)",
-    },
-    {
       key: "showRecognitionNames" as keyof QuickSettings,
       label: "Recognition Labels",
       description: "Identity name tags",

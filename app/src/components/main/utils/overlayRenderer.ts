@@ -55,127 +55,6 @@ export const drawBoundingBox = (
   ctx.stroke();
 };
 
-export const drawLandmarks = (
-  ctx: CanvasRenderingContext2D,
-  landmarks: number[][],
-  scaleX: number,
-  scaleY: number,
-  offsetX: number,
-  offsetY: number,
-  color: string,
-  bbox?: { x: number; y: number; width: number; height: number },
-  displayWidth?: number,
-) => {
-  if (!bbox || landmarks.length < 4) {
-    landmarks.forEach((point) => {
-      if (point && point.length >= 2) {
-        const x = displayWidth
-          ? displayWidth - (point[0] * scaleX + offsetX)
-          : point[0] * scaleX + offsetX;
-        const y = point[1] * scaleY + offsetY;
-
-        if (!isFinite(x) || !isFinite(y)) return;
-
-        // Draw landmarks - removed display bounds filtering to allow raw coordinates
-        ctx.save();
-
-        ctx.fillStyle = color;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 8; // Stronger glow to match bounding box
-
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, 2 * Math.PI);
-        ctx.fill();
-
-        ctx.restore();
-      }
-    });
-    return;
-  }
-
-  const bboxX = displayWidth
-    ? displayWidth - (bbox.x * scaleX + offsetX) - bbox.width * scaleX
-    : bbox.x * scaleX + offsetX;
-  const bboxY = bbox.y * scaleY + offsetY;
-  const bboxW = bbox.width * scaleX;
-  const bboxH = bbox.height * scaleY;
-  const bboxCenterX = bboxX + bboxW / 2;
-  const bboxCenterY = bboxY + bboxH / 2;
-
-  const transformedLandmarks: Array<{
-    x: number;
-    y: number;
-    original: number[];
-  }> = [];
-  for (const point of landmarks) {
-    if (point && point.length >= 2) {
-      const x = displayWidth
-        ? displayWidth - (point[0] * scaleX + offsetX)
-        : point[0] * scaleX + offsetX;
-      const y = point[1] * scaleY + offsetY;
-
-      if (isFinite(x) && isFinite(y)) {
-        transformedLandmarks.push({ x, y, original: point });
-      }
-    }
-  }
-
-  if (transformedLandmarks.length < 4) {
-    return;
-  }
-
-  const is5PointLandmarks = landmarks.length === 5;
-
-  let outlierThreshold = Infinity;
-  if (!is5PointLandmarks && transformedLandmarks.length > 5) {
-    const distances = transformedLandmarks.map((lm) =>
-      Math.hypot(lm.x - bboxCenterX, lm.y - bboxCenterY),
-    );
-    const sorted = [...distances].sort((a, b) => a - b);
-    const q1Idx = Math.floor(sorted.length * 0.25);
-    const q3Idx = Math.floor(sorted.length * 0.75);
-    const q1 = sorted[q1Idx];
-    const q3 = sorted[q3Idx];
-    const iqr = q3 - q1;
-    outlierThreshold = q3 + 1.5 * iqr;
-  }
-
-  const margin = Math.max(bboxW, bboxH) * 0.5;
-
-  transformedLandmarks.forEach((lm) => {
-    const { x, y } = lm;
-
-    if (
-      x < bboxX - margin ||
-      x > bboxX + bboxW + margin ||
-      y < bboxY - margin ||
-      y > bboxY + bboxH + margin
-    ) {
-      return;
-    }
-
-    if (!is5PointLandmarks && outlierThreshold !== Infinity) {
-      const distance = Math.hypot(x - bboxCenterX, y - bboxCenterY);
-      if (distance > outlierThreshold) {
-        return;
-      }
-    }
-
-    // Draw landmarks - removed display bounds filtering to allow raw coordinates
-    ctx.save();
-
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8; // Stronger glow to match bounding box
-
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, 2 * Math.PI);
-    ctx.fill();
-
-    ctx.restore();
-  });
-};
-
 export const setupCanvasContext = (
   ctx: CanvasRenderingContext2D,
   color: string,
@@ -282,7 +161,7 @@ export const drawOverlays = ({
     return;
 
   currentDetections.faces.forEach((face) => {
-    const { bbox, landmarks_5 } = face;
+    const { bbox } = face;
 
     if (
       !bbox ||
@@ -313,25 +192,6 @@ export const drawOverlays = ({
 
     setupCanvasContext(ctx, color);
     drawBoundingBox(ctx, x1, y1, x2, y2);
-
-    if (
-      quickSettings.showLandmarks &&
-      landmarks_5 &&
-      Array.isArray(landmarks_5) &&
-      landmarks_5.length === 5
-    ) {
-      drawLandmarks(
-        ctx,
-        landmarks_5,
-        scaleX,
-        scaleY,
-        offsetX,
-        offsetY,
-        color,
-        bbox,
-        quickSettings.cameraMirrored ? displayWidth : undefined,
-      );
-    }
 
     const isRecognized = recognitionEnabled && recognitionResult?.person_id;
     let label = "";

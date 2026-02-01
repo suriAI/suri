@@ -2,7 +2,6 @@
 
 export interface QuickSettings {
   showFPS: boolean;
-  showLandmarks: boolean;
   showRecognitionNames: boolean;
   cameraMirrored: boolean;
 }

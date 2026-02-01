@@ -42,7 +42,6 @@ export interface PersistentSettingsSchema {
 export const defaultSettings: PersistentSettingsSchema = {
   quickSettings: {
     showFPS: false,
-    showLandmarks: true,
     showRecognitionNames: true,
     cameraMirrored: true,
   },
