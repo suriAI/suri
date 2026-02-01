@@ -35,6 +35,7 @@ import { VideoCanvas } from "@/components/main/components/VideoCanvas";
 import { Sidebar } from "@/components/main/components/Sidebar";
 import { GroupManagementModal } from "@/components/main/components/GroupManagementModal";
 import { DeleteConfirmationModal } from "@/components/main/components/DeleteConfirmationModal";
+import { CooldownOverlay } from "@/components/main/components/CooldownOverlay";
 import type { DetectionResult } from "@/components/main/types";
 
 export default function Main() {
@@ -469,6 +470,13 @@ export default function Main() {
               getVideoRect={getVideoRect}
               calculateScaleFactors={calculateScaleFactors}
             />
+
+            {/* New Cooldown Overlay */}
+            <CooldownOverlay
+              trackingMode={trackingMode}
+              persistentCooldowns={persistentCooldowns}
+              attendanceCooldownSeconds={attendanceCooldownSeconds}
+            />
           </div>
 
           <ControlBar
@@ -486,11 +494,10 @@ export default function Main() {
           currentRecognitionResults={currentRecognitionResults}
           recognitionEnabled={recognitionEnabled}
           trackedFaces={trackedFaces}
-          trackingMode={trackingMode}
           isStreaming={isStreaming}
           isVideoLoading={isVideoLoading}
-          persistentCooldowns={persistentCooldowns}
-          attendanceCooldownSeconds={attendanceCooldownSeconds}
+          // persistentCooldowns and attendanceCooldownSeconds removed from here
+          // handleSelectGroup kept
           handleSelectGroup={handleSelectGroup}
         />
       </div>

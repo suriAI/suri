@@ -3,11 +3,9 @@ import type {
   AttendanceGroup,
   DetectionResult,
   TrackedFace,
-  CooldownInfo,
 } from "@/components/main/types";
 import type { ExtendedFaceRecognitionResponse } from "@/components/main/utils";
 import { AttendancePanel } from "@/components/main/components/AttendancePanel";
-import { CooldownList } from "@/components/main/components/CooldownList";
 import { DetectionPanel } from "@/components/main/components/DetectionPanel";
 import { persistentSettings } from "@/services/PersistentSettingsService";
 
@@ -32,13 +30,8 @@ interface SidebarProps {
   currentRecognitionResults: Map<number, ExtendedFaceRecognitionResponse>;
   recognitionEnabled: boolean;
   trackedFaces: Map<string, TrackedFace>;
-  trackingMode: "auto" | "manual";
   isStreaming: boolean;
   isVideoLoading: boolean;
-
-  // Cooldown props
-  persistentCooldowns: Map<string, CooldownInfo>;
-  attendanceCooldownSeconds: number;
 
   handleSelectGroup: (group: AttendanceGroup) => void;
 }
@@ -53,11 +46,8 @@ export const Sidebar = memo(function Sidebar({
   currentRecognitionResults,
   recognitionEnabled,
   trackedFaces,
-  trackingMode,
   isStreaming,
   isVideoLoading,
-  persistentCooldowns,
-  attendanceCooldownSeconds,
   handleSelectGroup,
 }: SidebarProps) {
   // Zustand Stores
@@ -338,13 +328,6 @@ export const Sidebar = memo(function Sidebar({
           {/* Face Detection Display - Half of remaining space */}
           <div className="flex-1 border-t border-white/[0.08] flex flex-col min-h-0 bg-black">
             <div className="flex-1 overflow-y-auto custom-scroll flex flex-col min-h-0 bg-black">
-              {/* Active Cooldowns - Only show in Auto mode */}
-              <CooldownList
-                trackingMode={trackingMode}
-                persistentCooldowns={persistentCooldowns}
-                attendanceCooldownSeconds={attendanceCooldownSeconds}
-              />
-
               <div className="flex-1 flex flex-col min-h-[0] px-2 bg-black">
                 <DetectionPanel
                   currentDetections={currentDetections}

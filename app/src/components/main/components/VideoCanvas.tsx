@@ -88,8 +88,8 @@ export const VideoCanvas = memo(function VideoCanvas({
         // Calculate button position below the bounding box
         const x = quickSettings.cameraMirrored
           ? displayWidth -
-          (bbox.x * scaleX + offsetX) -
-          (bbox.width * scaleX) / 2
+            (bbox.x * scaleX + offsetX) -
+            (bbox.width * scaleX) / 2
           : (bbox.x + bbox.width / 2) * scaleX + offsetX;
         const y = (bbox.y + bbox.height) * scaleY + offsetY + 8; // 8px below bbox
 

@@ -104,12 +104,13 @@ export function CameraFeed({
             disabled={!isStreaming && !isCameraSelected}
             // Note: parent logic was: disabled = !isButtonEnabled
             // isButtonEnabled = isStreaming || (isCameraSelected && !isStreaming)
-            className={`px-2 py-2 rounded-md border text-xs font-medium transition-all min-w-[100px] ${isStreaming
+            className={`px-2 py-2 rounded-md border text-xs font-medium transition-all min-w-[100px] ${
+              isStreaming
                 ? "bg-red-500/40 border-red-400/50 text-red-100 hover:bg-red-500/50"
                 : isCameraSelected
                   ? "bg-cyan-500/40 border-cyan-400/50 text-cyan-100 hover:bg-cyan-500/50"
                   : "bg-black/40 border-white/10 text-white/30 cursor-not-allowed opacity-50"
-              }`}
+            }`}
           >
             {isStreaming ? "Stop Camera" : "Start Camera"}
           </button>
