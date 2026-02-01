@@ -1,5 +1,3 @@
-/// <reference types="../types/global.d.ts" />
-
 import type {
   FaceRecognitionResponse,
   FaceRegistrationResponse,
@@ -9,6 +7,7 @@ import type {
   DatabaseStatsResponse,
   PersonInfo,
 } from "../types/recognition";
+import { ElectronAdapter } from "./adapters/ElectronAdapter";
 
 interface DetectionRequest {
   image: string;
@@ -40,52 +39,13 @@ interface ModelInfo {
   version?: string;
 }
 
-// IPCMessage is no longer used after removing WebSocket logic
-// interface IPCMessage {
-//   type?: string;
-//   message?: string;
-//   status?: string;
-//   error?: string;
-//   timestamp?: number;
-//   data?: unknown;
-//   faces?: Array<{
-//     bbox?: number[];
-//     confidence?: number;
-//     liveness?: {
-//       is_real?: boolean | null;
-//       logit_diff?: number;
-//       real_logit?: number;
-//       spoof_logit?: number;
-//       confidence?: number;
-//       status?: "real" | "spoof" | "error" | "move_closer";
-//       label?: string;
-//       attack_type?: string;
-//       message?: string;
-//     };
-//   }>;
-// }
-
-import type { IBackendAdapter } from "../types/backend";
-import { ElectronAdapter } from "./adapters/ElectronAdapter";
-
 export class BackendService {
   private config: BackendConfig;
-  private adapter: IBackendAdapter;
+  private adapter: ElectronAdapter;
 
   private enableLivenessDetection: boolean = true;
 
-  // WebSocket related properties
-  private ws: WebSocket | null = null;
-  private isConnecting: boolean = false;
-  private connectionPromise: Promise<void> | null = null;
-  private reconnectTimeout: number | null = null;
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 10;
-  private pingInterval: number | null = null;
-  private clientId: string;
-  private messageHandlers: Map<string, (data: unknown) => void> = new Map();
-
-  constructor(config?: Partial<BackendConfig>, adapter?: IBackendAdapter) {
+  constructor(config?: Partial<BackendConfig>) {
     this.config = {
       baseUrl: "http://127.0.0.1:8700",
       timeout: 30000,
@@ -93,9 +53,7 @@ export class BackendService {
       ...config,
     };
 
-    // Default to ElectronAdapter (Local) if no adapter provided
-    this.adapter = adapter || new ElectronAdapter();
-    this.clientId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.adapter = new ElectronAdapter();
   }
 
   async isBackendAvailable(): Promise<boolean> {
@@ -207,211 +165,8 @@ export class BackendService {
     }
   }
 
-  // WebSocket Methods
-
-  async connectWebSocket(): Promise<void> {
-    if (this.isConnecting && this.connectionPromise) {
-      return this.connectionPromise;
-    }
-
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return Promise.resolve();
-    }
-
-    this.isConnecting = true;
-    this.connectionPromise = new Promise((resolve, reject) => {
-      try {
-        if (this.ws) {
-          this.ws.close();
-          this.ws = null;
-        }
-
-        const wsUrl = this.config.baseUrl
-          .replace("http://", "ws://")
-          .replace("https://", "wss://");
-        const url = `${wsUrl}/ws/detect/${this.clientId}`;
-
-        this.ws = new WebSocket(url);
-        this.ws.binaryType = "arraybuffer";
-
-        this.ws.onopen = () => {
-          this.reconnectAttempts = 0;
-          this.isConnecting = false;
-          this.connectionPromise = null;
-          this.startPingInterval();
-          this.sendConfig();
-          this.handleMessage({
-            type: "connection",
-            status: "connected",
-            timestamp: Date.now(),
-          });
-          resolve();
-        };
-
-        this.ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            this.handleMessage(data);
-          } catch (error) {
-            console.error("[BackendService] Failed to parse message:", error);
-          }
-        };
-
-        this.ws.onclose = (event) => {
-          console.log(
-            `[BackendService] WebSocket closed - code: ${event.code}, wasClean: ${event.wasClean}, reason: ${event.reason || "none"}`,
-          );
-          this.stopPingInterval();
-          this.isConnecting = false;
-          this.connectionPromise = null;
-          this.handleMessage({
-            type: "connection",
-            status: "disconnected",
-            timestamp: Date.now(),
-          });
-
-          if (
-            !event.wasClean &&
-            this.reconnectAttempts < this.maxReconnectAttempts
-          ) {
-            console.log(
-              "[BackendService] WebSocket closed unexpectedly, will attempt reconnect...",
-            );
-            this.scheduleReconnect();
-          }
-        };
-
-        this.ws.onerror = (error) => {
-          console.error("[BackendService] WebSocket error:", error);
-          this.isConnecting = false;
-          this.connectionPromise = null;
-          this.handleMessage({
-            type: "error",
-            message: "WebSocket connection error",
-            timestamp: Date.now(),
-          });
-          reject(error);
-        };
-      } catch (error) {
-        console.error("[BackendService] Failed to create WebSocket:", error);
-        this.isConnecting = false;
-        this.connectionPromise = null;
-        reject(error);
-      }
-    });
-
-    return this.connectionPromise;
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
-    this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
-
-    this.reconnectTimeout = window.setTimeout(() => {
-      this.connectWebSocket().catch((error) => {
-        console.error("[BackendService] Reconnection failed:", error);
-      });
-    }, delay);
-  }
-
-  async sendDetectionRequest(frameData: ArrayBuffer): Promise<void> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("WebSocket not connected");
-    }
-
-    try {
-      this.ws.send(frameData);
-    } catch (error) {
-      console.error("Failed to send detection request:", error);
-      throw error;
-    }
-  }
-
-  private startPingInterval(): void {
-    this.stopPingInterval();
-
-    this.pingInterval = window.setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(
-          JSON.stringify({
-            type: "ping",
-            client_id: this.clientId,
-            timestamp: Date.now(),
-          }),
-        );
-      }
-    }, 30000);
-  }
-
-  private stopPingInterval(): void {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
-    }
-  }
-
   setLivenessDetection(enabled: boolean): void {
     this.enableLivenessDetection = enabled;
-    this.sendConfig();
-  }
-
-  private sendConfig(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: "config",
-          enable_liveness_detection: this.enableLivenessDetection,
-          timestamp: Date.now(),
-        }),
-      );
-    }
-  }
-
-  private handleMessage(data: unknown): void {
-    if (typeof data !== "object" || data === null) return;
-
-    // safe casting since we verified it's an object
-    const message = data as { type?: string; [key: string]: unknown };
-    const messageType = message.type || "unknown";
-
-    const handler = this.messageHandlers.get(messageType);
-    if (handler) {
-      handler(message);
-    }
-
-    const broadcastHandler = this.messageHandlers.get("*");
-    if (broadcastHandler && messageType !== "*") {
-      broadcastHandler(message);
-    }
-  }
-
-  onMessage(type: string, handler: (data: unknown) => void): void {
-    this.messageHandlers.set(type, handler);
-  }
-
-  offMessage(type: string): void {
-    this.messageHandlers.delete(type);
-  }
-
-  getWebSocketStatus(): "disconnected" | "connecting" | "connected" {
-    if (!this.ws) return "disconnected";
-
-    switch (this.ws.readyState) {
-      case WebSocket.CONNECTING:
-        return "connecting";
-      case WebSocket.OPEN:
-        return "connected";
-      default:
-        return "disconnected";
-    }
-  }
-
-  isWebSocketReady(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   async recognizeFace(

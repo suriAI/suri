@@ -1,4 +1,3 @@
-import type { IBackendAdapter } from "../../types/backend";
 import type {
   FaceRecognitionResponse,
   FaceRegistrationResponse,
@@ -9,7 +8,7 @@ import type {
   PersonInfo,
 } from "../../types/recognition";
 
-export class ElectronAdapter implements IBackendAdapter {
+export class ElectronAdapter {
   async recognizeFace(
     base64Image: string,
     bbox: number[],
