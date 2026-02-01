@@ -263,3 +263,18 @@ def draw_detection_info(
     )
 
     return output
+
+
+def calculate_image_hash(image: np.ndarray) -> str:
+    """
+    Calculate MD5 hash of an image
+
+    Args:
+        image: OpenCV image as numpy array
+
+    Returns:
+        Hexadecimal MD5 hash string
+    """
+    import hashlib
+
+    return hashlib.md5(image.tobytes()).hexdigest()

@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     func,
     Index,
+    LargeBinary,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -18,16 +19,25 @@ class Base(AsyncAttrs, DeclarativeBase):
     pass
 
 
-class OrganizationMixin(AsyncAttrs):
+class SyncMixin(AsyncAttrs):
     """
-    Mixin to add multi-tenancy support.
-    In local mode, organization_id can be null or 'local'.
-    In SaaS mode, it must be populated from the authenticated user's token.
+    Mixin to add synchronization metadata and multi-tenancy.
     """
-    organization_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+
+    organization_id: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, index=True
+    )
+    cloud_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    last_modified_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+    )
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
-class AttendanceGroup(Base, OrganizationMixin):
+class AttendanceGroup(Base, SyncMixin):
     __tablename__ = "attendance_groups"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -56,7 +66,7 @@ class AttendanceGroup(Base, OrganizationMixin):
         }
 
 
-class AttendanceMember(Base, OrganizationMixin):
+class AttendanceMember(Base, SyncMixin):
     __tablename__ = "attendance_members"
 
     person_id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -78,7 +88,7 @@ class AttendanceMember(Base, OrganizationMixin):
     __table_args__ = (Index("ix_member_group_id", "group_id"),)
 
 
-class AttendanceRecord(Base, OrganizationMixin):
+class AttendanceRecord(Base, SyncMixin):
     __tablename__ = "attendance_records"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -106,7 +116,7 @@ class AttendanceRecord(Base, OrganizationMixin):
     )
 
 
-class AttendanceSession(Base, OrganizationMixin):
+class AttendanceSession(Base, SyncMixin):
     __tablename__ = "attendance_sessions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -136,7 +146,7 @@ class AttendanceSession(Base, OrganizationMixin):
     )
 
 
-class AttendanceSettings(Base, OrganizationMixin):
+class AttendanceSettings(Base, SyncMixin):
     __tablename__ = "attendance_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)  # Singleton
@@ -144,8 +154,17 @@ class AttendanceSettings(Base, OrganizationMixin):
     enable_location_tracking: Mapped[bool] = mapped_column(Boolean, default=False)
     confidence_threshold: Mapped[float] = mapped_column(Float, default=0.7)
     attendance_cooldown_seconds: Mapped[int] = mapped_column(Integer, default=10)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        server_default=func.current_timestamp(),
-        onupdate=func.current_timestamp(),
+
+
+class Face(Base, SyncMixin):
+    __tablename__ = "faces"
+
+    person_id: Mapped[str] = mapped_column(String, primary_key=True)
+    embedding: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    hash: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.current_timestamp()
     )
+
+    __table_args__ = (Index("ix_face_person_id", "person_id"),)

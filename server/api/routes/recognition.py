@@ -66,7 +66,9 @@ async def recognize_face(
         allowed_person_ids = None
         if request.group_id:
             allowed_person_ids = await repo.get_group_person_ids(request.group_id)
-        result = face_recognizer.recognize_face(image, landmarks_5, allowed_person_ids)
+        result = await face_recognizer.recognize_face(
+            image, landmarks_5, allowed_person_ids
+        )
 
         processing_time = time.time() - start_time
 
@@ -127,7 +129,9 @@ async def register_person(request: FaceRegistrationRequest):
                 detail="Landmarks required for face recognition",
             )
 
-        result = face_recognizer.register_person(request.person_id, image, landmarks_5)
+        result = await face_recognizer.register_person(
+            request.person_id, image, landmarks_5
+        )
 
         processing_time = time.time() - start_time
 
@@ -162,7 +166,7 @@ async def remove_person(person_id: str):
         if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognizer not available")
 
-        result = face_recognizer.remove_person(person_id)
+        result = await face_recognizer.remove_person(person_id)
 
         if result["success"]:
             return {
@@ -205,7 +209,7 @@ async def update_person(request: PersonUpdateRequest):
             )
 
         # Update person ID using face recognizer method
-        result = face_recognizer.update_person_id(
+        result = await face_recognizer.update_person_id(
             request.old_person_id.strip(), request.new_person_id.strip()
         )
 
@@ -234,8 +238,8 @@ async def get_all_persons():
         if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognizer not available")
 
-        persons = face_recognizer.get_all_persons()
-        stats = face_recognizer.get_stats()
+        persons = await face_recognizer.get_all_persons()
+        stats = await face_recognizer.get_stats()
 
         return {
             "success": True,
@@ -313,7 +317,7 @@ async def clear_database():
         if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognizer not available")
 
-        result = face_recognizer.clear_database()
+        result = await face_recognizer.clear_database()
 
         if result["success"]:
             return {
@@ -344,7 +348,7 @@ async def get_face_stats():
         if not face_recognizer:
             raise HTTPException(status_code=500, detail="Face recognizer not available")
 
-        stats = face_recognizer.get_stats()
+        stats = await face_recognizer.get_stats()
 
         # Return stats directly in the format expected by the Settings component
         return stats

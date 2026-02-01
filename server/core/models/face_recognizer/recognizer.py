@@ -61,6 +61,14 @@ class FaceRecognizer:
         self._cache_timestamp = 0
         self._cache_ttl = 1.0
 
+    async def initialize(self):
+        """Initialize the recognizer: migrate legacy data and load cache"""
+        if self.db_manager:
+            success, message = await self.db_manager.migrate_legacy_data()
+            if success:
+                logger.info(message)
+            await self._refresh_cache()
+
     def _extract_embeddings(
         self, image: np.ndarray, face_data_list: List[Dict]
     ) -> List[np.ndarray]:
@@ -90,7 +98,7 @@ class FaceRecognizer:
 
         return normalize_embeddings_batch(embeddings)
 
-    def _get_database(self) -> Dict[str, np.ndarray]:
+    async def _get_database(self) -> Dict[str, np.ndarray]:
         """
         Get person database with caching.
 
@@ -104,14 +112,14 @@ class FaceRecognizer:
             or (current_time - self._cache_timestamp) > self._cache_ttl
         ):
             if self.db_manager:
-                self._persons_cache = self.db_manager.get_all_persons()
+                self._persons_cache = await self.db_manager.get_all_persons()
             else:
                 self._persons_cache = {}
             self._cache_timestamp = current_time
 
         return self._persons_cache
 
-    def _find_best_match(
+    async def _find_best_match(
         self, embedding: np.ndarray, allowed_person_ids: Optional[List[str]] = None
     ) -> Tuple[Optional[str], float]:
         """
@@ -122,7 +130,7 @@ class FaceRecognizer:
         if not self.db_manager:
             return None, 0.0
 
-        database = self._get_database()
+        database = await self._get_database()
 
         if not database:
             return None, 0.0
@@ -132,16 +140,16 @@ class FaceRecognizer:
             embedding, database, self.similarity_threshold, allowed_person_ids
         )
 
-    def _refresh_cache(self):
+    async def _refresh_cache(self):
         """Refresh cache after database modifications"""
         if self.db_manager:
-            self._persons_cache = self.db_manager.get_all_persons()
+            self._persons_cache = await self.db_manager.get_all_persons()
             self._cache_timestamp = time.time()
         else:
             self._persons_cache = None
             self._cache_timestamp = 0
 
-    def recognize_face(
+    async def recognize_face(
         self,
         image: np.ndarray,
         landmarks_5: List,
@@ -160,7 +168,9 @@ class FaceRecognizer:
                 }
 
             embedding = embeddings[0]
-            person_id, similarity = self._find_best_match(embedding, allowed_person_ids)
+            person_id, similarity = await self._find_best_match(
+                embedding, allowed_person_ids
+            )
 
             result = {
                 "person_id": person_id,
@@ -179,7 +189,7 @@ class FaceRecognizer:
                 "error": str(e),
             }
 
-    def register_person(
+    async def register_person(
         self, person_id: str, image: np.ndarray, landmarks_5: List
     ) -> Dict:
         try:
@@ -196,10 +206,15 @@ class FaceRecognizer:
             embedding = embeddings[0]
 
             if self.db_manager:
-                save_success = self.db_manager.add_person(person_id, embedding)
-                stats = self.db_manager.get_stats()
+                from utils.image_utils import calculate_image_hash
+
+                image_hash = calculate_image_hash(image)
+                save_success = await self.db_manager.add_person(
+                    person_id, embedding, image_hash
+                )
+                stats = await self.db_manager.get_stats()
                 total_persons = stats.get("total_persons", 0)
-                self._refresh_cache()
+                await self._refresh_cache()
             else:
                 save_success = False
                 total_persons = 0
@@ -216,15 +231,15 @@ class FaceRecognizer:
             logger.error(f"Person registration failed: {e}")
             return {"success": False, "error": str(e), "person_id": person_id}
 
-    def remove_person(self, person_id: str) -> Dict:
+    async def remove_person(self, person_id: str) -> Dict:
         """Remove a person from the database"""
         try:
             if self.db_manager:
-                remove_success = self.db_manager.remove_person(person_id)
+                remove_success = await self.db_manager.remove_person(person_id)
 
                 if remove_success:
-                    self._refresh_cache()
-                    stats = self.db_manager.get_stats()
+                    await self._refresh_cache()
+                    stats = await self.db_manager.get_stats()
                     total_persons = stats.get("total_persons", 0)
 
                     return {
@@ -250,22 +265,22 @@ class FaceRecognizer:
             logger.error(f"Person removal failed: {e}")
             return {"success": False, "error": str(e), "person_id": person_id}
 
-    def get_all_persons(self) -> List[str]:
+    async def get_all_persons(self) -> List[str]:
         """Get list of all registered person IDs"""
         if self.db_manager:
-            all_persons = self.db_manager.get_all_persons()
+            all_persons = await self.db_manager.get_all_persons()
             return list(all_persons.keys())
         return []
 
-    def update_person_id(self, old_person_id: str, new_person_id: str) -> Dict:
+    async def update_person_id(self, old_person_id: str, new_person_id: str) -> Dict:
         """Update a person's ID in the database"""
         try:
             if self.db_manager:
-                updated_count = self.db_manager.update_person_id(
+                updated_count = await self.db_manager.update_person_id(
                     old_person_id, new_person_id
                 )
                 if updated_count > 0:
-                    self._refresh_cache()
+                    await self._refresh_cache()
                     return {
                         "success": True,
                         "message": f"Person '{old_person_id}' renamed to '{new_person_id}' successfully",
@@ -288,15 +303,15 @@ class FaceRecognizer:
             logger.error(f"Person update failed: {e}")
             return {"success": False, "error": str(e), "updated_records": 0}
 
-    def get_stats(self) -> Dict:
+    async def get_stats(self) -> Dict:
         """Get face recognition statistics"""
         total_persons = 0
         persons = []
 
         if self.db_manager:
-            stats = self.db_manager.get_stats()
+            stats = await self.db_manager.get_stats()
             total_persons = stats.get("total_persons", 0)
-            persons = self.db_manager.get_all_persons_with_details()
+            persons = await self.db_manager.get_all_persons_with_details()
 
         return {"total_persons": total_persons, "persons": persons}
 
@@ -304,14 +319,14 @@ class FaceRecognizer:
         """Update similarity threshold for recognition"""
         self.similarity_threshold = threshold
 
-    def clear_database(self) -> Dict:
+    async def clear_database(self) -> Dict:
         """Clear all persons from the database"""
         try:
             if self.db_manager:
-                clear_success = self.db_manager.clear_database()
+                clear_success = await self.db_manager.clear_database()
 
                 if clear_success:
-                    self._refresh_cache()
+                    await self._refresh_cache()
                     return {"success": True, "database_saved": True, "total_persons": 0}
                 else:
                     return {"success": False, "error": "Failed to clear database"}

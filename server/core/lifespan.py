@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI):
             database_path=str(FACE_RECOGNIZER_CONFIG["database_path"]),
             session_options=FACE_RECOGNIZER_CONFIG["session_options"],
         )
+        await face_recognizer.initialize()
 
         set_model_references(liveness_detector, None, face_recognizer, face_detector)
 

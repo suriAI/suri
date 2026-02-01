@@ -9,6 +9,7 @@ from database.models import (
     AttendanceRecord,
     AttendanceSession,
     AttendanceSettings,
+    Face,
 )
 
 
@@ -28,6 +29,8 @@ class AttendanceRepository:
             late_threshold_minutes=settings.get("late_threshold_minutes"),
             late_threshold_enabled=settings.get("late_threshold_enabled", False),
             class_start_time=settings.get("class_start_time", "08:00"),
+            is_active=True,
+            is_deleted=False,
         )
         self.session.add(group)
         await self.session.commit()
@@ -35,7 +38,11 @@ class AttendanceRepository:
         return group
 
     async def get_groups(self, active_only: bool = True) -> List[AttendanceGroup]:
-        query = select(AttendanceGroup).order_by(AttendanceGroup.name)
+        query = (
+            select(AttendanceGroup)
+            .where(not AttendanceGroup.is_deleted)
+            .order_by(AttendanceGroup.name)
+        )
         if active_only:
             query = query.where(AttendanceGroup.is_active)
         result = await self.session.execute(query)
@@ -71,6 +78,7 @@ class AttendanceRepository:
         if not group:
             return False
         group.is_active = False
+        group.is_deleted = True
         await self.session.commit()
         return True
 
@@ -83,6 +91,8 @@ class AttendanceRepository:
                 name=member_data["name"],
                 role=member_data.get("role"),
                 email=member_data.get("email"),
+                is_active=True,
+                is_deleted=False,
             )
         )
         await self.session.commit()
@@ -91,7 +101,9 @@ class AttendanceRepository:
 
     async def get_member(self, person_id: str) -> Optional[AttendanceMember]:
         query = select(AttendanceMember).where(
-            AttendanceMember.person_id == person_id, AttendanceMember.is_active
+            AttendanceMember.person_id == person_id,
+            AttendanceMember.is_active,
+            not AttendanceMember.is_deleted,
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
@@ -99,7 +111,11 @@ class AttendanceRepository:
     async def get_group_members(self, group_id: str) -> List[AttendanceMember]:
         query = (
             select(AttendanceMember)
-            .where(AttendanceMember.group_id == group_id, AttendanceMember.is_active)
+            .where(
+                AttendanceMember.group_id == group_id,
+                AttendanceMember.is_active,
+                not AttendanceMember.is_deleted,
+            )
             .order_by(AttendanceMember.name)
         )
         result = await self.session.execute(query)
@@ -107,7 +123,9 @@ class AttendanceRepository:
 
     async def get_group_person_ids(self, group_id: str) -> List[str]:
         query = select(AttendanceMember.person_id).where(
-            AttendanceMember.group_id == group_id, AttendanceMember.is_active
+            AttendanceMember.group_id == group_id,
+            AttendanceMember.is_active,
+            not AttendanceMember.is_deleted,
         )
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -132,6 +150,7 @@ class AttendanceRepository:
         if not member:
             return False
         member.is_active = False
+        member.is_deleted = True
         await self.session.commit()
         return True
 
@@ -318,3 +337,77 @@ class AttendanceRepository:
             "records_deleted": len(records_to_delete),
             "sessions_deleted": len(sessions_to_delete),
         }
+
+
+class FaceRepository:
+    """Repository pattern for Face database operations"""
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def upsert_face(
+        self,
+        person_id: str,
+        embedding: bytes,
+        dimension: int,
+        image_hash: Optional[str] = None,
+    ) -> Face:
+        face = await self.session.merge(
+            Face(
+                person_id=person_id,
+                embedding=embedding,
+                embedding_dimension=dimension,
+                hash=image_hash,
+                is_deleted=False,  # Ensure it's active if re-added
+            )
+        )
+        await self.session.commit()
+        await self.session.refresh(face)
+        return face
+
+    async def get_face(self, person_id: str) -> Optional[Face]:
+        query = select(Face).where(Face.person_id == person_id, not Face.is_deleted)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_all_faces(self) -> List[Face]:
+        query = select(Face).where(not Face.is_deleted)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def remove_face(self, person_id: str) -> bool:
+        face = await self.get_face(person_id)
+        if not face:
+            return False
+        face.is_deleted = True
+        await self.session.commit()
+        return True
+
+    async def update_person_id(self, old_id: str, new_id: str) -> bool:
+        face = await self.get_face(old_id)
+        if not face:
+            return False
+
+        # Check if new_id already exists
+        exists = await self.get_face(new_id)
+        if exists:
+            return False
+
+        face.person_id = new_id
+        await self.session.commit()
+        return True
+
+    async def clear_faces(self) -> bool:
+        query = select(Face)
+        result = await self.session.execute(query)
+        faces = result.scalars().all()
+        for f in faces:
+            await self.session.delete(f)
+        await self.session.commit()
+        return True
+
+    async def get_stats(self) -> Dict[str, Any]:
+        count = await self.session.scalar(
+            select(func.count()).select_from(Face).where(not Face.is_deleted)
+        )
+        return {"total_faces": count}

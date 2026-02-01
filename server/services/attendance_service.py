@@ -372,7 +372,9 @@ class AttendanceService:
         # Register the face
         logger.info(f"Registering face for {person_id} in group {group_id}")
 
-        result = self.face_recognizer.register_person(person_id, image, landmarks_5)
+        result = await self.face_recognizer.register_person(
+            person_id, image, landmarks_5
+        )
 
         if result["success"]:
             logger.info(
@@ -410,7 +412,7 @@ class AttendanceService:
             raise ValueError("Member does not belong to this group")
 
         # Remove face data
-        result = self.face_recognizer.remove_person(person_id)
+        result = await self.face_recognizer.remove_person(person_id)
 
         if result["success"]:
             return {
@@ -543,7 +545,7 @@ class AttendanceService:
                     continue
 
                 landmarks_5 = reg_data.get("landmarks_5")
-                result = self.face_recognizer.register_person(
+                result = await self.face_recognizer.register_person(
                     person_id, image, landmarks_5
                 )
 
