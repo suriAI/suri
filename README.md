@@ -85,7 +85,9 @@ Detailed technical documentation is organized into dedicated guides.
 <!-- TECH STACK -->
 ## Built With
 
-Suri uses a modern, high-performance stack to deliver a native experience.
+<p align="center">
+  Suri uses a modern, high-performance stack to deliver a native experience.
+</p>
 
 <div align="center">
     <img src="https://skillicons.dev/icons?i=electron,react,vite,tailwindcss,python,fastapi,sqlite,opencv&theme=dark" />
