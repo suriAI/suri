@@ -1,46 +1,37 @@
 # Privacy & Data Sovereignty
 
-Suri treats privacy as a baseline requirement, not a feature. The system runs entirely on local hardware by default. No data leaves the machine unless explicitly authorized. See the [Architecture Guide](ARCHITECTURE.md) for technical verification.
+Privacy is a baseline requirement, not a feature. Trust is not required—the [Project Architecture](ARCHITECTURE.md) guarantees it. Suri is fully compliant with the [Data Privacy Act of 2012](https://privacy.gov.ph/data-privacy-act/), [GDPR](https://gdpr.eu/what-is-gdpr/), and [CCPA](https://oag.ca.gov/privacy/ccpa).
 
 ## 1. Zero-Image Storage
-Suri never stores face images.
+**Face images are never stored.**
 
-When the camera detects a face, the AI immediately converts it into a set of numbers (a [512-dimensional vector](ARCHITECTURE.md#inference-pipeline)). The original image is then discarded instantly. The database only holds these lists of numbers.
+When the camera detects a face, the AI immediately converts it into a set of numbers (a "vector"). The original image is discarded instantly. The database holds only these lists of numbers.
 
-Rebuilding a photo from these vectors is impossible. Even in the event of hardware theft, no personal photos can be compromised.
+In the event of hardware theft, original photos cannot be reconstructed from these numbers.
 
-## 2. Data Sovereignty & Cloud Policy
-Data ownership remains strictly with the user.
+## 2. Where Data Lives (The "Split-Brain" Model)
+A hybrid approach balances **Security** and **Convenience**.
 
-### Default Offline Operation
-By default, Suri operates as a standalone, offline application.
-*   **No Telemetry**: The system transmits no usage data.
-*   **Local Database**: A standard [SQLite](https://www.sqlite.org/index.html) file holds the records. Backups, access control, and deletion are managed locally.
+### A. Biometric Data (Face Embeddings)
+*   **Location**: Strictly on the **Local Device**.
+*   **Sync**: If Cloud Sync is enabled, this data is **End-to-End Encrypted (E2EE)** before leaving the device.
+*   **The Guarantee**: The Cloud Provider receives only a blob of encrypted text. Decryption by the service provider is impossible. The Web Dashboard cannot display it. It is useless to anyone but the owner.
 
-### Optional Professional Sync
-Users may opt-in for "Professional" cloud sync features to enable remote backup and multi-device management.
-*   **Explicit Consent**: Synchronization only occurs if specifically activated.
-*   **Separate Governance**: Cloud features are governed by the privacy terms of the connected web dashboard.
+### B. Attendance Logs (Names & Times)
+*   **Location**: Synced to the Cloud in a **Readable Format**.
+*   **Why?**: This allows the Web Dashboard to display charts, "Who is Present" lists, and export reports from anywhere.
+*   **Access**: This data is protected by login credentials, but is *technically visible* to the database engine for query execution.
 
-## 3. Global Compliance
-Suri achieves compliance with international standards through **Privacy by Design**.
-*   **[GDPR](https://gdpr.eu/what-is-gdpr/) (Europe)**: No personal data is processed centrally or monitored without consent.
-*   **[CCPA](https://oag.ca.gov/privacy/ccpa) (California)**: Users retain absolute ownership and immediate deletion rights.
-*   **[Data Privacy Act of 2012](https://privacy.gov.ph/data-privacy-act/) (Philippines)**: Fully compliant with local mandates for secure data handling.
+## 3. Data Sovereignty
+*   **Offline First**: Suri works 100% offline using a local [SQLite](https://www.sqlite.org/index.html) database. Sync is optional.
+*   **No Telemetry**: App usage metrics and button interactions are not tracked.
+*   **Encryption Keys**: Encryption is derived from the Master Password. If lost, biometric backups are unrecoverable. Password reset is impossible.
 
-The program will not transfer any information to other networked systems unless specifically requested by the user or the operator.
-
-## 4. RAM-Only Processing
-Video feeds run through Transient RAM.
-
-The system analyzes frames in volatile memory and deletes them milliseconds later. No video footage ever touches the hard drive.
-
-## 5. Open Source
-Suri is open source under the [AGPL-3.0 License](../LICENSE.txt).
-
-Anyone can read the code. From the face detection logic to the database writes, the entire process is visible. No black boxes.
+## 4. Compliance & Open Source
+*   **GDPR / CCPA**: The user is the data controller. The service acts as the processor (only if Sync is on). Data deletion is available via a single click.
+*   **Open Source**: Suri is licensed under [AGPL-3.0](../LICENSE.txt). The code is available for audit to verify transmitted data. There are no hidden "phone home" signals.
 
 ## Recommended Security
-For maximum safety:
-1.  **Encrypt the Disk**: Use [BitLocker](https://learn.microsoft.com/en-us/windows/security/operating-system-security/data-protection/bitlocker/bitlocker-overview) (Windows) or [FileVault](https://support.apple.com/en-us/HT204837) (macOS).
-2.  **Lock the Kiosk**: Keep the physical machine secure.
+For maximum safety, encrypting the physical disk is recommended:
+1.  **Windows**: Enable [BitLocker](https://learn.microsoft.com/en-us/windows/security/operating-system-security/data-protection/bitlocker/bitlocker-overview).
+2.  **macOS**: Enable [FileVault](https://support.apple.com/en-us/HT204837).

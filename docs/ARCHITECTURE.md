@@ -1,83 +1,60 @@
 # System Architecture
 
-Suri combines a React frontend with a Python backend for local inference.
+Suri is a **Hybrid Desktop Application**. It combines the raw power of a local executable with the connectivity of a modern SaaS.
 
-## Diagram
+## The "Hybrid" Diagram
 
 ```mermaid
-graph LR
-    subgraph Frontend [Application Layer]
-        UI[React User Interface] <-->|IPC| Main[Electron Main Process]
+graph TD
+    subgraph Local [Local Machine (The Powerhouse)]
+        UI[React Frontend] <-->|IPC| Main[Electron Main]
+        Main <-->|WebSockets| AI[Python AI Engine]
+        AI <-->|SQLAlchemy| SQLite[(Local DB)]
+        
+        subgraph SyncEngine [Sync Service]
+            Queue[Offline Queue]
+            Encrypt[E2EE Vault]
+        end
+        
+        Main --> SyncEngine
     end
 
-    subgraph Backend [Inference Layer]
-        Main <-->|WebSocket:8700| Server[FastAPI Server]
-        Server <-->|SQLAlchemy| DB[(SQLite DB)]
-        Server <-->|ONNX Runtime| Pipeline[AI Pipeline]
+    subgraph Cloud [Secure Cloud (The Bridge)]
+        Auth[Cloud Auth Provider]
+        Postgres[(Managed Postgres DB)]
     end
+
+    SyncEngine <-->|Encrypted Sync| Postgres
+    Auth <-->|PKCE Flow| Main
 ```
 
-## Tech Stack
+## Core Components
+
+### 1. The Local Engine (Python + ONNX)
+Everything that requires speed happens here.
+-   **No API Latency**: Face recognition takes ~15ms because execution runs on local hardware, not a remote server.
+-   **The Source of Truth**: The local `SQLite` database is the master record. Power or internet outages do not affect core operations.
+
+### 2. The Sync Bridge (Electron + Cloud)
+This constitutes the "SaaS" layer, handling two functions:
+1.  **Identity**: Handles Login via OAuth (using PKCE for security).
+2.  **Transport**: Moves data between devices.
+    *   **The Queue**: If a face is registered while offline, data resides in the `Offline Queue`. Upon reconnection, it pushes to the cloud.
+    *   **The Split**: Face data is encrypted (E2EE) before upload. Attendance logs are formatted as standard JSON for web readability.
+
+## Tech Stack (Updated)
 
 ### Frontend
-- **Framework**: [React 19](https://react.dev/)
-- **Bundler**: [Vite](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **State**: [Zustand](https://github.com/pmndrs/zustand)
-- **Runtime**: [Electron](https://www.electronjs.org/)
+-   **Framework**: React 19 + Vite
+-   **Style**: Tailwind CSS v4
+-   **Runtime**: Electron
 
-### Backend
-- **Runtime**: [Python 3.10+](https://www.python.org/)
-- **API**: [FastAPI](https://fastapi.tiangolo.com/)
-- **Database**: [SQLAlchemy](https://www.sqlalchemy.org/) + [Alembic](https://alembic.sqlalchemy.org/)
-- **AI Runtime**: [ONNX Runtime](https://onnxruntime.ai/)
+### Backend (Local)
+-   **Language**: Python 3.10+
+-   **API**: FastAPI (Localhost only)
+-   **AI**: ONNX Runtime (CPU/GPU)
 
-## Inference Pipeline
-
-The application executes the computer vision pipeline sequentially on the local device.
-
-### 1. Face Detection
-- **Function**: Locates bounding boxes for faces.
-
-### 2. Alignment
-- **Method**: 5-Point Landmark Estimation.
-- **Function**: Rotates and scales faces to a standard position.
-
-### 3. Liveness Check
-- **Function**: Classifies input as Real or Spoof (Photo/Screen).
-
-### 4. Recognition
-- **Function**: Generates a **512-d embeddings** from pixel data.
-- **Comparison**: Cosine Similarity.
-
-### 5. Tracking
-- **Function**: Associates detections across frames by matching both high and low scoring boxes to recover lost objects.
-
-## Database
-
-Tables used for storage:
-- **AttendanceGroup**: Logical container for users.
-- **AttendanceMember**: The user entity.
-- **AttendanceSession**: Defined time window for tracking.
-- **AttendanceRecord**: Timestamped log of a recognized user.
-
-## Project Structure
-
-```bash
-suri/
-├── app/                  # Frontend (React + Electron)
-│   ├── src/
-│   │   ├── components/   # UI System
-│   │   ├── electron/     # IPC Bridge & Main Process
-│   │   └── services/     # WebSocket & State Logic
-│   └── dist/             # Compiled Binaries
-│
-├── server/               # Backend (Python AI Engine)
-│   ├── api/              # FastAPI Routes
-│   ├── core/             # AI Pipeline (ONNX Wrappers)
-│   ├── database/         # SQLAlchemy Models
-│   ├── weights/          # AI Models
-│   └── config/           # Configuration
-│
-└── docs/                 # Documentation
-```
+### Cloud Infrastructure
+-   **Auth**: OAuth 2.0 / OpenID Connect
+-   **Database**: Managed Postgres
+-   **Realtime**: WebSocket Subscriptions (for "Live View")

@@ -28,3 +28,15 @@ Maintains identity consistency across video frames.
 ## Data Export
 
 - **CSV Export**: Download raw attendance logs for external processing (Excel, ERPS).
+
+## Suri Cloud (Optional)
+
+For teams that need multi-device management, the optional **Pro** tier adds:
+
+### 1. Hybrid Sync
+- **Secure Encrypted Sync**: Biometric data is encrypted (E2EE) before upload.
+- **Web Dashboard**: View attendance reports from any browser without exposing raw face data.
+
+### 2. Organization Management
+- **Role Based Access**: Assign Admins and Viewers.
+- **Centralized Settings**: Push configuration timelines to all connected kiosks.

@@ -43,9 +43,9 @@
 <br />
 
 <!-- INTRO -->
-**Suri** is a desktop application for automated attendance tracking using facial recognition. It runs the complete AI pipeline locally on the device to ensure speed and privacy.
+**Suri** is a desktop application for automated attendance tracking that respects privacy. The complete AI pipeline runs locally on the device.
 
-Unlike cloud-based services, Suri executes all processing on the local hardware (CPU/GPU). This approach eliminates network latency and keeps data within the local infrastructure.
+Unlike cloud-dependent services, Suri executes all processing on local hardware. This eliminates network latency and keeps data under user control. The system can be used entirely offline, or with **Secure Cloud Sync** enabled to manage multiple devices.
 
 <div align="center">
   <br />
@@ -57,9 +57,9 @@ Unlike cloud-based services, Suri executes all processing on the local hardware 
 
 ### Why Suri?
 
-| **Local Performance** | **Data Privacy** | **Smart Tracking** |
+| **Local First** | **Privacy by Default** | **Hybrid Power** |
 |:---|:---|:---|
-| Uses refined **ONNX Runtime** inference. Delivers **sub-millisecond recognition** by removing network dependency. Works offline. | **Local-First** architecture. Biometric data is stored only on the device's local database. No external telemetry. | Uses **Re-ID Association** and **Passive Liveness** to track identities across video frames. Prevents spoofing with photo/video attacks. |
+| The AI runs 100% on the hardware (CPU/GPU). Face recognition takes mere milliseconds because it doesn't wait for a server. | Biometric data is encrypted on the device. It never leaves the machine unless Cloud Sync is explicitly enabled. | Optional "Split-Brain" Sync allows data backup and web reporting, without exposing raw face data to the cloud. |
 
 <div align="center">
   <br/>
