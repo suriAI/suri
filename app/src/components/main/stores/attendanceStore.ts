@@ -22,6 +22,7 @@ interface AttendanceState {
 
   trackingMode: "auto" | "manual";
   attendanceCooldownSeconds: number;
+  reLogCooldownSeconds: number;
   enableSpoofDetection: boolean;
 
   setCurrentGroup: (group: AttendanceGroup | null) => void;
@@ -39,14 +40,16 @@ interface AttendanceState {
   ) => void;
   setTrackingMode: (mode: "auto" | "manual") => void;
   setAttendanceCooldownSeconds: (seconds: number) => void;
+  setReLogCooldownSeconds: (seconds: number) => void;
   setEnableSpoofDetection: (enabled: boolean) => void;
 }
 
-const loadInitialSettings = async () => {
+const loadInitialSettings = async (): Promise<Partial<AttendanceState>> => {
   const attendanceSettings = await persistentSettings.getAttendanceSettings();
   return {
     trackingMode: attendanceSettings.trackingMode,
     attendanceCooldownSeconds: attendanceSettings.attendanceCooldownSeconds,
+    reLogCooldownSeconds: attendanceSettings.reLogCooldownSeconds ?? 1800,
     enableSpoofDetection: attendanceSettings.enableSpoofDetection,
   };
 };
@@ -62,7 +65,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   newGroupName: "",
   persistentCooldowns: new Map(),
   trackingMode: "auto",
-  attendanceCooldownSeconds: 10,
+  attendanceCooldownSeconds: 15,
+  reLogCooldownSeconds: 1800,
   enableSpoofDetection: true,
 
   setCurrentGroup: (group) => {
@@ -97,6 +101,12 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ attendanceCooldownSeconds: seconds });
     persistentSettings
       .setAttendanceSettings({ attendanceCooldownSeconds: seconds })
+      .catch(console.error);
+  },
+  setReLogCooldownSeconds: (seconds) => {
+    set({ reLogCooldownSeconds: seconds });
+    persistentSettings
+      .setAttendanceSettings({ reLogCooldownSeconds: seconds })
       .catch(console.error);
   },
   setEnableSpoofDetection: (enabled) => {

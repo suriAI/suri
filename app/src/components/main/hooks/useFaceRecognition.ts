@@ -223,6 +223,8 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                         attendanceCooldownSeconds;
                       const storedCooldownMs = storedCooldownSeconds * 1000;
 
+                      // "Visual" cooldown check (15s default)
+                      // If within visual cooldown, update bbox but DO NOT LOG
                       if (timeSinceLastAttendance < storedCooldownMs) {
                         startTransition(() => {
                           setPersistentCooldowns((prev) => {
@@ -253,13 +255,68 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                         };
                       }
 
-                      const logTime = Date.now();
+                      // "Re-Log" cooldown check (30m default) - SPAM PROOFING
+                      // We need to fetch the reLogCooldownSeconds from store or use default
+                      const { reLogCooldownSeconds } =
+                        useAttendanceStore.getState();
+
+                      const reLogCooldownMs =
+                        (reLogCooldownSeconds ?? 1800) * 1000;
+
                       const existingInState =
                         persistentCooldownsRef.current?.get(cooldownKey);
+
+                      const lastLogTime = existingInState?.startTime || 0;
+                      const timeSinceLastLog = Date.now() - lastLogTime;
+
+                      // If the user is trying to log again, check if they are within the "Session Window" (30 mins)
+                      // If so, we treat it like a "Visual Cooldown" extension - we update bbox, but we DO NOT create a new event.
+                      if (
+                        existingInState &&
+                        timeSinceLastLog < reLogCooldownMs
+                      ) {
+                        // Update "last known" so the overlay follows them, but DO NOT fire logging event
+                        startTransition(() => {
+                          setPersistentCooldowns((prev) => {
+                            const newPersistent = new Map(prev);
+                            const existing = newPersistent.get(cooldownKey);
+                            if (existing) {
+                              // We just update the bbox to keep the "Done" overlay tracking them
+                              // We do NOT update startTime, because we want the 30min timer to keep ticking from the FIRST log.
+                              newPersistent.set(cooldownKey, {
+                                ...existing,
+                                memberName: memberName,
+                                lastKnownBbox: face.bbox,
+                              });
+                              (
+                                persistentCooldownsRef as React.RefObject<
+                                  Map<
+                                    string,
+                                    import("@/components/main/types").CooldownInfo
+                                  >
+                                >
+                              ).current = newPersistent;
+                              return newPersistent;
+                            }
+                            return prev;
+                          });
+                        });
+
+                        // Return early - NO NEW LOG sent to backend
+                        return {
+                          trackId,
+                          result: { ...response, name: memberName, memberName },
+                        };
+                      }
+
+                      // If we passed both checks, it is a legitimate NEW session log.
+                      const logTime = Date.now();
+
                       const existingCooldownSeconds =
                         existingInState?.cooldownDurationSeconds ??
-                        attendanceCooldownSeconds;
+                        attendanceCooldownSeconds; // Uses the destructured variable from above
                       const existingCooldownMs = existingCooldownSeconds * 1000;
+
                       const existingInStateStillActive =
                         existingInState &&
                         logTime - existingInState.startTime <

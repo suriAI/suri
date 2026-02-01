@@ -6,7 +6,7 @@ interface AttendanceProps {
   onLateThresholdChange: (minutes: number) => void;
   onLateThresholdToggle: (enabled: boolean) => void;
   onClassStartTimeChange: (time: string) => void;
-  onCooldownChange: (seconds: number) => void;
+  onReLogCooldownChange: (seconds: number) => void;
   onSpoofDetectionToggle: (enabled: boolean) => void;
   isStreaming?: boolean;
 }
@@ -17,7 +17,7 @@ export function Attendance({
   onLateThresholdChange,
   onLateThresholdToggle,
   onClassStartTimeChange,
-  onCooldownChange,
+  onReLogCooldownChange,
   onSpoofDetectionToggle,
   isStreaming = false,
 }: AttendanceProps) {
@@ -113,31 +113,33 @@ export function Attendance({
         </button>
       </div>
 
-      {/* Attendance Cooldown Section */}
+      {/* Attendance Cooldown (Re-Log Prevention) */}
       <div className="flex items-center py-3 border-b border-white/5 gap-4">
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-white/90">
             Attendance Cooldown
           </div>
           <div className="text-xs text-white/50 mt-0.5">
-            Prevent duplicate logs:{" "}
-            {attendanceSettings.attendanceCooldownSeconds}s
+            Prevent duplicate logs for:{" "}
+            {Math.floor((attendanceSettings.reLogCooldownSeconds ?? 1800) / 60)}{" "}
+            min
           </div>
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0 ml-auto">
           <input
             type="range"
-            min="3"
-            max="60"
-            step="1"
-            value={attendanceSettings.attendanceCooldownSeconds}
-            onChange={(e) => onCooldownChange(parseInt(e.target.value))}
+            min="300" // 5 mins
+            max="7200" // 2 hours
+            step="300" // 5 min steps
+            value={attendanceSettings.reLogCooldownSeconds ?? 1800}
+            onChange={(e) => onReLogCooldownChange(parseInt(e.target.value))}
             disabled={isStreaming}
             className="w-24 accent-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <span className="text-cyan-400 font-semibold text-sm min-w-[2.5rem] text-right whitespace-nowrap">
-            {attendanceSettings.attendanceCooldownSeconds}s
+            {Math.floor((attendanceSettings.reLogCooldownSeconds ?? 1800) / 60)}{" "}
+            m
           </span>
         </div>
       </div>

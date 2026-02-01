@@ -85,7 +85,6 @@ interface DrawOverlaysParams {
       cooldownDurationSeconds: number;
     }
   >;
-  attendanceCooldownSeconds: number;
   quickSettings: QuickSettings;
   getVideoRect: () => DOMRect | null;
   calculateScaleFactors: () => {
@@ -104,7 +103,6 @@ export const drawOverlays = ({
   currentRecognitionResults,
   recognitionEnabled,
   persistentCooldowns,
-  attendanceCooldownSeconds,
   quickSettings,
   getVideoRect,
   calculateScaleFactors,
@@ -239,15 +237,7 @@ export const drawOverlays = ({
       const cooldownKey = recognitionResult.person_id;
       const cooldownInfo = persistentCooldowns.get(cooldownKey);
       if (cooldownInfo) {
-        const currentTime = Date.now();
-        const timeSinceStart = currentTime - cooldownInfo.startTime;
-        const cooldownSeconds =
-          cooldownInfo.cooldownDurationSeconds ?? attendanceCooldownSeconds;
-        const cooldownMs = cooldownSeconds * 1000;
-        const remainingMs = cooldownMs - timeSinceStart;
-        const remainingCooldownSeconds = Math.floor(remainingMs / 1000);
-
-        if (timeSinceStart < cooldownMs && remainingCooldownSeconds > 0) {
+        if (cooldownInfo) {
           ctx.save();
 
           const centerX = (x1 + x2) / 2;

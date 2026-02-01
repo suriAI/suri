@@ -12,6 +12,7 @@ export interface AttendanceSettings {
   lateThresholdMinutes: number;
   classStartTime: string;
   attendanceCooldownSeconds: number;
+  reLogCooldownSeconds: number; // New setting for database prevention
   enableSpoofDetection: boolean;
 }
 

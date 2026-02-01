@@ -749,8 +749,8 @@ export const Settings: React.FC<SettingsProps> = ({
               onClassStartTimeChange={(time) =>
                 updateAttendanceSetting({ classStartTime: time })
               }
-              onCooldownChange={(seconds) =>
-                updateAttendanceSetting({ attendanceCooldownSeconds: seconds })
+              onReLogCooldownChange={(seconds) =>
+                updateAttendanceSetting({ reLogCooldownSeconds: seconds })
               }
               onSpoofDetectionToggle={(enabled) =>
                 updateAttendanceSetting({ enableSpoofDetection: enabled })

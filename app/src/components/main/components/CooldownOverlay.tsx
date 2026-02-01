@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { CooldownInfo } from "@/components/main/types";
 
 interface CooldownOverlayProps {
@@ -8,69 +9,34 @@ interface CooldownOverlayProps {
 }
 
 const CooldownCard = memo(
-  ({
-    cooldownInfo,
-    startDuration,
-    remaining,
-  }: {
-    cooldownInfo: CooldownInfo;
-    startDuration: number;
-    remaining: number;
-  }) => {
-    // Calculate progress percentage (100% full at start, 0% at end)
-    // Avoid division by zero
-    const progress = startDuration > 0 ? (remaining / startDuration) * 100 : 0;
-
-    // Circular progress math
-    const radius = 10;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (progress / 100) * circumference;
-
+  ({ cooldownInfo }: { cooldownInfo: CooldownInfo }) => {
     const name = cooldownInfo.memberName || cooldownInfo.personId;
 
     return (
-      <div
-        className="group flex items-center gap-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-3 pr-4 shadow-lg transition-all duration-300 hover:bg-black/80 hover:border-white/20 animate-in slide-in-from-right-4 fade-in-0"
-        style={{ minWidth: "200px" }}
+      <motion.div
+        layout
+        initial={{ opacity: 0, x: 20, scale: 0.95 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        className="group flex items-center gap-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-3 pr-4 shadow-lg hover:bg-black/80 hover:border-white/20"
+        style={{ minWidth: "180px" }}
       >
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-white/90 truncate max-w-[120px] block">
-            {name}
-          </span>
+        {/* Success Icon */}
+        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-green-500/20 text-green-400">
+          <i className="fa-solid fa-check text-sm"></i>
         </div>
 
-        {/* Circular Timer */}
-        <div className="relative w-8 h-8 flex items-center justify-center">
-          {/* Background circle */}
-          <svg className="w-full h-full rotate-[-90deg]">
-            <circle
-              cx="50%"
-              cy="50%"
-              r={radius}
-              fill="transparent"
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth="2.5"
-            />
-            {/* Progress circle */}
-            <circle
-              cx="50%"
-              cy="50%"
-              r={radius}
-              fill="transparent"
-              stroke={remaining < 3 ? "#ef4444" : "#3b82f6"} // Red if < 3s, else Blue
-              strokeWidth="2.5"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-              className="transition-[stroke-dashoffset] duration-300 ease-linear"
-            />
-          </svg>
-          <span className="absolute text-[9px] font-mono font-bold text-white/80">
-            {Math.ceil(remaining)}s
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium text-white/90 truncate max-w-[140px] block">
+            {name}
+          </span>
+          <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">
+            Logged
           </span>
         </div>
-      </div>
+      </motion.div>
     );
   },
 );
@@ -136,16 +102,13 @@ export const CooldownOverlay = memo(function CooldownOverlay({
   }
 
   return (
-    <div className="absolute top-6 right-6 z-40 flex flex-col gap-3 pointer-events-auto select-none max-h-[80vh] overflow-y-auto custom-scroll pr-2">
+    <div className="absolute top-6 right-6 z-40 flex flex-col gap-3 pointer-events-auto select-none max-h-[80vh] overflow-y-auto overflow-x-hidden custom-scroll p-2">
       {/* pointer-events-auto to allow scrolling */}
-      {activeItems.map((item) => (
-        <CooldownCard
-          key={item.info.personId}
-          cooldownInfo={item.info}
-          startDuration={item.duration}
-          remaining={item.remaining}
-        />
-      ))}
+      <AnimatePresence mode="popLayout">
+        {activeItems.map((item) => (
+          <CooldownCard key={item.info.personId} cooldownInfo={item.info} />
+        ))}
+      </AnimatePresence>
     </div>
   );
 });

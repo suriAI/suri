@@ -14,6 +14,7 @@ export interface PersistentSettingsSchema {
     lateThresholdMinutes: number;
     classStartTime: string;
     attendanceCooldownSeconds: number;
+    reLogCooldownSeconds: number;
   };
 
   // UI State
@@ -52,6 +53,7 @@ export const defaultSettings: PersistentSettingsSchema = {
     lateThresholdMinutes: 5,
     classStartTime: "00:00",
     attendanceCooldownSeconds: 15,
+    reLogCooldownSeconds: 1800, // 30 minutes default
   },
   ui: {
     sidebarCollapsed: false,
