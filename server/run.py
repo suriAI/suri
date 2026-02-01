@@ -9,13 +9,13 @@ from pathlib import Path
 import uvicorn
 
 from config.models import validate_model_paths, validate_directories
-from config.logging_config import LOGGING_CONFIG
+from config.logging_config import get_logging_config
 from config.server import get_server_config
 from database.migrate import run_migrations
 
 config = {
     "server": get_server_config(),
-    "logging": LOGGING_CONFIG,
+    "logging": get_logging_config(),
 }
 
 # Add the backend directory to Python path

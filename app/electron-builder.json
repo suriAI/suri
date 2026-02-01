@@ -1,15 +1,25 @@
 {
-  "files": ["dist-electron/**/*", "dist-react/**/*"],
+  "files": [
+    "dist-electron/**/*",
+    "dist-react/**/*"
+  ],
   "appId": "com.suri.app",
   "productName": "Suri AI Attendance Tracker",
   "icon": "./public/icons/suri_mark_logo_round_c.png",
   "beforePack": "scripts/before-pack.cjs",
   "win": {
-    "target": ["portable", "msi"],
+    "target": [
+      "portable",
+      "msi"
+    ],
     "extraResources": [
       {
         "from": "../server/dist/server.exe",
         "to": "server/server.exe"
+      },
+      {
+        "from": "public/icons",
+        "to": "icons"
       }
     ]
   },

@@ -11,6 +11,14 @@ def get_weights_dir() -> Path:
 
 
 def get_data_dir() -> Path:
+    import os
+
+    env_data_dir = os.getenv("SURI_DATA_DIR")
+    if env_data_dir:
+        data_dir = Path(env_data_dir)
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
+
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         exe_dir = Path(sys.executable).parent
         data_dir = exe_dir / "data"

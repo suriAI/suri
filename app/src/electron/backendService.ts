@@ -271,6 +271,7 @@ export class BackendService {
       const env = {
         ...process.env,
         ENVIRONMENT: isDev() ? "development" : "production",
+        SURI_DATA_DIR: app.getPath("userData"),
       };
 
       // Spawn the process

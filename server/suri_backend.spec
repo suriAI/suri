@@ -33,6 +33,7 @@ hidden_imports = [
     'onnxruntime.capi.onnxruntime_pybind11_state',
     'cv2',
     'numpy',
+    'aiosqlite',
 ]
 
 # Windows-specific imports (only include on Windows)
@@ -98,7 +99,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Hide console window in production
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
