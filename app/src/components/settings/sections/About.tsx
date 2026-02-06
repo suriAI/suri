@@ -176,9 +176,28 @@ const UpdateStatus: React.FC<UpdateStatusProps> = ({
   if (updateInfo?.hasUpdate) {
     return (
       <div className="flex items-center gap-3">
-        <span className="text-xs text-emerald-400 font-medium whitespace-nowrap">
-          v{updateInfo.latestVersion} available
-        </span>
+        <div className="flex items-center gap-2 mr-1">
+          <span className="text-xs text-emerald-400 font-medium whitespace-nowrap">
+            v{updateInfo.latestVersion} available
+          </span>
+          {lastChecked && (
+            <>
+              <span className="text-white/10 text-[10px]">·</span>
+              <span className="text-[10px] text-white/30 whitespace-nowrap">
+                Last checked: {formatLastChecked(lastChecked)}
+              </span>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={onCheck}
+          disabled={isChecking}
+          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs font-medium transition-colors border border-white/5 disabled:opacity-50"
+        >
+          {isChecking ? "Checking..." : "Check again"}
+        </button>
+
         <button
           onClick={onDownload}
           className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium transition-colors border border-emerald-500/20"
