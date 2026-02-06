@@ -205,7 +205,9 @@ export interface AttendanceReport {
 export interface AttendanceSettings {
   late_threshold_minutes: number;
   enable_location_tracking: boolean;
+  confidence_threshold?: number;
   attendance_cooldown_seconds: number;
+  relog_cooldown_seconds?: number;
 }
 
 export interface AttendanceEvent {

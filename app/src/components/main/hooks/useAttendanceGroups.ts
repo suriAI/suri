@@ -23,6 +23,7 @@ export function useAttendanceGroups() {
     newGroupName,
     setNewGroupName,
     setAttendanceCooldownSeconds,
+    setReLogCooldownSeconds,
   } = useAttendanceStore();
   const { setError } = useUIStore();
 
@@ -50,10 +51,11 @@ export function useAttendanceGroups() {
     try {
       const settings = await attendanceManager.getSettings();
       setAttendanceCooldownSeconds(settings.attendance_cooldown_seconds ?? 10);
+      setReLogCooldownSeconds(settings.relog_cooldown_seconds ?? 1800);
     } catch (error) {
       console.error("Failed to load settings:", error);
     }
-  }, [setAttendanceCooldownSeconds]);
+  }, [setAttendanceCooldownSeconds, setReLogCooldownSeconds]);
 
   const loadAttendanceData = useCallback(async () => {
     try {

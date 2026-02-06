@@ -106,6 +106,7 @@ export default function Main() {
     attendanceCooldownSeconds,
     setAttendanceCooldownSeconds,
     reLogCooldownSeconds,
+    setReLogCooldownSeconds,
     enableSpoofDetection,
     setEnableSpoofDetection,
     persistentCooldowns,
@@ -647,6 +648,20 @@ export default function Main() {
                   });
                 } catch (error) {
                   console.error("Failed to update cooldown setting:", error);
+                }
+              }
+
+              if (updates.reLogCooldownSeconds !== undefined) {
+                setReLogCooldownSeconds(updates.reLogCooldownSeconds);
+                try {
+                  await attendanceManager.updateSettings({
+                    relog_cooldown_seconds: updates.reLogCooldownSeconds,
+                  });
+                } catch (error) {
+                  console.error(
+                    "Failed to update re-log cooldown setting:",
+                    error,
+                  );
                 }
               }
 

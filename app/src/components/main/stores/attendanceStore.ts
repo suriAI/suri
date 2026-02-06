@@ -53,15 +53,16 @@ const loadInitialSettings = async (): Promise<Partial<AttendanceState>> => {
 
   // Convert saved record to Map and prune expired ones
   const now = Date.now();
+  const reLogSeconds = attendanceSettings.reLogCooldownSeconds ?? 1800;
+  const reLogMs = reLogSeconds * 1000;
   const cooldownMap = new Map<string, CooldownInfo>();
   Object.entries(savedCooldowns).forEach(([key, value]) => {
     const info = value as CooldownInfo;
-    // Check if cooldown is still active. If not, don't load it.
-    // 7200s (2h) is max configurable cooldown, let's keep it safe.
-    if (
-      now - info.startTime <
-      (info.cooldownDurationSeconds * 1000 || 1800000)
-    ) {
+    // Keep persisted cooldowns for the full re-log window so app restarts
+    // don't allow immediate duplicate logs.
+    const infoMs = (info.cooldownDurationSeconds || 0) * 1000;
+    const effectiveTtlMs = Math.max(reLogMs, infoMs);
+    if (now - info.startTime < effectiveTtlMs + 500) {
       cooldownMap.set(key, info);
     }
   });

@@ -240,6 +240,7 @@ class AttendanceSettingsUpdate(BaseModel):
     enable_location_tracking: Optional[bool] = None
     confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
     attendance_cooldown_seconds: Optional[int] = Field(None, ge=1, le=300)
+    relog_cooldown_seconds: Optional[int] = Field(None, ge=300, le=7200)
 
 
 class AttendanceSettingsResponse(BaseModel):
@@ -247,6 +248,7 @@ class AttendanceSettingsResponse(BaseModel):
     enable_location_tracking: bool
     confidence_threshold: float
     attendance_cooldown_seconds: int
+    relog_cooldown_seconds: int
 
     model_config = ConfigDict(from_attributes=True)
 

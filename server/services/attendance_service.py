@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Any, Dict
 import ulid
 
@@ -209,21 +209,24 @@ class AttendanceService:
     ) -> AttendanceEventResponse:
         """Process an attendance event"""
         cooldown_seconds = settings.attendance_cooldown_seconds or 10
+        relog_seconds = getattr(settings, "relog_cooldown_seconds", None) or 1800
 
-        # Enforce cooldown
+        # Enforce cooldown(s)
         current_time = datetime.now()
+        window_seconds = max(cooldown_seconds, relog_seconds)
         recent_records = await self.repo.get_records(
             person_id=event_data.person_id,
-            start_date=current_time.replace(hour=0, minute=0, second=0, microsecond=0),
+            start_date=current_time - timedelta(seconds=window_seconds),
             end_date=current_time,
-            limit=10,
+            limit=20,
         )
 
-        # Check if there's a recent record within the cooldown period
+        # Check if there's a recent record within either cooldown window.
         if recent_records:
             for record in recent_records:
                 record_time = record.timestamp
                 time_diff = (current_time - record_time).total_seconds()
+
                 if time_diff < cooldown_seconds:
                     return AttendanceEventResponse(
                         id=None,
@@ -234,6 +237,18 @@ class AttendanceService:
                         location=event_data.location,
                         processed=False,
                         error=f"Cooldown active. Wait {int(cooldown_seconds - time_diff)}s.",
+                    )
+
+                if time_diff < relog_seconds:
+                    return AttendanceEventResponse(
+                        id=None,
+                        person_id=event_data.person_id,
+                        group_id=member.group_id,
+                        timestamp=current_time,
+                        confidence=event_data.confidence,
+                        location=event_data.location,
+                        processed=False,
+                        error=f"Duplicate log blocked. Wait {int(relog_seconds - time_diff)}s.",
                     )
 
         # Create attendance record
