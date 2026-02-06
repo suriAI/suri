@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   protocol,
   shell,
@@ -10,8 +11,6 @@ import {
 } from "electron";
 import path from "path";
 import { fileURLToPath } from "node:url";
-import { exec } from "child_process";
-import { promisify } from "util";
 import isDev from "./util.js";
 import { backendService, type DetectionOptions } from "./backendService.js";
 import { persistentStore } from "./persistentStore.js";
@@ -775,13 +774,64 @@ function createWindow(): void {
   });
 
   // Handle window close (Minimize to Tray)
+  // First close shows an informational prompt so users don't think the app is "stuck".
+  let isHandlingClose = false;
   mainWindow.on("close", (event) => {
-    if (!isQuitting) {
+    if (isQuitting) return;
+    if (isHandlingClose) {
       event.preventDefault();
+      return false;
+    }
+
+    event.preventDefault();
+
+    // Ensure tray exists so the app is discoverable after closing
+    if (!tray) {
+      createTray();
+    }
+
+    const dismissed = Boolean(
+      persistentStore.get("ui.closeToTrayNoticeDismissed"),
+    );
+    if (dismissed) {
       mainWindow.minimize();
       mainWindow.setSkipTaskbar(true);
       return false;
     }
+
+    isHandlingClose = true;
+    void dialog
+      .showMessageBox(mainWindow, {
+        type: "info",
+        title: "Suri is still running",
+        message: "Closing Suri keeps it running in the system tray.",
+        detail: "To fully quit, use the tray icon menu and choose Quit Suri.",
+        buttons: ["OK", "Quit Suri"],
+        defaultId: 0,
+        cancelId: 0,
+        checkboxLabel: "Don't show this again",
+        checkboxChecked: false,
+        noLink: true,
+      })
+      .then(({ response, checkboxChecked }) => {
+        if (checkboxChecked) {
+          persistentStore.set("ui.closeToTrayNoticeDismissed", true);
+        }
+
+        if (response === 1) {
+          isQuitting = true;
+          app.quit();
+          return;
+        }
+
+        mainWindow.minimize();
+        mainWindow.setSkipTaskbar(true);
+      })
+      .finally(() => {
+        isHandlingClose = false;
+      });
+
+    return false;
   });
 
   // Handle window closed
@@ -906,34 +956,7 @@ app.whenReady().then(async () => {
   // 3. Transition to main window when both are ready
   // =========================================================================
 
-  // Minimize all other windows to focus on Splash Screen
-  const execAsync = promisify(exec);
-
-  const minimizeAllWindows = async () => {
-    try {
-      if (process.platform === "win32") {
-        // -NoProfile for faster startup
-        await execAsync(
-          'powershell -NoProfile -Command "(New-Object -ComObject Shell.Application).MinimizeAll()"',
-        );
-      } else if (process.platform === "darwin") {
-        await execAsync(
-          `osascript -e 'tell application "System Events" to set visible of (every process whose visible is true) to false'`,
-        );
-      } else if (process.platform === "linux") {
-        await execAsync("wmctrl -k on");
-      }
-    } catch (error) {
-      console.error("Failed to minimize windows:", error);
-    }
-  };
-
-  // Wait for minimization (max 1s) to ensure clean desktop before splash
-  await Promise.race([
-    minimizeAllWindows(),
-    new Promise((resolve) => setTimeout(resolve, 1000)),
-  ]);
-
+  // Show splash immediately (no minimize-all-windows behavior)
   splashWindow = createSplashWindow();
 
   // Start parallel loading

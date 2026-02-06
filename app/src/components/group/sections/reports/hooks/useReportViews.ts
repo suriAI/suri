@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { persistentSettings } from "@/services/PersistentSettingsService";
+import type { DialogAPI } from "@/components/shared";
 import type {
   SavedViewConfig,
   ColumnKey,
@@ -7,7 +8,11 @@ import type {
   ReportStatusFilter,
 } from "@/components/group/sections/reports/types";
 
-export function useReportViews(groupId: string, defaultColumns: ColumnKey[]) {
+export function useReportViews(
+  groupId: string,
+  defaultColumns: ColumnKey[],
+  dialog?: Pick<DialogAPI, "confirm">,
+) {
   const [views, setViews] = useState<SavedViewConfig[]>([]);
   const [activeViewIndex, setActiveViewIndex] = useState<number | null>(null);
   const [defaultViewName, setDefaultViewName] = useState<string | null>(null);
@@ -75,15 +80,21 @@ export function useReportViews(groupId: string, defaultColumns: ColumnKey[]) {
   // Load Scratchpad (Unsaved tweaks)
   useEffect(() => {
     if (activeViewIndex === null) {
-      persistentSettings.getReportScratchpad(groupId).then((scratch) => {
-        if (scratch) {
-          if (scratch.columns)
-            setVisibleColumns(scratch.columns as ColumnKey[]);
-          if (scratch.groupBy) setGroupBy(scratch.groupBy as GroupByKey);
-          if (scratch.statusFilter)
-            setStatusFilter(scratch.statusFilter as ReportStatusFilter);
-        }
-      });
+      persistentSettings
+        .getReportScratchpad(groupId)
+        .then((scratch: unknown) => {
+          const s = (scratch || null) as null | Partial<{
+            columns: unknown;
+            groupBy: unknown;
+            statusFilter: unknown;
+          }>;
+          if (!s) return;
+
+          if (s.columns) setVisibleColumns(s.columns as ColumnKey[]);
+          if (s.groupBy) setGroupBy(s.groupBy as GroupByKey);
+          if (s.statusFilter)
+            setStatusFilter(s.statusFilter as ReportStatusFilter);
+        });
     }
   }, [groupId, activeViewIndex]);
 
@@ -197,10 +208,23 @@ export function useReportViews(groupId: string, defaultColumns: ColumnKey[]) {
     setActiveViewIndex(next.length - 1);
   };
 
-  const handleDeleteView = () => {
+  const handleDeleteView = async () => {
     if (activeViewIndex === null) return;
     const name = views[activeViewIndex]?.name || "";
-    if (!confirm(`Delete view "${name}"?`)) return;
+
+    if (dialog) {
+      const ok = await dialog.confirm({
+        title: "Delete view",
+        message: `Delete view "${name}"?`,
+        confirmText: "Delete",
+        cancelText: "Cancel",
+        confirmVariant: "danger",
+      });
+      if (!ok) return;
+    } else {
+      if (!confirm(`Delete view "${name}"?`)) return;
+    }
+
     const next = views.filter((_, idx) => idx !== activeViewIndex);
     saveViewsToStorage(next);
 

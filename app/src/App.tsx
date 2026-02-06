@@ -2,6 +2,7 @@ import { WindowBar, WindowFooter } from "@/components/electron";
 import Main from "@/components/main";
 import { useUIStore } from "@/components/main/stores/uiStore";
 import { IntroModal } from "@/components/shared/IntroModal";
+import { DialogProvider } from "@/components/shared";
 
 import { AppSkeleton } from "@/components/shared/AppSkeleton";
 
@@ -18,22 +19,24 @@ function App() {
   }
 
   return (
-    <div className="electron-window-container">
-      <WindowBar />
-      <div className="app-content-wrapper">
-        <div className="text-white h-full">
-          {hasSeenIntro ? (
-            <Main />
-          ) : (
-            <>
-              <AppSkeleton />
-              <IntroModal />
-            </>
-          )}
+    <DialogProvider>
+      <div className="electron-window-container">
+        <WindowBar />
+        <div className="app-content-wrapper">
+          <div className="text-white h-full">
+            {hasSeenIntro ? (
+              <Main />
+            ) : (
+              <>
+                <AppSkeleton />
+                <IntroModal />
+              </>
+            )}
+          </div>
         </div>
+        <WindowFooter />
       </div>
-      <WindowFooter />
-    </div>
+    </DialogProvider>
   );
 }
 

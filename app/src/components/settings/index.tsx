@@ -6,6 +6,7 @@ import { Attendance } from "@/components/settings/sections/Attendance";
 import { About } from "@/components/settings/sections/About";
 import { GroupPanel, type GroupSection } from "@/components/group";
 import { Dropdown } from "@/components/shared";
+import { useDialog } from "@/components/shared";
 import { useGroupStore, useGroupUIStore } from "@/components/group/stores";
 import type {
   QuickSettings,
@@ -54,6 +55,7 @@ export const Settings: React.FC<SettingsProps> = ({
   initialGroups = [],
   initialSection,
 }) => {
+  const dialog = useDialog();
   const [activeSection, setActiveSection] = useState<string>(
     initialSection || (initialGroupSection ? "group" : "attendance"),
   );
@@ -225,20 +227,30 @@ export const Settings: React.FC<SettingsProps> = ({
   }, [currentGroup]);
 
   const handleClearDatabase = async () => {
-    if (
-      !window.confirm(
-        "⚠️ Clear ALL face recognition data? This will delete all registered faces and embeddings. This cannot be undone.",
-      )
-    )
-      return;
+    const ok = await dialog.confirm({
+      title: "Clear all face data",
+      message:
+        "Clear ALL face recognition data? This will delete all registered faces and embeddings. This cannot be undone.",
+      confirmText: "Clear data",
+      cancelText: "Cancel",
+      confirmVariant: "danger",
+    });
+    if (!ok) return;
     setIsLoading(true);
     try {
       await backendService.clearDatabase();
       await loadSystemData();
-      alert("✓ Database cleared successfully");
+      await dialog.alert({
+        title: "Database cleared",
+        message: "Face recognition data cleared successfully.",
+      });
     } catch (error) {
       console.error("Failed to clear database:", error);
-      alert("❌ Failed to clear database");
+      await dialog.alert({
+        title: "Clear failed",
+        message: "Failed to clear face recognition data. Please try again.",
+        variant: "danger",
+      });
     } finally {
       setIsLoading(false);
     }

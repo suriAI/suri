@@ -1,3 +1,4 @@
+import { useDialog } from "@/components/shared";
 import { useMemo, memo } from "react";
 import { useGroupStore, useGroupUIStore } from "@/components/group/stores";
 import {
@@ -36,6 +37,7 @@ function GroupContentComponent({
   onRegistrationModeChange,
   registrationMode,
 }: GroupContentProps) {
+  const dialog = useDialog();
   const selectedGroup = useGroupStore((state) => state.selectedGroup);
   const groupsLength = useGroupStore((state) => state.groups.length);
   const members = useGroupStore((state) => state.members);
@@ -65,7 +67,14 @@ function GroupContentComponent({
   if (!hasSelectedGroup || !selectedGroup) {
     return (
       <div className="h-full px-6 pt-6">
-        <EmptyState onCreateGroup={openCreateGroup} hasGroups={hasGroups} />
+        <EmptyState
+          title={hasGroups ? "Select a group to continue" : "No groups yet"}
+          action={{
+            label: hasGroups ? "Create new group" : "Create your first group",
+            onClick: openCreateGroup,
+          }}
+          className="h-full"
+        />
       </div>
     );
   }
@@ -121,13 +130,14 @@ function GroupContentComponent({
           onEdit={openEditGroup}
           onDelete={async () => {
             if (!selectedGroup) return;
-            if (
-              !confirm(
-                `Delete group "${selectedGroup.name}"? This will remove all members and attendance records.`,
-              )
-            ) {
-              return;
-            }
+            const ok = await dialog.confirm({
+              title: "Delete group",
+              message: `Delete group "${selectedGroup.name}"? This will remove all members and attendance records.`,
+              confirmText: "Delete group",
+              cancelText: "Cancel",
+              confirmVariant: "danger",
+            });
+            if (!ok) return;
             const groupId = selectedGroup.id;
             await useGroupStore.getState().deleteGroup(groupId);
           }}

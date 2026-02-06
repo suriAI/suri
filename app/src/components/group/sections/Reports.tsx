@@ -12,6 +12,7 @@ import { ReportToolbar } from "@/components/group/sections/reports/components/Re
 import { ReportTable } from "@/components/group/sections/reports/components/ReportTable";
 import { exportReportToCSV } from "@/components/group/sections/reports/utils/exportUtils";
 import { EmptyState } from "@/components/group/shared/EmptyState";
+import { useDialog } from "@/components/shared";
 
 import type { ColumnKey } from "@/components/group/sections/reports/types";
 
@@ -40,6 +41,7 @@ export function Reports({
   onExportHandlersReady,
   onAddMember,
 }: ReportsProps) {
+  const dialog = useDialog();
   const storeMembers = useGroupStore((state) => state.members);
 
   // --- Date State ---
@@ -77,7 +79,7 @@ export function Reports({
     handleSaveAs,
     handleDeleteView,
     handleViewChange,
-  } = useReportViews(group.id, DEFAULT_COLUMNS);
+  } = useReportViews(group.id, DEFAULT_COLUMNS, dialog);
 
   // --- Transform Hook ---
   const { groupedRows, daysTracked, allColumns } = useReportTransform(

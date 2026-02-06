@@ -3,6 +3,7 @@ import { useGroupUIStore } from "@/components/group/stores";
 import type { AttendanceGroup, AttendanceMember } from "@/types/recognition";
 import { useCamera } from "@/components/group/sections/registration/hooks/useCamera";
 import { useFaceCapture } from "@/components/group/sections/registration/hooks/useFaceCapture";
+import { useDialog } from "@/components/shared";
 import { CaptureControls } from "@/components/group/sections/registration/components/CaptureControls";
 import { CameraFeed } from "@/components/group/sections/registration/components/CameraFeed";
 import { UploadArea } from "@/components/group/sections/registration/components/UploadArea";
@@ -28,6 +29,7 @@ export function FaceCapture({
   deselectMemberTrigger,
   onSelectedMemberChange,
 }: FaceCaptureProps) {
+  const dialog = useDialog();
   // Store integration
   const preSelectedId = useGroupUIStore((state) => state.preSelectedMemberId);
 
@@ -87,7 +89,7 @@ export function FaceCapture({
     handleRegister,
     handleRemoveFaceData,
     resetFrames,
-  } = useFaceCapture(group, members, onRefresh);
+  } = useFaceCapture(group, members, onRefresh, dialog);
 
   const framesReady = frames.length > 0;
 

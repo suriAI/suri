@@ -124,6 +124,7 @@ export default function Main() {
     setSettingsInitialSection,
     quickSettings,
     setQuickSettings,
+    setSidebarCollapsed,
   } = useUIStore();
 
   const recognitionEnabled = true;
@@ -264,6 +265,31 @@ export default function Main() {
     initializeWebSocket,
     getCameraDevices,
   });
+
+  const requestGroupSelection = useCallback(() => {
+    setSidebarCollapsed(false);
+
+    if (attendanceGroups.length === 0) {
+      setError("Create a group to start tracking.");
+      setShowGroupManagement(true);
+      return;
+    }
+
+    setError("Select a group from the sidebar to start tracking.");
+  }, [
+    attendanceGroups.length,
+    setError,
+    setShowGroupManagement,
+    setSidebarCollapsed,
+  ]);
+
+  const startCameraGuarded = useCallback(() => {
+    if (!currentGroup) {
+      requestGroupSelection();
+      return;
+    }
+    startCamera();
+  }, [currentGroup, requestGroupSelection, startCamera]);
 
   // Set the ref after stopCamera is defined
   useEffect(() => {
@@ -422,7 +448,7 @@ export default function Main() {
     const cleanupRestore = electron.onRestore(() => {
       if (wasStreamingBeforeMinimize.current) {
         console.log("App restored: Resuming tracking...");
-        startCamera();
+        startCameraGuarded();
         wasStreamingBeforeMinimize.current = false;
       }
     });
@@ -431,7 +457,7 @@ export default function Main() {
       if (cleanupMinimize) cleanupMinimize();
       if (cleanupRestore) cleanupRestore();
     };
-  }, [stopCamera, startCamera]);
+  }, [stopCamera, startCameraGuarded]);
 
   // ===== RENDER =====
   return (
@@ -487,8 +513,10 @@ export default function Main() {
             selectedCamera={selectedCamera}
             setSelectedCamera={setSelectedCamera}
             isStreaming={isStreaming}
-            startCamera={startCamera}
+            startCamera={startCameraGuarded}
             stopCamera={stopCamera}
+            hasSelectedGroup={Boolean(currentGroup)}
+            requestGroupSelection={requestGroupSelection}
           />
         </div>
 

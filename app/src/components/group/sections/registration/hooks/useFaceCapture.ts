@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { attendanceManager, backendService } from "@/services";
 import type { AttendanceGroup, AttendanceMember } from "@/types/recognition";
+import type { DialogAPI } from "@/components/shared";
 import type { CapturedFrame } from "@/components/group/sections/registration/types";
 import {
   makeId,
@@ -11,6 +12,7 @@ export function useFaceCapture(
   group: AttendanceGroup | null,
   members: AttendanceMember[],
   onRefresh?: () => Promise<void> | void,
+  dialog?: Pick<DialogAPI, "confirm">,
 ) {
   const [frames, setFrames] = useState<CapturedFrame[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -178,10 +180,21 @@ export function useFaceCapture(
 
       const displayName = member.displayName || member.name;
 
-      const confirmation = window.confirm(
-        `Remove all face embeddings for ${displayName}?`,
-      );
-      if (!confirmation) return;
+      if (dialog) {
+        const ok = await dialog.confirm({
+          title: "Purge embeddings",
+          message: `Remove all face embeddings for ${displayName}?`,
+          confirmText: "Remove",
+          cancelText: "Cancel",
+          confirmVariant: "danger",
+        });
+        if (!ok) return;
+      } else {
+        const confirmation = window.confirm(
+          `Remove all face embeddings for ${displayName}?`,
+        );
+        if (!confirmation) return;
+      }
 
       try {
         const result = await attendanceManager.removeFaceDataForGroupPerson(
@@ -202,7 +215,7 @@ export function useFaceCapture(
         setGlobalError(message);
       }
     },
-    [group, onRefresh],
+    [group, onRefresh, dialog],
   );
 
   return {

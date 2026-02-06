@@ -29,6 +29,7 @@ export interface PersistentSettingsSchema {
     lastRegistrationMode: string | null;
     hasSeenIntro: boolean;
     activeGroupSection: string | null;
+    closeToTrayNoticeDismissed: boolean;
   };
 
   // Report Scratchpad (unsaved tweaks)
@@ -78,6 +79,7 @@ export const defaultSettings: PersistentSettingsSchema = {
     lastRegistrationMode: null,
     hasSeenIntro: false,
     activeGroupSection: null,
+    closeToTrayNoticeDismissed: false,
   },
   reportScratchpad: {},
   reportViews: {},

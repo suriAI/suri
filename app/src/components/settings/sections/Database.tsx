@@ -3,6 +3,7 @@ import type { AttendanceGroup } from "@/types/recognition";
 import { useDatabaseManagement } from "@/components/settings/sections/hooks/useDatabaseManagement";
 import { DatabaseStats } from "@/components/settings/sections/components/DatabaseStats";
 import { GroupEntry } from "@/components/settings/sections/components/GroupEntry";
+import { useDialog } from "@/components/shared";
 
 interface DatabaseProps {
   systemData: SettingsOverview;
@@ -19,6 +20,7 @@ export function Database({
   onClearDatabase,
   onGroupsChanged,
 }: DatabaseProps) {
+  const dialog = useDialog();
   const {
     expandedGroups,
     searchQuery,
@@ -42,7 +44,7 @@ export function Database({
     handleDeleteMember,
     handleClearAllGroups,
     totalMembers,
-  } = useDatabaseManagement(groups, onGroupsChanged);
+  } = useDatabaseManagement(groups, onGroupsChanged, dialog);
 
   return (
     <div className="space-y-6 max-w-4xl p-6">
