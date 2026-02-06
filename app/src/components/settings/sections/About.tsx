@@ -292,12 +292,15 @@ export const About: React.FC = () => {
 
     init();
 
-    const unsubscribe = updaterService.onUpdateAvailable((info) => {
+    const unsubscribe = updaterService.onUpdateInfoChanged((info) => {
       setUpdateInfo(info);
-      setLastChecked(new Date());
+      const last = updaterService.getLastChecked();
+      if (last) setLastChecked(last);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleCheckForUpdates = useCallback(async () => {

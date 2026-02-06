@@ -13,9 +13,20 @@ class UpdaterService {
   private cachedUpdateInfo: UpdateInfo | null = null;
   private lastChecked: Date | null = null;
   private initPromise: Promise<void>;
+  private updateInfoListeners = new Set<(info: UpdateInfo | null) => void>();
 
   constructor() {
     this.initPromise = this.loadFromStore();
+  }
+
+  private emitUpdateInfo(info: UpdateInfo | null) {
+    for (const listener of this.updateInfoListeners) {
+      try {
+        listener(info);
+      } catch (error) {
+        console.error("[UpdaterService] update listener failed:", error);
+      }
+    }
   }
 
   private async loadFromStore() {
@@ -27,6 +38,9 @@ class UpdaterService {
           this.lastChecked = new Date(info.lastChecked);
         }
       }
+
+      // Notify any subscribers that were waiting for initialization.
+      this.emitUpdateInfo(this.cachedUpdateInfo);
     } catch (error) {
       console.error("[UpdaterService] Initialization failed:", error);
     }
@@ -67,11 +81,14 @@ class UpdaterService {
         lastChecked: this.lastChecked.toISOString(),
       });
 
+      // Broadcast result (including hasUpdate=false) so UI like footer can clear.
+      this.emitUpdateInfo(updateInfo);
+
       return updateInfo;
     } catch (error) {
       console.error("[UpdaterService] Failed to check for updates:", error);
       const version = await this.getVersion();
-      return {
+      const fallback: UpdateInfo = {
         currentVersion: version,
         latestVersion: version,
         hasUpdate: false,
@@ -81,7 +98,31 @@ class UpdaterService {
         downloadUrl: null,
         error: error instanceof Error ? error.message : String(error),
       };
+
+      this.cachedUpdateInfo = fallback;
+      this.lastChecked = new Date();
+      this.emitUpdateInfo(fallback);
+
+      return fallback;
     }
+  }
+
+  /**
+   * Subscribe to update-info changes (fires for both update available and up-to-date results).
+   */
+  onUpdateInfoChanged(
+    callback: (updateInfo: UpdateInfo | null) => void,
+  ): () => void {
+    this.updateInfoListeners.add(callback);
+
+    // Ensure callback receives the best-known value after store init.
+    this.waitForInitialization()
+      .then(() => callback(this.cachedUpdateInfo))
+      .catch(() => {});
+
+    return () => {
+      this.updateInfoListeners.delete(callback);
+    };
   }
 
   /**
@@ -134,6 +175,9 @@ class UpdaterService {
         cachedInfo: updateInfo,
         lastChecked: this.lastChecked.toISOString(),
       });
+
+      // Keep any generic subscribers in sync.
+      this.emitUpdateInfo(updateInfo);
 
       callback(updateInfo);
     });

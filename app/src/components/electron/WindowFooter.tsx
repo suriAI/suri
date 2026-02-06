@@ -10,18 +10,26 @@ export default function WindowFooter() {
     // Get current version
     updaterService.getVersion().then(setVersion);
 
-    // Check for cached update info
-    const cached = updaterService.getCachedUpdateInfo();
-    if (cached) {
-      setUpdateInfo(cached);
-    }
+    let disposed = false;
 
-    // Subscribe to update notifications
-    const unsubscribe = updaterService.onUpdateAvailable((info) => {
+    // Ensure we load cached info after initialization, then stay in sync with any checks.
+    updaterService
+      .waitForInitialization()
+      .then(() => {
+        if (disposed) return;
+        setUpdateInfo(updaterService.getCachedUpdateInfo());
+      })
+      .catch(() => {});
+
+    const unsubscribe = updaterService.onUpdateInfoChanged((info) => {
+      if (disposed) return;
       setUpdateInfo(info);
     });
 
-    return unsubscribe;
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
   }, []);
 
   const handleUpdateClick = () => {
@@ -48,10 +56,6 @@ export default function WindowFooter() {
             className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all group"
             title={`Update available: v${updateInfo.latestVersion}`}
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
             <span className="text-[9px] font-semibold text-emerald-400 uppercase tracking-wider">
               Update
             </span>
