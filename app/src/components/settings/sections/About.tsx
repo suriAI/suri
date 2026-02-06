@@ -193,9 +193,14 @@ const UpdateStatus: React.FC<UpdateStatusProps> = ({
         <button
           onClick={onCheck}
           disabled={isChecking}
-          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs font-medium transition-colors border border-white/5 disabled:opacity-50"
+          title={isChecking ? "Checking..." : "Check for updates"}
+          className="w-8 h-8 flex items-center justify-center !bg-transparent hover:!bg-transparent !border-0 !p-0 text-white/50 hover:text-white transition-colors disabled:opacity-50 focus-visible:outline-1 focus-visible:outline-white/20 rounded"
         >
-          {isChecking ? "Checking..." : "Check again"}
+          {isChecking ? (
+            <i className="fa-solid fa-spinner animate-spin" />
+          ) : (
+            <i className="fa-solid fa-arrows-rotate" />
+          )}
         </button>
 
         <button
