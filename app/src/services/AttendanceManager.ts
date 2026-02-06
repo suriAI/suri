@@ -97,9 +97,16 @@ class HttpClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      const detail = (errorData as { detail?: unknown }).detail;
+      const normalizedDetail =
+        typeof detail === "string"
+          ? detail
+          : detail
+            ? JSON.stringify(detail)
+            : undefined;
       throw new Error(
-        errorData.detail ||
-          errorData.error ||
+        normalizedDetail ||
+          (errorData as { error?: string }).error ||
           `HTTP ${response.status}: ${response.statusText}`,
       );
     }

@@ -216,7 +216,7 @@ class AttendanceEventCreate(BaseModel):
     # Optional metadata from recognition pipeline.
     # Not persisted today, but accepted for forward compatibility.
     liveness_status: Optional[str] = Field(None, max_length=50)
-    liveness_confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+    liveness_confidence: Optional[float] = Field(None, ge=0.0)
 
     model_config = ConfigDict(extra="ignore")
 

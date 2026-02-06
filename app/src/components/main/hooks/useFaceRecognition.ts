@@ -201,7 +201,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
 
                 if (!shouldSkipAttendanceLogging) {
                   try {
-                    const actualConfidence = response.similarity;
+                    const actualConfidence = face.confidence;
 
                     if (trackingMode === "auto") {
                       const currentTime = Date.now();
