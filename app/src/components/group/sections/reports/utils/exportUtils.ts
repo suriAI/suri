@@ -18,6 +18,9 @@ export function exportReportToCSV(
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     };
 
+    const sanitizeFilename = (name: string): string =>
+      name.replace(/[\\/:*?"<>|]/g, "_").trim();
+
     const cols = allColumns.filter((c) => visibleColumns.includes(c.key));
     const header = cols.map((c) => c.label);
     const rows: string[][] = [];
@@ -43,7 +46,10 @@ export function exportReportToCSV(
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    anchor.href = url;
+    let appended = false;
+
+    try {
+      anchor.href = url;
 
     const formatDateForFilename = (dateString: string): string => {
       const date = parseLocalDate(dateString);
@@ -61,11 +67,16 @@ export function exportReportToCSV(
         ? formattedStartDate
         : `${formattedStartDate} to ${formattedEndDate}`;
 
-    anchor.download = `${groupName} (${dateRange}).csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+      anchor.download = sanitizeFilename(`${groupName} (${dateRange}).csv`);
+      document.body.appendChild(anchor);
+      appended = true;
+      anchor.click();
+    } finally {
+      if (appended) {
+        document.body.removeChild(anchor);
+      }
+      URL.revokeObjectURL(url);
+    }
     return { success: true };
   } catch (err) {
     console.error("Error exporting view:", err);
