@@ -114,7 +114,12 @@ export const CooldownOverlay = memo(function CooldownOverlay({
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
-          transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.8 }}
+          transition={{
+            type: "spring",
+            stiffness: 520,
+            damping: 38,
+            mass: 0.8,
+          }}
           className="absolute top-6 right-6 z-40 flex flex-col gap-3 pointer-events-auto select-none max-h-[80vh] overflow-y-auto overflow-x-hidden custom-scroll p-2"
         >
           {/* pointer-events-auto to allow scrolling */}

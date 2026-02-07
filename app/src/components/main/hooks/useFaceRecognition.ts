@@ -576,6 +576,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
       currentGroupRef,
       loadAttendanceDataRef,
       memberCacheRef,
+      maybePlayRecognitionSound,
       persistentCooldownsRef,
       setCurrentRecognitionResults,
       setError,

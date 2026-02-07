@@ -5,7 +5,7 @@
   "icon": "./public/icons/suri_mark_logo_round_c.png",
   "beforePack": "scripts/before-pack.cjs",
   "win": {
-    "target": ["portable", "msi"],
+    "target": "nsis",
     "extraResources": [
       {
         "from": "../server/dist/server.exe",
@@ -16,6 +16,15 @@
         "to": "icons"
       }
     ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "deleteAppDataOnUninstall": true,
+    "runAfterFinish": true
   },
   "linux": {
     "target": "AppImage",
