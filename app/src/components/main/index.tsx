@@ -60,7 +60,7 @@ export default function Main() {
 
   const lastDetectionRef = useRef<DetectionResult | null>(null);
   const lastFrameTimestampRef = useRef<number>(0);
-  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => { });
+  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => {});
   const fpsTrackingRef = useRef({
     timestamps: [] as number[],
     maxSamples: 10,
@@ -217,14 +217,13 @@ export default function Main() {
     loadAttendanceDataRef,
   });
 
-  const { animate, resetOverlayRefs } =
-    useOverlayRendering({
-      videoRef,
-      overlayCanvasRef,
-      animationFrameRef,
-      videoRectRef,
-      lastVideoRectUpdateRef,
-    });
+  const { animate, resetOverlayRefs } = useOverlayRendering({
+    videoRef,
+    overlayCanvasRef,
+    animationFrameRef,
+    videoRectRef,
+    lastVideoRectUpdateRef,
+  });
 
   // 9. Backend Service Hook
   const stopCameraRef = useRef<((forceCleanup: boolean) => void) | null>(null);
@@ -363,8 +362,6 @@ export default function Main() {
       // Ignore cleanup errors
     }
   }, []);
-
-
 
   // ===== REMAINING USEEFFECTS =====
 
@@ -549,8 +546,7 @@ export default function Main() {
               isVideoLoading={isVideoLoading}
               isStreaming={isStreaming}
               hasSelectedGroup={Boolean(currentGroup)}
-            // trackingMode removed
-
+              // trackingMode removed
             />
 
             {/* New Cooldown Overlay */}

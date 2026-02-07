@@ -87,7 +87,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
       if (now - lastAt <= 1200) return;
       lastSoundAtRef.current.set(soundKey, now);
 
-      soundEffects.play(audioSettings.recognitionSoundUrl).catch(() => { });
+      soundEffects.play(audioSettings.recognitionSoundUrl).catch(() => {});
     },
     [persistentCooldownsRef],
   );
@@ -254,8 +254,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                     const cooldownKey = `${response.person_id}-${currentGroupValue.id}`;
                     const cooldownInfo =
                       persistentCooldownsRef.current.get(cooldownKey);
-                    const authoritativeTimestamp =
-                      cooldownInfo?.startTime || 0;
+                    const authoritativeTimestamp = cooldownInfo?.startTime || 0;
                     const timeSinceLastAttendance =
                       currentTime - authoritativeTimestamp;
                     const storedCooldownSeconds =
@@ -311,10 +310,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
 
                     // If the user is trying to log again, check if they are within the "Session Window" (30 mins)
                     // If so, we treat it like a "Visual Cooldown" extension - we update bbox, but we DO NOT create a new event.
-                    if (
-                      existingInState &&
-                      timeSinceLastLog < reLogCooldownMs
-                    ) {
+                    if (existingInState && timeSinceLastLog < reLogCooldownMs) {
                       // Update "last known" so the overlay follows them, but DO NOT fire logging event
                       startTransition(() => {
                         setPersistentCooldowns((prev) => {
@@ -359,8 +355,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
 
                     const existingInStateStillActive =
                       existingInState &&
-                      logTime - existingInState.startTime <
-                      existingCooldownMs;
+                      logTime - existingInState.startTime < existingCooldownMs;
 
                     if (!existingInStateStillActive) {
                       startTransition(() => {
@@ -371,8 +366,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                             startTime: logTime,
                             memberName: memberName,
                             lastKnownBbox: face.bbox,
-                            cooldownDurationSeconds:
-                              attendanceCooldownSeconds,
+                            cooldownDurationSeconds: attendanceCooldownSeconds,
                           };
                           newPersistent.set(cooldownKey, cooldownData);
                           (
@@ -444,10 +438,9 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                           : "Unknown error";
                       setError(
                         errorMessage ||
-                        `Failed to record attendance for ${response.person_id}`,
+                          `Failed to record attendance for ${response.person_id}`,
                       );
                     }
-
                   } catch (error) {
                     console.error("❌ Attendance processing failed:", error);
                     setError(

@@ -2,7 +2,6 @@ import { memo } from "react";
 import type { RefObject } from "react";
 import type { QuickSettings } from "@/components/settings";
 
-
 interface VideoCanvasProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -24,9 +23,6 @@ export const VideoCanvas = memo(function VideoCanvas({
   isStreaming,
   hasSelectedGroup,
 }: VideoCanvasProps) {
-
-
-
   return (
     <div className="relative w-full h-full min-h-[260px] overflow-hidden rounded-lg bg-black border border-white/[0.08]">
       <video
@@ -42,8 +38,6 @@ export const VideoCanvas = memo(function VideoCanvas({
           mixBlendMode: "normal",
         }}
       />
-
-
 
       {quickSettings.showFPS && detectionFps > 0 && (
         <div className="absolute top-4 left-4 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 pointer-events-none z-20">

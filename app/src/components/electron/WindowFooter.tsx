@@ -19,7 +19,7 @@ export default function WindowFooter() {
         if (disposed) return;
         setUpdateInfo(updaterService.getCachedUpdateInfo());
       })
-      .catch(() => { });
+      .catch(() => {});
 
     const unsubscribe = updaterService.onUpdateInfoChanged((info) => {
       if (disposed) return;

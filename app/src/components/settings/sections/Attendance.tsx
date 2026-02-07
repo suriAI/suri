@@ -37,16 +37,18 @@ export function Attendance({
             onSpoofDetectionToggle(!attendanceSettings.enableSpoofDetection)
           }
           disabled={isStreaming}
-          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${attendanceSettings.enableSpoofDetection
-            ? "bg-cyan-500/30"
-            : "bg-white/10"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
+            attendanceSettings.enableSpoofDetection
+              ? "bg-cyan-500/30"
+              : "bg-white/10"
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <div
-            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.enableSpoofDetection
-              ? "translate-x-5"
-              : "translate-x-0"
-              }`}
+            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
+              attendanceSettings.enableSpoofDetection
+                ? "translate-x-5"
+                : "translate-x-0"
+            }`}
           ></div>
         </button>
       </div>
@@ -98,16 +100,18 @@ export function Attendance({
               onLateThresholdToggle(!attendanceSettings.lateThresholdEnabled)
             }
             disabled={isStreaming}
-            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${attendanceSettings.lateThresholdEnabled
-              ? "bg-cyan-500/30"
-              : "bg-white/10"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
+              attendanceSettings.lateThresholdEnabled
+                ? "bg-cyan-500/30"
+                : "bg-white/10"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <div
-              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.lateThresholdEnabled
-                ? "translate-x-5"
-                : "translate-x-0"
-                }`}
+              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
+                attendanceSettings.lateThresholdEnabled
+                  ? "translate-x-5"
+                  : "translate-x-0"
+              }`}
             ></div>
           </button>
         </div>

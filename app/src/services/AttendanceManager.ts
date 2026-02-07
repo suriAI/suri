@@ -645,6 +645,40 @@ export class AttendanceManager {
     }
   }
 
+  async addRecord(record: {
+    person_id: string;
+    timestamp?: Date;
+    confidence?: number;
+    location?: string;
+    notes?: string;
+    is_manual?: boolean;
+    created_by?: string;
+  }): Promise<AttendanceRecord> {
+    try {
+      const recordData = {
+        ...record,
+        timestamp: record.timestamp
+          ? this.toLocalDateTimeParam(record.timestamp)
+          : undefined,
+        confidence: record.confidence ?? 1.0, // Manual add implies 100% confidence
+        is_manual: true,
+      };
+
+      const newRecord = await this.httpClient.post<AttendanceRecord>(
+        API_ENDPOINTS.records,
+        recordData,
+      );
+
+      return {
+        ...newRecord,
+        timestamp: new Date(newRecord.timestamp),
+      };
+    } catch (error) {
+      console.error("Error adding record:", error);
+      throw error;
+    }
+  }
+
   async getRecords(filters?: {
     group_id?: string;
     person_id?: string;

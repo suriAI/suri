@@ -7,6 +7,7 @@ import type {
 } from "@/components/main/types";
 
 import { useAttendanceStore, useUIStore } from "@/components/main/stores";
+import { ManualEntryModal } from "./ManualEntryModal";
 
 interface AttendancePanelProps {
   handleSelectGroup: (group: AttendanceGroup) => void;
@@ -35,7 +36,9 @@ const AttendanceRecordItem = memo(
         if (!classStartTime) return null;
 
         // Parse class start time
-        const [startHours, startMinutes] = classStartTime.split(":").map(Number);
+        const [startHours, startMinutes] = classStartTime
+          .split(":")
+          .map(Number);
 
         // Construct start date object based on record timestamp
         // Handle midnight crossing: if start is late (e.g. 23:00) and record is early (e.g. 00:05),
@@ -59,8 +62,14 @@ const AttendanceRecordItem = memo(
             status: minutesLate > severeLateThreshold ? "severe-late" : "late",
             minutes: minutesLate,
             label: `${minutesLate}m late`,
-            color: minutesLate > severeLateThreshold ? "text-rose-400" : "text-amber-400",
-            borderColor: minutesLate > severeLateThreshold ? "border-l-rose-500" : "border-l-amber-500",
+            color:
+              minutesLate > severeLateThreshold
+                ? "text-rose-400"
+                : "text-amber-400",
+            borderColor:
+              minutesLate > severeLateThreshold
+                ? "border-l-rose-500"
+                : "border-l-amber-500",
           };
         }
 
@@ -85,7 +94,6 @@ const AttendanceRecordItem = memo(
           color: "text-slate-400",
           borderColor: "border-l-transparent", // No border for on-time
         };
-
       } catch {
         return null;
       }
@@ -95,9 +103,16 @@ const AttendanceRecordItem = memo(
 
     return (
       <div
-        className={`text-xs bg-white/[0.02] border-b border-white/[0.05] p-2 relative group transition-colors hover:bg-white/[0.04] ${timeStatus?.status !== "on-time" ? `border-l-2 ${timeStatus?.borderColor}` : ""
-          }`}
-        title={classStartTime ? `Scheduled: ${classStartTime} | Late after: ${lateThresholdMinutes}m` : undefined}
+        className={`text-xs bg-white/[0.02] border-b border-white/[0.05] p-2 relative group transition-colors hover:bg-white/[0.04] ${
+          timeStatus?.status !== "on-time"
+            ? `border-l-2 ${timeStatus?.borderColor}`
+            : ""
+        }`}
+        title={
+          classStartTime
+            ? `Scheduled: ${classStartTime} | Late after: ${lateThresholdMinutes}m`
+            : undefined
+        }
       >
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
@@ -113,7 +128,9 @@ const AttendanceRecordItem = memo(
               })}
             </span>
             {timeStatus && timeStatus.status !== "on-time" && (
-              <span className={`text-[9px] font-bold uppercase tracking-wider ${timeStatus.color}`}>
+              <span
+                className={`text-[9px] font-bold uppercase tracking-wider ${timeStatus.color}`}
+              >
                 {timeStatus.label}
               </span>
             )}
@@ -138,6 +155,12 @@ export const AttendancePanel = memo(function AttendancePanel({
   } = useAttendanceStore();
 
   const { setShowSettings, setGroupInitialSection } = useUIStore();
+  const [showManualEntry, setShowManualEntry] = useState(false);
+
+  // Present person IDs for filtering the manual entry list
+  const presentPersonIds = useMemo(() => {
+    return new Set(recentAttendance.map((r) => r.person_id));
+  }, [recentAttendance]);
 
   // Late tracking settings derived from current group
   // This ensures we match what the Settings modal shows/updates
@@ -295,7 +318,7 @@ export const AttendancePanel = memo(function AttendancePanel({
                 }))}
                 value={
                   currentGroup &&
-                    attendanceGroups.some((g) => g.id === currentGroup.id)
+                  attendanceGroups.some((g) => g.id === currentGroup.id)
                     ? currentGroup.id
                     : null
                 }
@@ -315,6 +338,14 @@ export const AttendancePanel = memo(function AttendancePanel({
                 showPlaceholderOption={false}
               />
             </div>
+            <button
+              onClick={() => setShowManualEntry(true)}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/70 hover:text-white"
+              title="Members"
+              aria-label="Members"
+            >
+              <i className="fa-solid fa-users text-sm"></i>
+            </button>
             <button
               onClick={() => setShowGroupManagement(true)}
               className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-md bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/70 hover:text-white"
@@ -449,6 +480,18 @@ export const AttendancePanel = memo(function AttendancePanel({
             </div>
           )}
         </div>
+      )}
+      {showManualEntry && (
+        <ManualEntryModal
+          onClose={() => setShowManualEntry(false)}
+          onSuccess={() => {
+            // Optional: refreshed logic handled by store/websocket usually,
+            // but we can force refresh if needed.
+          }}
+          members={groupMembers}
+          presentPersonIds={presentPersonIds}
+          onAddMember={handleOpenSettingsForRegistration}
+        />
       )}
     </div>
   );
