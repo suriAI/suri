@@ -29,7 +29,9 @@ class AttendanceRepository:
             description=group_data.get("description"),
             late_threshold_minutes=settings.get("late_threshold_minutes"),
             late_threshold_enabled=settings.get("late_threshold_enabled", False),
-            class_start_time=settings.get("class_start_time", "08:00"),
+            class_start_time=settings.get(
+                "class_start_time", datetime.now().strftime("%H:%M")
+            ),
             organization_id=self.organization_id,
             is_active=True,
             is_deleted=False,

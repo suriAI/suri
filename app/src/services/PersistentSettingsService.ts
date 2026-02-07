@@ -144,7 +144,7 @@ class PersistentSettingsService {
   async setAttendanceSettings(
     settings: Partial<{
       enableSpoofDetection: boolean;
-      trackingMode: "auto" | "manual";
+      // trackingMode removed
       lateThresholdEnabled: boolean;
       lateThresholdMinutes: number;
       classStartTime: string;

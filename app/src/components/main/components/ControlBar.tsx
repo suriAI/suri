@@ -1,4 +1,5 @@
 import { Dropdown } from "@/components/shared";
+import { StartTimeChip } from "@/components/main/components/StartTimeChip";
 
 interface ControlBarProps {
   cameraDevices: MediaDeviceInfo[];
@@ -9,6 +10,10 @@ interface ControlBarProps {
   stopCamera: () => void;
   hasSelectedGroup: boolean;
   requestGroupSelection: () => void;
+  // Props for time chip
+  lateTrackingEnabled?: boolean;
+  classStartTime?: string;
+  onStartTimeChange?: (newTime: string) => void;
 }
 
 export function ControlBar({
@@ -20,6 +25,9 @@ export function ControlBar({
   stopCamera,
   hasSelectedGroup,
   requestGroupSelection,
+  lateTrackingEnabled = false,
+  classStartTime = "08:00",
+  onStartTimeChange,
 }: ControlBarProps) {
   // Check if a camera is selected and valid (exists in available devices)
   const isCameraSelected =
@@ -77,6 +85,15 @@ export function ControlBar({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Time Chip - Only show when late tracking is enabled and group selected */}
+          {lateTrackingEnabled && hasSelectedGroup && onStartTimeChange && (
+            <StartTimeChip
+              startTime={classStartTime}
+              onTimeChange={onStartTimeChange}
+              disabled={isStreaming}
+            />
+          )}
+
           {/* Start/Stop Button */}
           <button
             onClick={handlePrimaryAction}

@@ -108,7 +108,7 @@ class AttendanceStatus(str, Enum):
 class GroupSettings(BaseModel):
     late_threshold_minutes: Optional[int] = 15
     late_threshold_enabled: bool = False
-    class_start_time: Optional[str] = "08:00"  # HH:MM
+    class_start_time: Optional[str] = None  # HH:MM, defaults to creation time
 
 
 class AttendanceGroupCreate(BaseModel):

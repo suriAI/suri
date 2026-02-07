@@ -51,7 +51,10 @@ class AttendanceGroup(Base, SyncMixin):
         Integer, nullable=True
     )
     late_threshold_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    class_start_time: Mapped[str] = mapped_column(String, default="08:00")
+    # Default to current time in HH:MM format
+    class_start_time: Mapped[str] = mapped_column(
+        String, default=lambda: datetime.now().strftime("%H:%M")
+    )
 
     members: Mapped[List["AttendanceMember"]] = relationship(back_populates="group")
     records: Mapped[List["AttendanceRecord"]] = relationship(back_populates="group")

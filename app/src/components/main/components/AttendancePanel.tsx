@@ -19,29 +19,109 @@ const AttendanceRecordItem = memo(
   ({
     record,
     displayName,
+    classStartTime,
+    lateThresholdMinutes,
+    lateThresholdEnabled,
   }: {
     record: AttendanceRecord;
     displayName: string;
-  }) => (
-    <div className="text-xs bg-white/[0.02] border-b border-white/[0.05] p-2">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <span className="font-medium">{displayName}</span>
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded ${record.is_manual ? "bg-orange-600/20 text-orange-300 border border-orange-500/30" : "bg-cyan-600/20 text-cyan-300 border border-cyan-500/30"}`}
-          >
-            {record.is_manual ? "Manual" : "Auto"}
-          </span>
+    classStartTime: string;
+    lateThresholdMinutes: number;
+    lateThresholdEnabled: boolean;
+  }) => {
+    // Calculate detailed time status
+    const calculateTimeStatus = () => {
+      try {
+        if (!classStartTime) return null;
+
+        // Parse class start time
+        const [startHours, startMinutes] = classStartTime.split(":").map(Number);
+
+        // Construct start date object based on record timestamp
+        // Handle midnight crossing: if start is late (e.g. 23:00) and record is early (e.g. 00:05),
+        // we might need to shift the start date to previous day.
+        // For simplicity in this UI-only calculation, we assume standard day first.
+        const startDate = new Date(record.timestamp);
+        startDate.setHours(startHours, startMinutes, 0, 0);
+
+        // Diff in minutes
+        const diffMs = record.timestamp.getTime() - startDate.getTime();
+        const diffMinutes = Math.floor(diffMs / 60000);
+
+        // Status thresholds
+        const severeLateThreshold = 30; // 30 mins late is severe
+        const earlyThreshold = -5; // 5 mins early
+
+        // LATE CHECK
+        if (lateThresholdEnabled && diffMinutes > lateThresholdMinutes) {
+          const minutesLate = diffMinutes - lateThresholdMinutes;
+          return {
+            status: minutesLate > severeLateThreshold ? "severe-late" : "late",
+            minutes: minutesLate,
+            label: `${minutesLate}m late`,
+            color: minutesLate > severeLateThreshold ? "text-rose-400" : "text-amber-400",
+            borderColor: minutesLate > severeLateThreshold ? "border-l-rose-500" : "border-l-amber-500",
+          };
+        }
+
+        // EARLY CHECK
+        if (diffMinutes < earlyThreshold) {
+          const minutesEarly = Math.abs(diffMinutes);
+          return {
+            status: "early",
+            minutes: minutesEarly,
+            label: `${minutesEarly}m early`,
+            color: "text-emerald-400",
+            borderColor: "border-l-emerald-500",
+          };
+        }
+
+        // ON TIME (Default, implicit)
+        // If neither early nor late, they are "On Time" (within grace or just before start)
+        return {
+          status: "on-time",
+          minutes: 0,
+          label: "On Time",
+          color: "text-slate-400",
+          borderColor: "border-l-transparent", // No border for on-time
+        };
+
+      } catch {
+        return null;
+      }
+    };
+
+    const timeStatus = calculateTimeStatus();
+
+    return (
+      <div
+        className={`text-xs bg-white/[0.02] border-b border-white/[0.05] p-2 relative group transition-colors hover:bg-white/[0.04] ${timeStatus?.status !== "on-time" ? `border-l-2 ${timeStatus?.borderColor}` : ""
+          }`}
+        title={classStartTime ? `Scheduled: ${classStartTime} | Late after: ${lateThresholdMinutes}m` : undefined}
+      >
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <span className="text-white/90 font-medium truncate max-w-[120px]">
+              {displayName}
+            </span>
+          </div>
+          <div className="text-right flex flex-col items-end">
+            <span className="text-white/50 text-[10px] font-mono">
+              {record.timestamp.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+            {timeStatus && timeStatus.status !== "on-time" && (
+              <span className={`text-[9px] font-bold uppercase tracking-wider ${timeStatus.color}`}>
+                {timeStatus.label}
+              </span>
+            )}
+          </div>
         </div>
-        <span className="text-white/50">
-          {record.timestamp.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </span>
       </div>
-    </div>
-  ),
+    );
+  },
 );
 
 AttendanceRecordItem.displayName = "AttendanceRecordItem";
@@ -58,6 +138,35 @@ export const AttendancePanel = memo(function AttendancePanel({
   } = useAttendanceStore();
 
   const { setShowSettings, setGroupInitialSection } = useUIStore();
+
+  // Late tracking settings derived from current group
+  // This ensures we match what the Settings modal shows/updates
+  const lateTrackingSettings = useMemo(() => {
+    if (!currentGroup?.settings) {
+      return {
+        lateThresholdEnabled: false,
+        lateThresholdMinutes: 5,
+        classStartTime: new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+      };
+    }
+
+    return {
+      lateThresholdEnabled:
+        currentGroup.settings.late_threshold_enabled ?? false,
+      lateThresholdMinutes: currentGroup.settings.late_threshold_minutes ?? 5,
+      classStartTime:
+        currentGroup.settings.class_start_time ??
+        new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+    };
+  }, [currentGroup]);
 
   const handleOpenSettingsForRegistration = useCallback(() => {
     setGroupInitialSection("members");
@@ -186,7 +295,7 @@ export const AttendancePanel = memo(function AttendancePanel({
                 }))}
                 value={
                   currentGroup &&
-                  attendanceGroups.some((g) => g.id === currentGroup.id)
+                    attendanceGroups.some((g) => g.id === currentGroup.id)
                     ? currentGroup.id
                     : null
                 }
@@ -280,6 +389,13 @@ export const AttendancePanel = memo(function AttendancePanel({
                     key={record.id}
                     record={record}
                     displayName={displayName}
+                    classStartTime={lateTrackingSettings.classStartTime}
+                    lateThresholdMinutes={
+                      lateTrackingSettings.lateThresholdMinutes
+                    }
+                    lateThresholdEnabled={
+                      lateTrackingSettings.lateThresholdEnabled
+                    }
                   />
                 );
               })}

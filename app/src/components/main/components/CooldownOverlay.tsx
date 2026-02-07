@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { CooldownInfo } from "@/components/main/types";
 
 interface CooldownOverlayProps {
-  trackingMode: "auto" | "manual";
+  // trackingMode removed
   persistentCooldowns: Map<string, CooldownInfo>;
   attendanceCooldownSeconds: number;
 }
@@ -49,7 +49,7 @@ const CooldownCard = memo(
 CooldownCard.displayName = "CooldownCard";
 
 export const CooldownOverlay = memo(function CooldownOverlay({
-  trackingMode,
+  // trackingMode removed
   persistentCooldowns,
   attendanceCooldownSeconds,
 }: CooldownOverlayProps) {
@@ -108,7 +108,7 @@ export const CooldownOverlay = memo(function CooldownOverlay({
   // (including when the last item disappears).
   return (
     <AnimatePresence>
-      {trackingMode === "auto" && activeItems.length > 0 ? (
+      {activeItems.length > 0 ? (
         <motion.div
           key="cooldown-overlay"
           initial={{ opacity: 0, y: -6 }}

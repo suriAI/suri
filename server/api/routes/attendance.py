@@ -455,7 +455,9 @@ async def get_sessions(
                 if group.late_threshold_minutes is not None
                 else 15
             )
-            class_start_time = group.class_start_time or "08:00"
+            class_start_time = group.class_start_time or datetime.now().strftime(
+                "%H:%M"
+            )
             late_threshold_enabled = group.late_threshold_enabled or False
 
             # Get members
@@ -638,7 +640,7 @@ async def get_group_stats(
 
         # Get the group's late threshold and class start time settings
         late_threshold_minutes = group.late_threshold_minutes or 15
-        class_start_time = group.class_start_time or "08:00"
+        class_start_time = group.class_start_time or datetime.now().strftime("%H:%M")
         late_threshold_enabled = group.late_threshold_enabled or False
 
         # Get existing sessions for the target date

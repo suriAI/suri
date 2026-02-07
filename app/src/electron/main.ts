@@ -521,8 +521,9 @@ ipcMain.handle("assets:list-recognition-sounds", async () => {
       .sort((a, b) => a.localeCompare(b));
 
     return files.map((fileName) => {
-      // URL served by Vite (dev) or from dist-react (prod)
-      const url = `/assets/sounds/${encodeURIComponent(fileName)}`;
+      // URL served by Vite (dev) or relative to index.html (prod)
+      // Use relative path (./assets/...) so it works with file:// protocol
+      const url = `./assets/sounds/${encodeURIComponent(fileName)}`;
       return { fileName, url };
     });
   } catch {
@@ -617,6 +618,8 @@ function createWindow(): void {
       webgl: true,
       // Disable zooming
       zoomFactor: 1.0,
+      // Disable DevTools in production
+      devTools: isDev(),
     },
     titleBarStyle: "hidden",
     transparent: true,
@@ -653,10 +656,10 @@ function createWindow(): void {
       if (y >= height - radius) {
         const offset = Math.ceil(
           radius -
-            Math.sqrt(
-              radius * radius -
-                (y - (height - radius)) * (y - (height - radius)),
-            ),
+          Math.sqrt(
+            radius * radius -
+            (y - (height - radius)) * (y - (height - radius)),
+          ),
         );
         startX = offset;
       }
@@ -665,10 +668,10 @@ function createWindow(): void {
       if (y >= height - radius) {
         const offset = Math.ceil(
           radius -
-            Math.sqrt(
-              radius * radius -
-                (y - (height - radius)) * (y - (height - radius)),
-            ),
+          Math.sqrt(
+            radius * radius -
+            (y - (height - radius)) * (y - (height - radius)),
+          ),
         );
         endX = width - offset;
       }
@@ -772,6 +775,12 @@ function createWindow(): void {
     }
   });
 
+  // PRODUCTION SECURITY: Disable Default Menu
+  if (!isDev()) {
+    // Remove default menu (File, Edit, etc.)
+    mainWindow.setMenu(null);
+  }
+
   // Handle renderer process crash or reload
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     console.log("[Main] Renderer process gone:", details.reason);
@@ -787,7 +796,7 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
-      shell.openExternal(url).catch(() => {});
+      shell.openExternal(url).catch(() => { });
     }
 
     return { action: "deny" };
@@ -802,7 +811,7 @@ function createWindow(): void {
     if (!isAllowed) {
       event.preventDefault();
       if (url.startsWith("http://") || url.startsWith("https://")) {
-        shell.openExternal(url).catch(() => {});
+        shell.openExternal(url).catch(() => { });
       }
     }
   });

@@ -19,7 +19,7 @@ export default function WindowFooter() {
         if (disposed) return;
         setUpdateInfo(updaterService.getCachedUpdateInfo());
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const unsubscribe = updaterService.onUpdateInfoChanged((info) => {
       if (disposed) return;
@@ -40,14 +40,7 @@ export default function WindowFooter() {
   };
 
   return (
-    <div className="w-full h-7 bg-black/90 flex items-center justify-between select-none flex-shrink-0 border-t border-white/[0.06] relative z-50 px-3">
-      {/* Left: System Status */}
-      <div className="flex items-center opacity-60 hover:opacity-100 transition-opacity">
-        <span className="text-[10px] font-medium text-white tracking-wide uppercase">
-          Active
-        </span>
-      </div>
-
+    <div className="w-full h-7 bg-black/90 flex items-center justify-end select-none flex-shrink-0 border-t border-white/[0.06] relative z-50 px-3">
       {/* Right: Version Info + Update Indicator */}
       <div className="flex items-center gap-2">
         {updateInfo?.hasUpdate && (

@@ -154,7 +154,17 @@ export function useReportTransform(
         let lateMinutes = finalSession?.late_minutes || 0;
 
         // If we have a check-in time and group settings are active
-        if (finalSession?.check_in_time && group.settings?.class_start_time) {
+        // Check if late tracking is enabled in settings
+        const isLateTrackingEnabled =
+          group.settings?.late_threshold_enabled ?? false;
+
+        if (!isLateTrackingEnabled) {
+          isLate = false;
+          lateMinutes = 0;
+        } else if (
+          finalSession?.check_in_time &&
+          group.settings?.class_start_time
+        ) {
           const checkIn = new Date(finalSession.check_in_time);
           const [startHour, startMinute] = group.settings.class_start_time
             .split(":")

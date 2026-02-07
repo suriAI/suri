@@ -54,7 +54,7 @@ class AttendanceService:
         members: List[Any],
         late_threshold_minutes: int,
         target_date: str,
-        class_start_time: str = "08:00",
+        class_start_time: str = None,
         late_threshold_enabled: bool = False,
         existing_sessions: Optional[List[Any]] = None,
     ) -> List[dict]:
@@ -76,6 +76,9 @@ class AttendanceService:
             records_by_person[person_id].append(record)
 
         # Parse class start time (format: "HH:MM")
+        if not class_start_time:
+            class_start_time = datetime.now().strftime("%H:%M")
+
         try:
             time_parts = class_start_time.split(":")
             day_start_hour = int(time_parts[0])
@@ -277,7 +280,7 @@ class AttendanceService:
         group = await self.repo.get_group(member.group_id)
 
         late_threshold_minutes = group.late_threshold_minutes or 15
-        class_start_time = group.class_start_time or "08:00"
+        class_start_time = group.class_start_time or datetime.now().strftime("%H:%M")
         late_threshold_enabled = group.late_threshold_enabled or False
 
         existing_session = await self.repo.get_session(event_data.person_id, today_str)
@@ -302,9 +305,29 @@ class AttendanceService:
                 day_start_minute = 0
 
             # Calculate if late (based on earliest check-in)
-            day_start = check_in_time.replace(
+            # LOGIC FOR MIDNIGHT CROSSING:
+            # If check_in is early morning (00:00-04:00) and class start is late (20:00-23:59),
+            # then check_in belongs to the "previous day" session context.
+            # We adjust day_start to match the check_in's logical day.
+
+            check_in_hour = check_in_time.hour
+            is_early_morning_arrival = 0 <= check_in_hour < 4
+            is_late_night_start = 20 <= day_start_hour <= 23
+
+            base_date = check_in_time
+            if is_early_morning_arrival and is_late_night_start:
+                # arrival is technically "next day", so start time should be yesterday relative to arrival
+                # which means we subtract a day from the base_date logic?
+                # Actually, simpler: construct day_start on the same day as check_in_time
+                # If day_start > check_in_time by a huge amount (e.g. 23:00 vs 00:05),
+                # it means day_start refers to YESTERDAY relative to check_in.
+                base_date = check_in_time - timedelta(days=1)
+
+            day_start = base_date.replace(
                 hour=day_start_hour, minute=day_start_minute, second=0, microsecond=0
             )
+
+            # Recalculate diff with the adjusted day_start
             time_diff_minutes = (check_in_time - day_start).total_seconds() / 60
             is_late = time_diff_minutes >= late_threshold_minutes
             late_minutes = (

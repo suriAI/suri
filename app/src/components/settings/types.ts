@@ -14,7 +14,6 @@ export interface AudioSettings {
 }
 
 export interface AttendanceSettings {
-  trackingMode: "auto" | "manual";
   lateThresholdEnabled: boolean;
   lateThresholdMinutes: number;
   classStartTime: string;

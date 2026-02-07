@@ -2,10 +2,8 @@ import type { AttendanceSettings } from "@/components/settings/types";
 
 interface AttendanceProps {
   attendanceSettings: AttendanceSettings;
-  onTrackingModeChange: (mode: "auto" | "manual") => void;
   onLateThresholdChange: (minutes: number) => void;
   onLateThresholdToggle: (enabled: boolean) => void;
-  onClassStartTimeChange: (time: string) => void;
   onReLogCooldownChange: (seconds: number) => void;
   onSpoofDetectionToggle: (enabled: boolean) => void;
   isStreaming?: boolean;
@@ -13,72 +11,14 @@ interface AttendanceProps {
 
 export function Attendance({
   attendanceSettings,
-  onTrackingModeChange,
   onLateThresholdChange,
   onLateThresholdToggle,
-  onClassStartTimeChange,
   onReLogCooldownChange,
   onSpoofDetectionToggle,
   isStreaming = false,
 }: AttendanceProps) {
-  // Calculate late time by adding minutes to class start time
-  const calculateLateTime = (startTime: string, minutes: number): string => {
-    try {
-      const [hours, mins] = startTime.split(":").map(Number);
-      let totalMinutes = hours * 60 + mins + minutes;
-      // Handle day overflow (wrap around to next day)
-      if (totalMinutes < 0) totalMinutes += 24 * 60;
-      totalMinutes = totalMinutes % (24 * 60);
-      const finalHours = Math.floor(totalMinutes / 60);
-      const finalMins = totalMinutes % 60;
-      return `${String(finalHours).padStart(2, "0")}:${String(finalMins).padStart(2, "0")}`;
-    } catch {
-      return startTime;
-    }
-  };
-
-  const lateTime = calculateLateTime(
-    attendanceSettings.classStartTime,
-    attendanceSettings.lateThresholdMinutes,
-  );
-
   return (
     <div className="space-y-4 max-w-3xl p-6">
-      {/* Tracking Mode Section */}
-      <div className="flex items-center py-3 border-b border-white/5 gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-white/90">
-            Capture Method
-          </div>
-          <div className="text-xs text-white/50 mt-0.5">
-            {attendanceSettings.trackingMode === "auto"
-              ? "Automatic detection"
-              : "Manual confirmation"}
-          </div>
-        </div>
-
-        <button
-          onClick={() =>
-            onTrackingModeChange(
-              attendanceSettings.trackingMode === "auto" ? "manual" : "auto",
-            )
-          }
-          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
-            attendanceSettings.trackingMode === "manual"
-              ? "bg-cyan-500/30"
-              : "bg-white/10"
-          }`}
-        >
-          <div
-            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
-              attendanceSettings.trackingMode === "manual"
-                ? "translate-x-5"
-                : "translate-x-0"
-            }`}
-          ></div>
-        </button>
-      </div>
-
       {/* Spoof Detection Section */}
       <div className="flex items-center py-3 border-b border-white/5 gap-4">
         <div className="flex-1 min-w-0">
@@ -97,18 +37,16 @@ export function Attendance({
             onSpoofDetectionToggle(!attendanceSettings.enableSpoofDetection)
           }
           disabled={isStreaming}
-          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
-            attendanceSettings.enableSpoofDetection
-              ? "bg-cyan-500/30"
-              : "bg-white/10"
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${attendanceSettings.enableSpoofDetection
+            ? "bg-cyan-500/30"
+            : "bg-white/10"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <div
-            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
-              attendanceSettings.enableSpoofDetection
-                ? "translate-x-5"
-                : "translate-x-0"
-            }`}
+            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.enableSpoofDetection
+              ? "translate-x-5"
+              : "translate-x-0"
+              }`}
           ></div>
         </button>
       </div>
@@ -160,18 +98,16 @@ export function Attendance({
               onLateThresholdToggle(!attendanceSettings.lateThresholdEnabled)
             }
             disabled={isStreaming}
-            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
-              attendanceSettings.lateThresholdEnabled
-                ? "bg-cyan-500/30"
-                : "bg-white/10"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${attendanceSettings.lateThresholdEnabled
+              ? "bg-cyan-500/30"
+              : "bg-white/10"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <div
-              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
-                attendanceSettings.lateThresholdEnabled
-                  ? "translate-x-5"
-                  : "translate-x-0"
-              }`}
+              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.lateThresholdEnabled
+                ? "translate-x-5"
+                : "translate-x-0"
+                }`}
             ></div>
           </button>
         </div>
@@ -179,33 +115,17 @@ export function Attendance({
         {/* Class Start Time */}
         {attendanceSettings.lateThresholdEnabled && (
           <>
-            <div className="flex items-center py-3 border-b border-white/5 gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white/90">
-                  Scheduled Start
-                </div>
-                <div className="text-xs text-white/50 mt-0.5">
-                  Official start time for the session
-                </div>
-              </div>
-
-              <input
-                type="time"
-                value={attendanceSettings.classStartTime}
-                onChange={(e) => onClassStartTimeChange(e.target.value)}
-                disabled={isStreaming}
-                className="px-3 py-2 bg-white/5 text-white text-sm border border-white/10 rounded-md focus:border-amber-500/50 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 ml-auto"
-              />
-            </div>
+            {/* Scheduled Start removed - now handled via main UI chip */}
 
             {/* Late Threshold */}
             <div className="flex items-center py-3 border-b border-white/5 gap-4">
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-white/90">
-                  Grace Period
+                  Late Threshold
                 </div>
                 <div className="text-xs text-white/50 mt-0.5">
-                  Marked as Late after {lateTime}
+                  Marked as Late after {attendanceSettings.lateThresholdMinutes}{" "}
+                  minutes
                 </div>
               </div>
 

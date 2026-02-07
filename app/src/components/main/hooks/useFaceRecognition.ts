@@ -53,7 +53,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
     setCurrentRecognitionResults,
     setTrackedFaces,
   } = useDetectionStore();
-  const { trackingMode, attendanceCooldownSeconds, setPersistentCooldowns } =
+  const { attendanceCooldownSeconds, setPersistentCooldowns } =
     useAttendanceStore();
   const { setError } = useUIStore();
 
@@ -87,7 +87,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
       if (now - lastAt <= 1200) return;
       lastSoundAtRef.current.set(soundKey, now);
 
-      soundEffects.play(audioSettings.recognitionSoundUrl).catch(() => {});
+      soundEffects.play(audioSettings.recognitionSoundUrl).catch(() => { });
     },
     [persistentCooldownsRef],
   );
@@ -211,7 +211,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                           confidence: face.confidence,
                         },
                       ],
-                      isLocked: trackingMode === "auto",
+                      isLocked: true,
                       personId: response.person_id ?? undefined,
                       occlusionCount: 0,
                       angleConsistency: 1.0,
@@ -246,135 +246,35 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                   try {
                     const actualConfidence = face.confidence;
 
-                    if (trackingMode === "auto") {
-                      const currentTime = Date.now();
-                      // Scoped Cooldown Key: personId + groupId
-                      // This ensures a student is only "blocked" for this specific class.
-                      // If they go to another class (different Group ID), they are fresh.
-                      const cooldownKey = `${response.person_id}-${currentGroupValue.id}`;
-                      const cooldownInfo =
-                        persistentCooldownsRef.current.get(cooldownKey);
-                      const authoritativeTimestamp =
-                        cooldownInfo?.startTime || 0;
-                      const timeSinceLastAttendance =
-                        currentTime - authoritativeTimestamp;
-                      const storedCooldownSeconds =
-                        cooldownInfo?.cooldownDurationSeconds ??
-                        attendanceCooldownSeconds;
-                      const storedCooldownMs = storedCooldownSeconds * 1000;
+                    // trackingMode check removed - always auto
+                    const currentTime = Date.now();
+                    // Scoped Cooldown Key: personId + groupId
+                    // This ensures a student is only "blocked" for this specific class.
+                    // If they go to another class (different Group ID), they are fresh.
+                    const cooldownKey = `${response.person_id}-${currentGroupValue.id}`;
+                    const cooldownInfo =
+                      persistentCooldownsRef.current.get(cooldownKey);
+                    const authoritativeTimestamp =
+                      cooldownInfo?.startTime || 0;
+                    const timeSinceLastAttendance =
+                      currentTime - authoritativeTimestamp;
+                    const storedCooldownSeconds =
+                      cooldownInfo?.cooldownDurationSeconds ??
+                      attendanceCooldownSeconds;
+                    const storedCooldownMs = storedCooldownSeconds * 1000;
 
-                      // "Visual" cooldown check (15s default)
-                      // If within visual cooldown, update bbox but DO NOT LOG
-                      if (timeSinceLastAttendance < storedCooldownMs) {
-                        startTransition(() => {
-                          setPersistentCooldowns((prev) => {
-                            const newPersistent = new Map(prev);
-                            const existing = newPersistent.get(cooldownKey);
-                            if (existing) {
-                              newPersistent.set(cooldownKey, {
-                                ...existing,
-                                lastKnownBbox: face.bbox,
-                              });
-                              (
-                                persistentCooldownsRef as React.RefObject<
-                                  Map<
-                                    string,
-                                    import("@/components/main/types").CooldownInfo
-                                  >
-                                >
-                              ).current = newPersistent;
-                              return newPersistent;
-                            }
-                            return prev;
-                          });
-                        });
-
-                        return {
-                          trackId,
-                          result: { ...response, name: memberName, memberName },
-                        };
-                      }
-
-                      // "Re-Log" cooldown check (30m default) - SPAM PROOFING
-                      // We need to fetch the reLogCooldownSeconds from store or use default
-                      const { reLogCooldownSeconds } =
-                        useAttendanceStore.getState();
-
-                      const reLogCooldownMs =
-                        (reLogCooldownSeconds ?? 1800) * 1000;
-
-                      const existingInState =
-                        persistentCooldownsRef.current?.get(cooldownKey);
-
-                      const lastLogTime = existingInState?.startTime || 0;
-                      const timeSinceLastLog = Date.now() - lastLogTime;
-
-                      // If the user is trying to log again, check if they are within the "Session Window" (30 mins)
-                      // If so, we treat it like a "Visual Cooldown" extension - we update bbox, but we DO NOT create a new event.
-                      if (
-                        existingInState &&
-                        timeSinceLastLog < reLogCooldownMs
-                      ) {
-                        // Update "last known" so the overlay follows them, but DO NOT fire logging event
-                        startTransition(() => {
-                          setPersistentCooldowns((prev) => {
-                            const newPersistent = new Map(prev);
-                            const existing = newPersistent.get(cooldownKey);
-                            if (existing) {
-                              // We just update the bbox to keep the "Done" overlay tracking them
-                              // We do NOT update startTime, because we want the 30min timer to keep ticking from the FIRST log.
-                              newPersistent.set(cooldownKey, {
-                                ...existing,
-                                memberName: memberName,
-                                lastKnownBbox: face.bbox,
-                              });
-                              (
-                                persistentCooldownsRef as React.RefObject<
-                                  Map<
-                                    string,
-                                    import("@/components/main/types").CooldownInfo
-                                  >
-                                >
-                              ).current = newPersistent;
-                              return newPersistent;
-                            }
-                            return prev;
-                          });
-                        });
-
-                        // Return early - NO NEW LOG sent to backend
-                        return {
-                          trackId,
-                          result: { ...response, name: memberName, memberName },
-                        };
-                      }
-
-                      // If we passed both checks, it is a legitimate NEW session log.
-                      const logTime = Date.now();
-
-                      const existingCooldownSeconds =
-                        existingInState?.cooldownDurationSeconds ??
-                        attendanceCooldownSeconds; // Uses the destructured variable from above
-                      const existingCooldownMs = existingCooldownSeconds * 1000;
-
-                      const existingInStateStillActive =
-                        existingInState &&
-                        logTime - existingInState.startTime <
-                          existingCooldownMs;
-
-                      if (!existingInStateStillActive) {
-                        startTransition(() => {
-                          setPersistentCooldowns((prev) => {
-                            const newPersistent = new Map(prev);
-                            const cooldownData = {
-                              personId: response.person_id!,
-                              startTime: logTime,
-                              memberName: memberName,
+                    // "Visual" cooldown check (15s default)
+                    // If within visual cooldown, update bbox but DO NOT LOG
+                    if (timeSinceLastAttendance < storedCooldownMs) {
+                      startTransition(() => {
+                        setPersistentCooldowns((prev) => {
+                          const newPersistent = new Map(prev);
+                          const existing = newPersistent.get(cooldownKey);
+                          if (existing) {
+                            newPersistent.set(cooldownKey, {
+                              ...existing,
                               lastKnownBbox: face.bbox,
-                              cooldownDurationSeconds:
-                                attendanceCooldownSeconds,
-                            };
-                            newPersistent.set(cooldownKey, cooldownData);
+                            });
                             (
                               persistentCooldownsRef as React.RefObject<
                                 Map<
@@ -384,70 +284,170 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                               >
                             ).current = newPersistent;
                             return newPersistent;
-                          });
+                          }
+                          return prev;
                         });
-                      } else {
-                        startTransition(() => {
-                          setPersistentCooldowns((prev) => {
-                            const newPersistent = new Map(prev);
-                            const existing = newPersistent.get(cooldownKey);
-                            if (existing) {
-                              newPersistent.set(cooldownKey, {
-                                ...existing,
-                                memberName: memberName,
-                                lastKnownBbox: face.bbox,
-                              });
-                              (
-                                persistentCooldownsRef as React.RefObject<
-                                  Map<
-                                    string,
-                                    import("@/components/main/types").CooldownInfo
-                                  >
+                      });
+
+                      return {
+                        trackId,
+                        result: { ...response, name: memberName, memberName },
+                      };
+                    }
+
+                    // "Re-Log" cooldown check (30m default) - SPAM PROOFING
+                    // We need to fetch the reLogCooldownSeconds from store or use default
+                    const { reLogCooldownSeconds } =
+                      useAttendanceStore.getState();
+
+                    const reLogCooldownMs =
+                      (reLogCooldownSeconds ?? 1800) * 1000;
+
+                    const existingInState =
+                      persistentCooldownsRef.current?.get(cooldownKey);
+
+                    const lastLogTime = existingInState?.startTime || 0;
+                    const timeSinceLastLog = Date.now() - lastLogTime;
+
+                    // If the user is trying to log again, check if they are within the "Session Window" (30 mins)
+                    // If so, we treat it like a "Visual Cooldown" extension - we update bbox, but we DO NOT create a new event.
+                    if (
+                      existingInState &&
+                      timeSinceLastLog < reLogCooldownMs
+                    ) {
+                      // Update "last known" so the overlay follows them, but DO NOT fire logging event
+                      startTransition(() => {
+                        setPersistentCooldowns((prev) => {
+                          const newPersistent = new Map(prev);
+                          const existing = newPersistent.get(cooldownKey);
+                          if (existing) {
+                            // We just update the bbox to keep the "Done" overlay tracking them
+                            // We do NOT update startTime, because we want the 30min timer to keep ticking from the FIRST log.
+                            newPersistent.set(cooldownKey, {
+                              ...existing,
+                              memberName: memberName,
+                              lastKnownBbox: face.bbox,
+                            });
+                            (
+                              persistentCooldownsRef as React.RefObject<
+                                Map<
+                                  string,
+                                  import("@/components/main/types").CooldownInfo
                                 >
-                              ).current = newPersistent;
-                            }
+                              >
+                            ).current = newPersistent;
                             return newPersistent;
-                          });
+                          }
+                          return prev;
                         });
-                      }
+                      });
 
-                      try {
-                        const attendanceEvent =
-                          await attendanceManager.processAttendanceEvent(
-                            response.person_id,
-                            actualConfidence,
-                            "LiveVideo Camera",
-                            face.liveness?.status,
-                            face.liveness?.confidence,
-                          );
+                      // Return early - NO NEW LOG sent to backend
+                      return {
+                        trackId,
+                        result: { ...response, name: memberName, memberName },
+                      };
+                    }
 
-                        if (attendanceEvent) {
-                          requestIdleCallback(
-                            () => {
-                              loadAttendanceDataRef
-                                .current()
-                                .catch((err) =>
-                                  console.error(
-                                    "Failed to refresh attendance:",
-                                    err,
-                                  ),
-                                );
-                            },
-                            { timeout: 500 },
-                          );
-                        }
-                        setError(null);
-                      } catch (attendanceError: unknown) {
-                        const errorMessage =
-                          attendanceError instanceof Error
-                            ? attendanceError.message
-                            : "Unknown error";
-                        setError(
-                          errorMessage ||
-                            `Failed to record attendance for ${response.person_id}`,
+                    // If we passed both checks, it is a legitimate NEW session log.
+                    const logTime = Date.now();
+
+                    const existingCooldownSeconds =
+                      existingInState?.cooldownDurationSeconds ??
+                      attendanceCooldownSeconds; // Uses the destructured variable from above
+                    const existingCooldownMs = existingCooldownSeconds * 1000;
+
+                    const existingInStateStillActive =
+                      existingInState &&
+                      logTime - existingInState.startTime <
+                      existingCooldownMs;
+
+                    if (!existingInStateStillActive) {
+                      startTransition(() => {
+                        setPersistentCooldowns((prev) => {
+                          const newPersistent = new Map(prev);
+                          const cooldownData = {
+                            personId: response.person_id!,
+                            startTime: logTime,
+                            memberName: memberName,
+                            lastKnownBbox: face.bbox,
+                            cooldownDurationSeconds:
+                              attendanceCooldownSeconds,
+                          };
+                          newPersistent.set(cooldownKey, cooldownData);
+                          (
+                            persistentCooldownsRef as React.RefObject<
+                              Map<
+                                string,
+                                import("@/components/main/types").CooldownInfo
+                              >
+                            >
+                          ).current = newPersistent;
+                          return newPersistent;
+                        });
+                      });
+                    } else {
+                      startTransition(() => {
+                        setPersistentCooldowns((prev) => {
+                          const newPersistent = new Map(prev);
+                          const existing = newPersistent.get(cooldownKey);
+                          if (existing) {
+                            newPersistent.set(cooldownKey, {
+                              ...existing,
+                              memberName: memberName,
+                              lastKnownBbox: face.bbox,
+                            });
+                            (
+                              persistentCooldownsRef as React.RefObject<
+                                Map<
+                                  string,
+                                  import("@/components/main/types").CooldownInfo
+                                >
+                              >
+                            ).current = newPersistent;
+                          }
+                          return newPersistent;
+                        });
+                      });
+                    }
+
+                    try {
+                      const attendanceEvent =
+                        await attendanceManager.processAttendanceEvent(
+                          response.person_id,
+                          actualConfidence,
+                          "LiveVideo Camera",
+                          face.liveness?.status,
+                          face.liveness?.confidence,
+                        );
+
+                      if (attendanceEvent) {
+                        requestIdleCallback(
+                          () => {
+                            loadAttendanceDataRef
+                              .current()
+                              .catch((err) =>
+                                console.error(
+                                  "Failed to refresh attendance:",
+                                  err,
+                                ),
+                              );
+                          },
+                          { timeout: 500 },
                         );
                       }
+                      setError(null);
+                    } catch (attendanceError: unknown) {
+                      const errorMessage =
+                        attendanceError instanceof Error
+                          ? attendanceError.message
+                          : "Unknown error";
+                      setError(
+                        errorMessage ||
+                        `Failed to record attendance for ${response.person_id}`,
+                      );
                     }
+
                   } catch (error) {
                     console.error("❌ Attendance processing failed:", error);
                     setError(
@@ -568,7 +568,6 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
       }
     },
     [
-      trackingMode,
       attendanceCooldownSeconds,
       attendanceEnabled,
       backendServiceRef,

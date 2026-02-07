@@ -60,7 +60,7 @@ export default function Main() {
 
   const lastDetectionRef = useRef<DetectionResult | null>(null);
   const lastFrameTimestampRef = useRef<number>(0);
-  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => {});
+  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => { });
   const fpsTrackingRef = useRef({
     timestamps: [] as number[],
     maxSamples: 10,
@@ -95,15 +95,13 @@ export default function Main() {
     currentGroup,
     setCurrentGroup,
     attendanceGroups,
-    groupMembers,
     showGroupManagement,
     setShowGroupManagement,
     showDeleteConfirmation,
     groupToDelete,
     newGroupName,
     setNewGroupName,
-    trackingMode,
-    setTrackingMode,
+    // trackingMode removed
     attendanceCooldownSeconds,
     setAttendanceCooldownSeconds,
     reLogCooldownSeconds,
@@ -219,8 +217,7 @@ export default function Main() {
     loadAttendanceDataRef,
   });
 
-  // 8. Overlay Rendering Hook
-  const { getVideoRect, calculateScaleFactors, animate, resetOverlayRefs } =
+  const { animate, resetOverlayRefs } =
     useOverlayRendering({
       videoRef,
       overlayCanvasRef,
@@ -310,6 +307,30 @@ export default function Main() {
     startCamera();
   }, [currentGroup, requestGroupSelection, startCamera]);
 
+  // Handle start time changes from inline chip
+  const handleStartTimeChange = useCallback(
+    async (newTime: string) => {
+      if (!currentGroup) return;
+
+      try {
+        const updatedSettings = {
+          ...currentGroup.settings,
+          class_start_time: newTime,
+        };
+        await attendanceManager.updateGroup(currentGroup.id, {
+          settings: updatedSettings,
+        });
+        setCurrentGroup({
+          ...currentGroup,
+          settings: updatedSettings,
+        });
+      } catch (error) {
+        console.error("Failed to update start time:", error);
+      }
+    },
+    [currentGroup, setCurrentGroup],
+  );
+
   // Set the ref after stopCamera is defined
   useEffect(() => {
     stopCameraRef.current = stopCamera;
@@ -343,31 +364,7 @@ export default function Main() {
     }
   }, []);
 
-  const handleManualLog = async (
-    personId: string,
-    _name: string,
-    confidence: number,
-  ) => {
-    try {
-      const attendanceEvent = await attendanceManager.processAttendanceEvent(
-        personId,
-        confidence,
-        "LiveVideo Camera - Manual Log",
-      );
 
-      if (attendanceEvent) {
-        setTimeout(async () => {
-          await loadAttendanceDataRef.current();
-        }, 100);
-      }
-      setError(null);
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error(`Manual attendance logging failed:`, errorMessage);
-      setError(errorMessage || "Failed to log attendance manually");
-    }
-  };
 
   // ===== REMAINING USEEFFECTS =====
 
@@ -552,19 +549,13 @@ export default function Main() {
               isVideoLoading={isVideoLoading}
               isStreaming={isStreaming}
               hasSelectedGroup={Boolean(currentGroup)}
-              trackingMode={trackingMode}
-              currentDetections={currentDetections}
-              currentRecognitionResults={currentRecognitionResults}
-              recognitionEnabled={recognitionEnabled}
-              groupMembers={groupMembers}
-              handleManualLog={handleManualLog}
-              getVideoRect={getVideoRect}
-              calculateScaleFactors={calculateScaleFactors}
+            // trackingMode removed
+
             />
 
             {/* New Cooldown Overlay */}
             <CooldownOverlay
-              trackingMode={trackingMode}
+              // trackingMode removed
               persistentCooldowns={persistentCooldowns}
               attendanceCooldownSeconds={attendanceCooldownSeconds}
             />
@@ -579,6 +570,12 @@ export default function Main() {
             stopCamera={stopCamera}
             hasSelectedGroup={Boolean(currentGroup)}
             requestGroupSelection={requestGroupSelection}
+            lateTrackingEnabled={
+              (currentGroup?.settings as { late_threshold_enabled?: boolean })
+                ?.late_threshold_enabled ?? false
+            }
+            classStartTime={currentGroup?.settings?.class_start_time ?? "08:00"}
+            onStartTimeChange={handleStartTimeChange}
           />
         </div>
 
@@ -636,7 +633,7 @@ export default function Main() {
             audioSettings={audioSettings}
             onAudioSettingsChange={setAudioSettings}
             attendanceSettings={{
-              trackingMode: trackingMode,
+              // trackingMode removed
               lateThresholdEnabled:
                 (currentGroup?.settings as { late_threshold_enabled?: boolean })
                   ?.late_threshold_enabled ?? false,
@@ -649,9 +646,7 @@ export default function Main() {
               enableSpoofDetection: enableSpoofDetection,
             }}
             onAttendanceSettingsChange={async (updates) => {
-              if (updates.trackingMode !== undefined) {
-                setTrackingMode(updates.trackingMode);
-              }
+              // trackingMode update logic removed
 
               if (updates.enableSpoofDetection !== undefined) {
                 setEnableSpoofDetection(updates.enableSpoofDetection);

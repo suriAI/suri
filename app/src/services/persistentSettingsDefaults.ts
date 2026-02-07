@@ -15,7 +15,6 @@ export interface PersistentSettingsSchema {
   // Attendance Settings
   attendance: {
     enableSpoofDetection: boolean;
-    trackingMode: "auto" | "manual";
     lateThresholdEnabled: boolean;
     lateThresholdMinutes: number;
     classStartTime: string;
@@ -66,13 +65,12 @@ export const defaultSettings: PersistentSettingsSchema = {
     cameraMirrored: true,
   },
   audio: {
-    // Default ON on first start (can still be toggled off by user)
+    // Default ON with Default.mp3 on first start
     recognitionSoundEnabled: true,
-    recognitionSoundUrl: null,
+    recognitionSoundUrl: "./assets/sounds/Default.mp3",
   },
   attendance: {
     enableSpoofDetection: true,
-    trackingMode: "auto",
     lateThresholdEnabled: false,
     lateThresholdMinutes: 5,
     classStartTime: "00:00",
