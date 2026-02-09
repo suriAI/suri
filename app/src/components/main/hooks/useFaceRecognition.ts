@@ -87,7 +87,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
       if (now - lastAt <= 1200) return;
       lastSoundAtRef.current.set(soundKey, now);
 
-      soundEffects.play(audioSettings.recognitionSoundUrl).catch(() => {});
+      soundEffects.play(audioSettings.recognitionSoundUrl).catch(() => { });
     },
     [persistentCooldownsRef],
   );
@@ -166,22 +166,21 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
               }
 
               const { memberName } = memberResult;
-
-              const trackedFaceId = `track_${face.track_id}`;
+              const trackIdStr = `track_${face.track_id}`; // Unified track ID format
               const currentTime = Date.now();
 
               startTransition(() => {
                 setTrackedFaces((prev) => {
                   const newTracked = new Map(prev);
                   const currentLivenessStatus = face.liveness?.status;
-                  const existingTrack = newTracked.get(trackedFaceId);
+                  const existingTrack = newTracked.get(trackIdStr);
 
                   if (existingTrack) {
                     existingTrack.lastSeen = currentTime;
-                    existingTrack.confidence = Math.max(
-                      existingTrack.confidence,
-                      face.confidence,
-                    );
+                    // Keep existing confidence if it's higher (standard tracking update)
+                    // But if this is a fresh recognition, maybe we should take the new one?
+                    // Let's stick to update logic:
+                    existingTrack.confidence = face.confidence; // Update with current confidence
                     existingTrack.trackingHistory.push({
                       timestamp: currentTime,
                       bbox: face.bbox,
@@ -197,10 +196,13 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                       ) ?? 1.0;
                     existingTrack.livenessStatus = currentLivenessStatus;
 
+                    // RE-BIND IDENTITY (Just in case it was lost/reset, though unlikely here)
+                    existingTrack.personId = response.person_id ?? undefined;
+
                     newTracked.set(existingTrack.id, existingTrack);
                   } else {
-                    newTracked.set(trackedFaceId, {
-                      id: trackedFaceId,
+                    newTracked.set(trackIdStr, {
+                      id: trackIdStr,
                       bbox: face.bbox,
                       confidence: face.confidence,
                       lastSeen: currentTime,
@@ -438,7 +440,7 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                           : "Unknown error";
                       setError(
                         errorMessage ||
-                          `Failed to record attendance for ${response.person_id}`,
+                        `Failed to record attendance for ${response.person_id}`,
                       );
                     }
                   } catch (error) {
@@ -455,33 +457,98 @@ export function useFaceRecognition(options: UseFaceRecognitionOptions) {
                 result: { ...response, name: memberName, memberName },
               };
             } else if (response.success) {
-              const faceId = `unknown_track_${face.track_id}`;
+              // "Unknown" response - BUT check if we have memory of this track!
+              const trackIdStr = `track_${face.track_id}`; // Unified track ID format (was unknown_track_)
               const currentTime = Date.now();
 
-              startTransition(() => {
-                setTrackedFaces((prev) => {
-                  const newTracked = new Map(prev);
-                  newTracked.set(faceId, {
-                    id: faceId,
-                    bbox: face.bbox,
-                    confidence: face.confidence,
-                    lastSeen: currentTime,
-                    trackingHistory: [
-                      {
+              // Check store for existing identity
+              const existingTrack = useDetectionStore.getState().trackedFaces.get(trackIdStr);
+              const knownPersonId = existingTrack?.personId;
+
+              // If we know who this is, recover the identity!
+              let recoveredMemberName = "";
+              let recoveredPersonId: string | null = null;
+
+              if (knownPersonId) {
+                const member = await getMemberFromCache(
+                  knownPersonId,
+                  currentGroupValue,
+                  memberCacheRef
+                );
+                if (member) {
+                  recoveredMemberName = member.memberName;
+                  recoveredPersonId = knownPersonId;
+                }
+              }
+
+              if (recoveredPersonId) {
+                // ** MEMORY HIT **
+                // Treat this exactly like a successful recognition
+
+                // Update track state
+                startTransition(() => {
+                  setTrackedFaces((prev) => {
+                    const newTracked = new Map(prev);
+                    const track = newTracked.get(trackIdStr);
+                    if (track) {
+                      track.lastSeen = currentTime;
+                      track.confidence = face.confidence;
+                      track.trackingHistory.push({
                         timestamp: currentTime,
                         bbox: face.bbox,
                         confidence: face.confidence,
-                      },
-                    ],
-                    isLocked: false,
-                    personId: undefined,
-                    occlusionCount: 0,
-                    angleConsistency: 1.0,
-                    livenessStatus: face.liveness?.status,
+                      });
+                      track.trackingHistory = trimTrackingHistory(track.trackingHistory);
+                      // Keep occlusion/angle logic...
+                      newTracked.set(trackIdStr, track);
+                    }
+                    return newTracked;
                   });
-                  return newTracked;
                 });
-              });
+
+                // Return SUCCESS result to UI so it stays Green
+                // (We can optionally mark it as "memory" if we want UI to know)
+                return {
+                  trackId,
+                  result: {
+                    success: true,
+                    person_id: recoveredPersonId,
+                    similarity: 0.99, // Fake high similarity to keep it solid
+                    processing_time: 0,
+                    name: recoveredMemberName,
+                    memberName: recoveredMemberName,
+                    error: null,
+                  },
+                };
+
+              } else {
+                // ** TRUE UNKNOWN **
+                startTransition(() => {
+                  setTrackedFaces((prev) => {
+                    const newTracked = new Map(prev);
+                    // Create new track with NO identity
+                    newTracked.set(trackIdStr, {
+                      id: trackIdStr,
+                      bbox: face.bbox,
+                      confidence: face.confidence,
+                      lastSeen: currentTime,
+                      trackingHistory: [
+                        {
+                          timestamp: currentTime,
+                          bbox: face.bbox,
+                          confidence: face.confidence,
+                        },
+                      ],
+                      isLocked: false,
+                      personId: undefined,
+                      occlusionCount: 0,
+                      angleConsistency: 1.0,
+                      livenessStatus: face.liveness?.status,
+                    });
+                    return newTracked;
+                  });
+                });
+              }
             }
           } catch {
             // Ignore individual face recognition errors
