@@ -54,7 +54,7 @@ export default function WindowBar() {
         <img
           src="./icons/suri_mark_logo_transparent.png"
           alt="Suri"
-          className="w-5 h-5 object-contain opacity-90"
+          className="w-8 h-8 object-contain opacity-90 -ml-3 mr-1"
         />
 
         {/* Branding Container */}
