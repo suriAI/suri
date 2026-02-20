@@ -22,8 +22,13 @@ export default defineConfig({
         },
         assetFileNames: (assetInfo) => {
           // Keep fonts in their original structure
-          if (assetInfo.name && assetInfo.name.endsWith(".ttf")) {
-            return "fonts/inter/[name][extname]";
+          if (
+            assetInfo.name &&
+            (assetInfo.name.endsWith(".ttf") ||
+              assetInfo.name.endsWith(".woff2") ||
+              assetInfo.name.endsWith(".woff"))
+          ) {
+            return "fonts/[name][extname]";
           }
           return "assets/[name]-[hash][extname]";
         },
