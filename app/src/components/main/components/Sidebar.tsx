@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, memo, useRef } from "react";
+import { motion } from "framer-motion";
 import type {
   AttendanceGroup,
   DetectionResult,
@@ -226,11 +227,10 @@ export const Sidebar = memo(function Sidebar({
             }}
           >
             <div
-              className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${
-                isResizing
-                  ? "bg-blue-500/70 h-16"
-                  : "bg-white/10 group-hover:bg-blue-500/50"
-              }`}
+              className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${isResizing
+                ? "bg-blue-500/70 h-16"
+                : "bg-white/10 group-hover:bg-blue-500/50"
+                }`}
             />
           </div>
         )}
@@ -261,15 +261,24 @@ export const Sidebar = memo(function Sidebar({
             </button>
 
             {/* Settings Button - Top Right */}
-            <button
+            <motion.button
               onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center w-9 h-9 hover:bg-white/[0.08] bg-transparent border-none transition-all duration-200 hover:scale-105 active:scale-95 group"
+              className="flex items-center justify-center w-9 h-9 bg-transparent border-none group rounded-lg"
               title="Settings (Ctrl+,)"
               disabled={isCollapsed}
               aria-label="Open Settings"
+              initial="initial"
+              whileHover="hover"
             >
-              <i className="fa-solid fa-gear text-white/50 group-hover:text-white text-base transition-colors"></i>
-            </button>
+              <motion.i
+                className="fa-solid fa-gear text-white/50 group-hover:text-white text-base transition-colors"
+                variants={{
+                  initial: { rotate: 0 },
+                  hover: { rotate: 90 }
+                }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              ></motion.i>
+            </motion.button>
           </div>
         </div>
 
@@ -321,14 +330,23 @@ export const Sidebar = memo(function Sidebar({
             <div className="w-8 h-px bg-white/[0.06] my-1"></div>
 
             {/* Settings Icon */}
-            <button
+            <motion.button
               onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center w-11 h-11 hover:bg-white/[0.08] bg-transparent border-none transition-all duration-200 hover:scale-105 active:scale-95 group"
+              className="flex items-center justify-center w-11 h-11 bg-transparent border-none group rounded-xl"
               title="Settings (Ctrl+,)"
               aria-label="Open Settings"
+              initial="initial"
+              whileHover="hover"
             >
-              <i className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"></i>
-            </button>
+              <motion.i
+                className="fa-solid fa-gear text-white/70 group-hover:text-white text-base transition-colors"
+                variants={{
+                  initial: { rotate: 0 },
+                  hover: { rotate: 90 }
+                }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              ></motion.i>
+            </motion.button>
           </div>
         )}
       </div>
