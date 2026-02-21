@@ -174,7 +174,6 @@ export default function Main() {
     loadAttendanceDataRef,
     handleSelectGroup,
     handleCreateGroup,
-    handleDeleteGroup,
     confirmDeleteGroup,
     cancelDeleteGroup,
   } = useAttendanceGroups();
@@ -589,13 +588,9 @@ export default function Main() {
       <GroupManagementModal
         showGroupManagement={showGroupManagement}
         setShowGroupManagement={setShowGroupManagement}
-        attendanceGroups={attendanceGroups}
-        currentGroup={currentGroup}
         newGroupName={newGroupName}
         setNewGroupName={setNewGroupName}
         handleCreateGroup={handleCreateGroup}
-        handleSelectGroup={handleSelectGroup}
-        handleDeleteGroup={handleDeleteGroup}
       />
 
       {showSettings && (

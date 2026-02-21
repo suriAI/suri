@@ -30,69 +30,70 @@ const AttendanceRecordItem = memo(
     lateThresholdMinutes: number;
     lateThresholdEnabled: boolean;
   }) => {
-    // Calculate detailed time status
     const calculateTimeStatus = () => {
       try {
         if (!classStartTime) return null;
 
-        // Parse class start time
         const [startHours, startMinutes] = classStartTime
           .split(":")
           .map(Number);
 
-        // Construct start date object based on record timestamp
-        // Handle midnight crossing: if start is late (e.g. 23:00) and record is early (e.g. 00:05),
-        // we might need to shift the start date to previous day.
-        // For simplicity in this UI-only calculation, we assume standard day first.
         const startDate = new Date(record.timestamp);
         startDate.setHours(startHours, startMinutes, 0, 0);
 
-        // Diff in minutes
         const diffMs = record.timestamp.getTime() - startDate.getTime();
         const diffMinutes = Math.floor(diffMs / 60000);
 
-        // Status thresholds
-        const severeLateThreshold = 30; // 30 mins late is severe
-        const earlyThreshold = -5; // 5 mins early
+        const severeLateThreshold = 30;
+        const earlyThreshold = -5;
 
-        // LATE CHECK
         if (lateThresholdEnabled && diffMinutes > lateThresholdMinutes) {
           const minutesLate = diffMinutes - lateThresholdMinutes;
           return {
             status: minutesLate > severeLateThreshold ? "severe-late" : "late",
             minutes: minutesLate,
-            label: `${minutesLate}m late`,
+            label: `${minutesLate}M LATE`,
             color:
               minutesLate > severeLateThreshold
                 ? "text-rose-400"
                 : "text-amber-400",
+            pillColor:
+              minutesLate > severeLateThreshold
+                ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                : "bg-amber-500/15 text-amber-400 border-amber-500/30",
             borderColor:
               minutesLate > severeLateThreshold
                 ? "border-l-rose-500"
                 : "border-l-amber-500",
+            avatarColor:
+              minutesLate > severeLateThreshold
+                ? "bg-rose-500/20 text-rose-400"
+                : "bg-amber-500/20 text-amber-400",
           };
         }
 
-        // EARLY CHECK
         if (lateThresholdEnabled && diffMinutes < earlyThreshold) {
           const minutesEarly = Math.abs(diffMinutes);
           return {
             status: "early",
             minutes: minutesEarly,
-            label: `${minutesEarly}m early`,
+            label: `${minutesEarly}M EARLY`,
             color: "text-emerald-400",
+            pillColor:
+              "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
             borderColor: "border-l-emerald-500",
+            avatarColor: "bg-emerald-500/20 text-emerald-400",
           };
         }
 
-        // ON TIME (Default, implicit)
-        // If neither early nor late, they are "On Time" (within grace or just before start)
         return {
           status: "on-time",
           minutes: 0,
-          label: "On Time",
+          label: "ON TIME",
           color: "text-slate-400",
-          borderColor: "border-l-transparent", // No border for on-time
+          pillColor: null,
+          borderColor: "border-l-transparent",
+          avatarColor: "bg-white/10 text-white/60",
         };
       } catch {
         return null;
@@ -103,37 +104,34 @@ const AttendanceRecordItem = memo(
 
     return (
       <div
-        className={`text-xs bg-white/[0.02] border-b border-white/[0.05] p-2 relative group transition-colors hover:bg-white/[0.04] ${
-          timeStatus?.status !== "on-time"
-            ? `border-l-2 ${timeStatus?.borderColor}`
-            : ""
-        }`}
+        className={`border-b border-white/[0.05] px-3 py-2.5 relative group transition-colors hover:bg-white/[0.03] border-l-2 ${timeStatus?.borderColor ?? "border-l-transparent"}`}
         title={
           classStartTime
             ? `Scheduled: ${classStartTime} | Late after: ${lateThresholdMinutes}m`
             : undefined
         }
       >
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <span className="text-white/90 font-medium truncate max-w-[120px]">
-              {displayName}
-            </span>
-          </div>
-          <div className="text-right flex flex-col items-end">
-            <span className="text-white/50 text-[10px] font-mono">
+        <div className="flex items-center gap-2 py-0.5">
+          {/* Name */}
+          <span className="flex-1 min-w-0 text-[12px] font-medium text-white/90 truncate">
+            {displayName}
+          </span>
+
+          {/* Status pill + Time — same line */}
+          <div className="flex-shrink-0 flex items-center gap-1.5">
+            {timeStatus && timeStatus.status !== "on-time" && (
+              <span
+                className={`px-1.5 py-px text-[9px] font-bold tracking-wider rounded border ${timeStatus.pillColor}`}
+              >
+                {timeStatus.label}
+              </span>
+            )}
+            <span className="text-[11px] font-mono text-white/40 tabular-nums">
               {record.timestamp.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </span>
-            {timeStatus && timeStatus.status !== "on-time" && (
-              <span
-                className={`text-[9px] font-bold uppercase tracking-wider ${timeStatus.color}`}
-              >
-                {timeStatus.label}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -293,7 +291,7 @@ export const AttendancePanel = memo(function AttendancePanel({
   if (!attendanceEnabled) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <h3 className="text-lg font-light px-4 pt-4 pb-2 flex-shrink-0">
+        <h3 className="text-lg font-light px-4 pt-4 flex-shrink-0">
           Recent Logs
         </h3>
         <div className="flex-1 px-4 pb-4 overflow-y-auto space-y-2 min-h-0">
@@ -308,7 +306,7 @@ export const AttendancePanel = memo(function AttendancePanel({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {attendanceGroups.length > 0 ? (
-        <div className="p-2 pb-2 flex-shrink-0">
+        <div className="p-2 pb-1.5 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-[120px]">
               <Dropdown
@@ -318,7 +316,7 @@ export const AttendancePanel = memo(function AttendancePanel({
                 }))}
                 value={
                   currentGroup &&
-                  attendanceGroups.some((g) => g.id === currentGroup.id)
+                    attendanceGroups.some((g) => g.id === currentGroup.id)
                     ? currentGroup.id
                     : null
                 }
@@ -374,36 +372,41 @@ export const AttendancePanel = memo(function AttendancePanel({
       )}
 
       {recentAttendance.length > 0 && (
-        <div className="px-2 pb-2 flex-shrink-0">
-          <div className="flex items-center gap-3 text-[8px]">
+        <div className="px-2 flex-shrink-0 space-y-1.5">
+          {/* Search */}
+          <div className="relative">
+            <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30 text-[10px] pointer-events-none" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search name..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="flex-1 bg-white/[0.05] text-white text-xs border border-white/[0.1] rounded px-3 py-1.5 min-w-0 placeholder:text-white/30 focus:border-blue-500 focus:outline-none"
+              className="w-full bg-white/[0.05] text-white text-[11px] border border-white/[0.08] rounded-md pl-7 pr-3 py-1.5 placeholder:text-white/25 focus:border-white/20 focus:outline-none transition-colors"
             />
+          </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="min-w-[100px]">
-                <Dropdown
-                  options={[
-                    { value: "time", label: "Time (Newest)" },
-                    { value: "name", label: "Name (A-Z)" },
-                  ]}
-                  value={sortField}
-                  onChange={handleSortFieldChange}
-                  placeholder="Sort by..."
-                  emptyMessage="No options available"
-                  maxHeight={256}
-                  buttonClassName="text-[8px] py-1.5"
-                  optionClassName="text-[8px]"
-                  iconClassName="text-[8px]"
-                  allowClear={false}
-                  showPlaceholderOption={false}
-                />
-              </div>
-            </div>
+          {/* Sort toggle */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => handleSortFieldChange("time")}
+              className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${sortField === "time"
+                ? "bg-white/10 text-white border border-white/15"
+                : "text-white/40 hover:text-white/60 hover:bg-white/[0.04]"
+                }`}
+            >
+              <i className="fa-regular fa-clock mr-1 text-[9px]" />
+              Newest
+            </button>
+            <button
+              onClick={() => handleSortFieldChange("name")}
+              className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${sortField === "name"
+                ? "bg-white/10 text-white border border-white/15"
+                : "text-white/40 hover:text-white/60 hover:bg-white/[0.04]"
+                }`}
+            >
+              <i className="fa-solid fa-arrow-down-a-z mr-1 text-[9px]" />
+              A–Z
+            </button>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { attendanceManager } from "@/services/AttendanceManager";
 import { Dropdown } from "@/components/shared";
+import { ModalCloseButton } from "@/components/common";
 import type { AttendanceMember } from "@/components/main/types";
 
 interface ManualEntryModalProps {
@@ -58,12 +59,12 @@ export const ManualEntryModal = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm bg-[#09090b]/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="w-full max-w-sm bg-[#09090b]/95 border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5">
           {/* Header */}
-          <div className="flex justify-between items-center mb-5">
+          <div className="flex justify-between items-start mb-5">
             <div>
               <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
                 <i className="fa-solid fa-users text-blue-400 text-sm"></i>
@@ -73,12 +74,7 @@ export const ManualEntryModal = ({
                 {members.length} Total • {presentPersonIds.size} Present
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all"
-            >
-              <i className="fa-solid fa-xmark text-xs"></i>
-            </button>
+            <ModalCloseButton onClick={onClose} />
           </div>
 
           {/* Content */}
