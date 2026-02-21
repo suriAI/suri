@@ -25,7 +25,7 @@ export function Display({ quickSettings, toggleQuickSetting }: DisplayProps) {
   ];
 
   return (
-    <div className="space-y-6 max-w-auto p-6">
+    <div className="space-y-6 max-w-auto p-10">
       <div className="space-y-4">
         {settingItems.map(({ key, label, description }) => (
           <div

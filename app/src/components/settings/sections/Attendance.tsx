@@ -18,7 +18,7 @@ export function Attendance({
   hasSelectedGroup = false,
 }: AttendanceProps) {
   return (
-    <div className="space-y-4 max-w-auto p-6">
+    <div className="space-y-4 max-w-auto p-10">
       {/* Spoof Detection Section */}
       <div className="flex items-center py-3 border-b border-white/5 gap-4">
         <div className="flex-1 min-w-0">
@@ -37,14 +37,14 @@ export function Attendance({
             onSpoofDetectionToggle(!attendanceSettings.enableSpoofDetection)
           }
           className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${attendanceSettings.enableSpoofDetection
-              ? "bg-cyan-500/30"
-              : "bg-white/10"
+            ? "bg-cyan-500/30"
+            : "bg-white/10"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <div
             className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.enableSpoofDetection
-                ? "translate-x-5"
-                : "translate-x-0"
+              ? "translate-x-5"
+              : "translate-x-0"
               }`}
           ></div>
         </button>
@@ -99,14 +99,14 @@ export function Attendance({
             }
             disabled={!hasSelectedGroup}
             className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${attendanceSettings.lateThresholdEnabled
-                ? "bg-cyan-500/30"
-                : "bg-white/10"
+              ? "bg-cyan-500/30"
+              : "bg-white/10"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <div
               className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.lateThresholdEnabled
-                  ? "translate-x-5"
-                  : "translate-x-0"
+                ? "translate-x-5"
+                : "translate-x-0"
                 }`}
             ></div>
           </button>
