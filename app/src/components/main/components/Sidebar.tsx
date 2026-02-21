@@ -76,23 +76,11 @@ export const Sidebar = memo(function Sidebar({
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
   useEffect(() => {
-    let disposed = false;
-
-    updaterService
-      .waitForInitialization()
-      .then(() => {
-        if (disposed) return;
-        setUpdateInfo(updaterService.getCachedUpdateInfo());
-      })
-      .catch(() => { });
-
     const unsubscribe = updaterService.onUpdateInfoChanged((info) => {
-      if (disposed) return;
       setUpdateInfo(info);
     });
 
     return () => {
-      disposed = true;
       unsubscribe();
     };
   }, []);
@@ -254,8 +242,8 @@ export const Sidebar = memo(function Sidebar({
           >
             <div
               className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${isResizing
-                  ? "bg-blue-500/70 h-16"
-                  : "bg-white/10 group-hover:bg-blue-500/50"
+                ? "bg-blue-500/70 h-16"
+                : "bg-white/10 group-hover:bg-blue-500/50"
                 }`}
             />
           </div>

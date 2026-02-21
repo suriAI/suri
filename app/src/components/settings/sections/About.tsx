@@ -4,7 +4,7 @@
  * Clean about page with privacy modal for detailed information.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { updaterService } from "@/services";
 import type { UpdateInfo } from "@/types/global";
 
@@ -251,8 +251,8 @@ const UpdateStatus: React.FC<UpdateStatusProps> = ({
         onClick={onCheck}
         disabled={isChecking || showSuccess}
         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${showSuccess
-            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/5"
+          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+          : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/5"
           } disabled:opacity-50`}
       >
         {isChecking
@@ -276,6 +276,7 @@ export const About: React.FC = () => {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     updaterService.getVersion().then(setVersion);
@@ -305,6 +306,10 @@ export const About: React.FC = () => {
   const handleCheckForUpdates = useCallback(async () => {
     setIsChecking(true);
     setShowSuccess(false);
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
     try {
       const info = await updaterService.checkForUpdates(true);
       setUpdateInfo(info);
@@ -313,11 +318,23 @@ export const About: React.FC = () => {
       // Show success state if no update found
       if (!info.hasUpdate) {
         setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 5000);
+        successTimerRef.current = setTimeout(() => {
+          setShowSuccess(false);
+          successTimerRef.current = null;
+        }, 5000);
       }
     } finally {
       setIsChecking(false);
     }
+  }, []);
+
+  // Cleanup the success timer on unmount
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
   }, []);
 
   const handleDownload = useCallback(() => {
