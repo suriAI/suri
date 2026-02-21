@@ -6,7 +6,7 @@ from pathlib import Path
 IS_FROZEN = getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
 
 
-APP_NAME = "SuriApp"
+APP_NAME = "Suri"
 
 
 def get_base_dir() -> Path:
