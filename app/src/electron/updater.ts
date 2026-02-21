@@ -1,19 +1,7 @@
 /**
  * GitHub Release Update Checker
- *
- * Checks for new versions via GitHub Releases API.
- * Since the app is unsigned, we use manual download approach:
- * - Check GitHub releases for new version
- * - Notify user if update available
- * - User manually downloads from GitHub releases page
- *
- * OFFLINE-FIRST: This module is designed to work seamlessly offline.
- * - All network calls are non-blocking with timeouts
- * - Errors are silently caught and logged
- * - App functions normally even without internet
- * - No update check failures will affect app functionality
- *
- * Future: When code-signed, migrate to electron-updater for auto-install
+ * Handles version comparison and manual download prompting via GitHub Releases.
+ * Designed to be non-blocking and offline-safe.
  */
 
 import { app, shell, BrowserWindow, net } from "electron";
@@ -101,8 +89,6 @@ function compareVersions(a: string, b: string): number {
  */
 function getDownloadUrl(assets: GitHubRelease["assets"]): string | null {
   const platform = process.platform;
-
-  // Define patterns for each platform
   const patterns: Record<string, RegExp[]> = {
     win32: [/\.exe$/i, /\.msi$/i, /portable.*\.exe$/i],
     darwin: [/\.dmg$/i, /\.pkg$/i],
@@ -129,16 +115,8 @@ function isOnline(): boolean {
   return net.isOnline();
 }
 
-/**
- * Fetch latest release info from GitHub API
- * Returns null if offline or on any error (fail silently)
- */
 async function fetchLatestRelease(): Promise<GitHubRelease | null> {
-  // Check network status first - fail fast if offline
-  if (!isOnline()) {
-    console.log("[Updater] Offline - skipping update check");
-    return null;
-  }
+  if (!isOnline()) return null;
 
   try {
     const controller = new AbortController();
@@ -182,25 +160,16 @@ async function fetchLatestRelease(): Promise<GitHubRelease | null> {
   }
 }
 
-/**
- * Check for updates from GitHub releases
- * This is fully offline-compatible - returns gracefully on any error
- * @param force - If true, bypasses the 24-hour cache
- */
 export async function checkForUpdates(force = false): Promise<UpdateInfo> {
   const currentVersion = app.getVersion();
   const now = Date.now();
 
-  // Return cached result if within check interval (unless forced)
   if (!force && cachedUpdateInfo && now - lastCheckTime < CHECK_INTERVAL_MS) {
-    console.log("[Updater] Returning cached update info");
     return cachedUpdateInfo;
   }
 
-  // Check if we're online first
   if (!isOnline()) {
-    console.log("[Updater] Offline - returning current version info");
-    const offlineInfo: UpdateInfo = {
+    return {
       currentVersion,
       latestVersion: currentVersion,
       hasUpdate: false,
@@ -210,8 +179,6 @@ export async function checkForUpdates(force = false): Promise<UpdateInfo> {
       downloadUrl: null,
       isOffline: true,
     };
-    // Don't cache offline result - check again when online
-    return offlineInfo;
   }
 
   console.log(`[Updater] Checking for updates (current: v${currentVersion})`);

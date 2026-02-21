@@ -1,8 +1,3 @@
-/**
- * Backend Service Manager for PyInstaller-built Suri Backend
- * Handles process lifecycle, health checks, and communication
- */
-
 import { spawn, exec, execSync, ChildProcess } from "child_process";
 import { app } from "electron";
 import path from "path";
@@ -100,21 +95,15 @@ export class BackendService {
     };
   }
 
-  /**
-   * Get the path to the backend executable
-   */
   private getBackendExecutablePath(): string {
     if (isDev()) {
-      // In development, use Python script
       const currentDir = path.dirname(fileURLToPath(import.meta.url));
       const serverDir = path.join(currentDir, "..", "..", "..", "server");
       return path.join(serverDir, "run.py");
     } else {
-      // In production, use PyInstaller executable
       const platform = process.platform;
       const executableName = platform === "win32" ? "server.exe" : "server";
 
-      // Try multiple possible locations
       const possiblePaths = [
         path.join(process.resourcesPath, "server", executableName),
         path.join(process.resourcesPath, executableName),
@@ -134,21 +123,15 @@ export class BackendService {
     }
   }
 
-  /**
-   * Find Python executable path (works with or without virtual environment)
-   */
   private async findPythonExecutable(): Promise<string> {
     const possiblePaths = [
-      // Try virtual environment first (if it exists)
       path.join(process.cwd(), "..", "venv", "Scripts", "python.exe"),
       path.join(process.cwd(), "..", "venv", "bin", "python"),
       path.join(process.cwd(), "venv", "Scripts", "python.exe"),
       path.join(process.cwd(), "venv", "bin", "python"),
-      // Try system Python
       "python",
       "python3",
       "python.exe",
-      // Try common Python installations
       "C:\\Python39\\python.exe",
       "C:\\Python310\\python.exe",
       "C:\\Python311\\python.exe",
@@ -229,19 +212,15 @@ export class BackendService {
       return;
     }
 
-    // CRITICAL: Kill any existing backend processes before starting new one
-    // This prevents orphaned processes from previous runs
+    // Kill existing backends to prevent port conflicts or orphans
     this.killAllBackendProcesses();
 
     try {
       const executablePath = this.getBackendExecutablePath();
-
-      // Prepare command and arguments
       let command: string;
       let args: string[];
 
       if (isDev()) {
-        // Development mode - find Python executable (with or without venv)
         command = await this.findPythonExecutable();
         args = [
           executablePath,
@@ -251,7 +230,6 @@ export class BackendService {
           this.config.host,
         ];
       } else {
-        // Production mode - use PyInstaller executable
         command = executablePath;
         args = [
           "--port",
@@ -268,17 +246,14 @@ export class BackendService {
         SURI_DATA_DIR: app.getPath("userData"),
       };
 
-      // Spawn the process
       this.process = spawn(command, args, {
-        stdio: "pipe", // Capture stdout/stderr to avoid showing console
+        stdio: "pipe",
         detached: false,
-        windowsHide: true, // Hide console window on Windows
+        windowsHide: true,
         env,
       });
 
-      // Prepare log file stream
       const logFile = path.join(app.getPath("userData"), "backend-startup.log");
-      // Clear previous log
       fs.writeFileSync(
         logFile,
         `[${new Date().toISOString()}] Backend starting...\n`,
@@ -286,13 +261,10 @@ export class BackendService {
 
       const logStream = fs.createWriteStream(logFile, { flags: "a" });
 
-      // Optionally log backend output for debugging
       if (this.process.stdout) {
         this.process.stdout.on("data", (data) => {
           const str = data.toString();
           logStream.write(`[STDOUT] ${str}`);
-
-          // Only log in development mode
           if (isDev()) {
             console.log(`[Backend] ${str.trim()}`);
           }
@@ -337,14 +309,9 @@ export class BackendService {
     }
   }
 
-  /**
-   * Set up process event handlers
-   */
   private setupProcessHandlers(): void {
     if (!this.process) return;
 
-    // With stdio: "inherit", logs go directly to terminal automatically
-    // We only need to handle process lifecycle events
     this.process.on("error", (error) => {
       console.error(`[BackendService] Process error: ${error.message}`);
       this.status.error = error.message;
@@ -356,42 +323,31 @@ export class BackendService {
         `[BackendService] Process exited with code ${code}${signal ? ` and signal ${signal}` : ""}`,
       );
       this.status.isRunning = false;
-      // Only cleanup if process wasn't already cleaned up by killSync()
-      // When killed externally, killSync() handles cleanup, so this is redundant
       if (this.process !== null) {
         this.cleanup();
       }
     });
   }
 
-  /**
-   * Wait for backend to be ready by checking health endpoint
-   */
   private async waitForBackendReady(): Promise<void> {
     const startTime = Date.now();
-    // Safety timeout: 5 minutes (to prevent infinite hangs in zombie states)
-    // The real "timeout" is effectively the process dying.
     const safetyTimeout = 300000;
 
-    // Check immediately first (no delay)
     if (await this.healthCheck()) {
       return;
     }
 
     while (Date.now() - startTime < safetyTimeout) {
-      // 1. Fast Fail: Check if process has already exited
       if (this.process && this.process.exitCode !== null) {
         throw new Error(
           `Backend process exited unexpectedly with code ${this.process.exitCode}`,
         );
       }
 
-      // 2. Check health
       if (await this.healthCheck()) {
         return;
       }
 
-      // 3. Wait a bit
       await sleep(250);
     }
 
@@ -400,9 +356,6 @@ export class BackendService {
     );
   }
 
-  /**
-   * Start health monitoring
-   */
   private startHealthMonitoring(): void {
     if (this.healthCheckTimer) {
       clearInterval(this.healthCheckTimer);
@@ -418,20 +371,14 @@ export class BackendService {
     }, this.config.healthCheckInterval);
   }
 
-  /**
-   * Stop the backend process (async version)
-   * Kills ALL server processes (bootloader + Python child)
-   */
   async stop(): Promise<void> {
     try {
       if (process.platform === "win32") {
-        // Windows: Kill ALL server.exe processes (multiple attempts)
         for (let i = 0; i < 3; i++) {
           try {
             await execAsync("taskkill /F /IM server.exe /T");
             await sleep(50);
           } catch (error: unknown) {
-            // Process not found = all killed
             if (
               error instanceof Error &&
               (error.message?.includes("not found") ||
@@ -442,34 +389,25 @@ export class BackendService {
           }
         }
       } else {
-        // Unix/Mac: Kill all server processes with verification
         for (let i = 0; i < 3; i++) {
           try {
-            // Check if processes exist
             const checkResult = await execAsync("pgrep -f server");
-
-            // If empty, all killed
             if (!checkResult.stdout.trim()) {
               break;
             }
-
-            // Kill all
             await execAsync("pkill -9 server");
             await sleep(50);
           } catch {
-            // pgrep error = no processes = success
             break;
           }
         }
       }
     } catch (error: unknown) {
-      // Process not found is OK
       if (!(error instanceof Error) || !error.message?.includes("not found")) {
         console.error("[BackendService] Error stopping:", error);
       }
     }
 
-    // Clean up
     this.process = null;
     this.status.isRunning = false;
     this.status.pid = undefined;

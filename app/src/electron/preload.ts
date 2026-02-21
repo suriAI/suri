@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-// Backend API
 contextBridge.exposeInMainWorld("electronAPI", {
   // Generic IPC invoke method
   invoke: (channel: string, ...args: unknown[]) => {
@@ -12,7 +11,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return ipcRenderer.invoke("backend:is-ready");
     },
   },
-  // Backend Service API
   backend: {
     checkAvailability: () => {
       return ipcRenderer.invoke("backend:check-availability");
@@ -91,7 +89,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return ipcRenderer.invoke("backend:clear-database");
     },
   },
-  // Store API
   store: {
     get: (key: string) => {
       return ipcRenderer.invoke("store:get", key);
@@ -109,7 +106,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return ipcRenderer.invoke("store:reset");
     },
   },
-  // Updater API
   updater: {
     checkForUpdates: (force?: boolean) => {
       return ipcRenderer.invoke("updater:check-for-updates", force);
@@ -141,14 +137,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     },
   },
 
-  // Assets API (public/dist-react)
   assets: {
     listRecognitionSounds: () => {
       return ipcRenderer.invoke("assets:list-recognition-sounds");
     },
   },
 
-  // Cloud Sync API
   sync: {
     exportData: () => {
       return ipcRenderer.invoke("sync:export-data");
@@ -165,7 +159,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 });
 
-// Window control functions
 contextBridge.exposeInMainWorld("suriElectron", {
   minimize: () => ipcRenderer.invoke("window:minimize"),
   maximize: () => ipcRenderer.invoke("window:maximize"),

@@ -12,7 +12,6 @@ interface TypedStore<T> {
   store: T;
 }
 
-// Create the persistent store instance (electron-store)
 export const persistentStore: TypedStore<PersistentSettingsSchema> =
   new Store<PersistentSettingsSchema>({
     name: "config",
