@@ -12,7 +12,6 @@ interface UIState {
 
   // Settings UI
   showSettings: boolean;
-  isSettingsFullScreen: boolean;
   groupInitialSection: GroupSection | undefined;
   settingsInitialSection: string | undefined;
   hasSeenIntro: boolean;
@@ -32,7 +31,6 @@ interface UIState {
   setError: (error: string | null) => void;
   setWarning: (warning: string | null) => void;
   setShowSettings: (show: boolean) => void;
-  setIsSettingsFullScreen: (fullScreen: boolean) => void;
   setGroupInitialSection: (section: GroupSection | undefined) => void;
   setSettingsInitialSection: (section: string | undefined) => void;
   setHasSeenIntro: (seen: boolean) => void;
@@ -71,7 +69,6 @@ export const useUIStore = create<UIState>((set) => ({
   error: null,
   warning: null,
   showSettings: false,
-  isSettingsFullScreen: false,
   groupInitialSection: undefined,
   settingsInitialSection: undefined,
   hasSeenIntro: false, // Default to false
@@ -96,8 +93,6 @@ export const useUIStore = create<UIState>((set) => ({
   setError: (error) => set({ error }),
   setWarning: (warning) => set({ warning }),
   setShowSettings: (show) => set({ showSettings: show }),
-  setIsSettingsFullScreen: (fullScreen) =>
-    set({ isSettingsFullScreen: fullScreen }),
   setGroupInitialSection: (section) => set({ groupInitialSection: section }),
   setSettingsInitialSection: (section) =>
     set({ settingsInitialSection: section }),

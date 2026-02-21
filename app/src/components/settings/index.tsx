@@ -23,8 +23,6 @@ export type { AudioSettings } from "@/components/settings/types";
 interface SettingsProps {
   onBack: () => void;
   isModal?: boolean;
-  isFullScreen?: boolean;
-  onToggleFullScreen?: () => void;
   quickSettings: QuickSettings;
   onQuickSettingsChange: (settings: QuickSettings) => void;
   audioSettings: AudioSettings;
@@ -45,8 +43,6 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({
   onBack,
   isModal = false,
-  isFullScreen = false,
-  onToggleFullScreen,
   quickSettings,
   onQuickSettingsChange,
   audioSettings,
@@ -471,25 +467,14 @@ export const Settings: React.FC<SettingsProps> = ({
   ]);
 
   const mainContent = (
-    <div className="h-full flex bg-[#0f0f0f] text-white">
+    <div className="h-full flex bg-[#141414] text-white">
       {/* Sidebar Navigation */}
-      <div className="w-56 flex-shrink-0 border-r border-white/10 flex flex-col">
+      <div className="w-64 flex-shrink-0 flex flex-col bg-[#0f0f0f]">
         {/* Header */}
         <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
           <h1 className="text-sm font-semibold uppercase tracking-wider text-white">
             Settings
           </h1>
-          {onToggleFullScreen && (
-            <button
-              onClick={onToggleFullScreen}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 text-white/60 hover:text-white/80 transition-all"
-              title={isFullScreen ? "Exit fullscreen" : "Enter fullscreen"}
-            >
-              <i
-                className={`fa-solid ${isFullScreen ? "fa-compress" : "fa-expand"} text-xs`}
-              ></i>
-            </button>
-          )}
         </div>
 
         {/* Group Selector - Top Context Switcher (Discord/Slack Pattern) */}
@@ -570,9 +555,8 @@ export const Settings: React.FC<SettingsProps> = ({
                 <span>Group</span>
               </div>
               <i
-                className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${
-                  isGroupExpanded ? "" : "-rotate-90"
-                }`}
+                className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${isGroupExpanded ? "" : "-rotate-90"
+                  }`}
               ></i>
             </button>
 
@@ -594,12 +578,11 @@ export const Settings: React.FC<SettingsProps> = ({
                         useGroupUIStore.setState({ preSelectedMemberId: null });
                       }
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
-                      activeSection === "group" &&
+                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeSection === "group" &&
                       groupInitialSection === subsection.id
-                        ? "bg-white/10 text-white"
-                        : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                    }`}
+                      ? "bg-white/10 text-white"
+                      : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                      }`}
                   >
                     <i className={`${subsection.icon} text-xs w-4`}></i>
                     {subsection.label}
@@ -614,11 +597,10 @@ export const Settings: React.FC<SettingsProps> = ({
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-                activeSection === section.id
-                  ? "bg-white/10 text-white"
-                  : "text-white/60 hover:bg-white/5 hover:text-white/80"
-              }`}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeSection === section.id
+                ? "bg-white/10 text-white"
+                : "text-white/60 hover:bg-white/5 hover:text-white/80"
+                }`}
             >
               {section.icon && (
                 <i className={`${section.icon} text-sm w-4`}></i>
@@ -799,26 +781,13 @@ export const Settings: React.FC<SettingsProps> = ({
   );
 
   if (isModal) {
-    // Header height: 46px, Footer height: 28px (h-7)
-    // We position the settings modal/fullscreen container between header and footer
-    // to prevent overflow and ensure window controls remain accessible.
-    // z-[60] ensures it sits above the Sidebar (z-50) but allows interaction with window controls
-    const safeAreaClass =
-      "fixed top-[46px] bottom-[28px] left-0 right-0 z-[60]";
-
-    if (isFullScreen) {
-      return (
-        <div className={`${safeAreaClass} bg-[#0f0f0f] overflow-hidden`}>
-          {mainContent}
-        </div>
-      );
-    }
+    const safeAreaClass = "fixed inset-0 z-[60]";
 
     return (
       <div
         className={`${safeAreaClass} bg-black/70 flex items-center justify-center`}
       >
-        <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl w-full max-w-5xl h-[90%] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden">
+        <div className="bg-[#0f0f0f] rounded-xl w-full max-w-[95%] lg:h-[89vh] md:h-[80vh] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden">
           {mainContent}
         </div>
       </div>

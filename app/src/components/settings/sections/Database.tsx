@@ -47,7 +47,7 @@ export function Database({
   } = useDatabaseManagement(groups, onGroupsChanged, dialog);
 
   return (
-    <div className="space-y-6 max-w-4xl p-6">
+    <div className="space-y-6 max-w-auto p-6">
       {/* Statistics Overview */}
       <DatabaseStats
         groupsCount={groups.length}

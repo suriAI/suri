@@ -60,7 +60,7 @@ export default function Main() {
 
   const lastDetectionRef = useRef<DetectionResult | null>(null);
   const lastFrameTimestampRef = useRef<number>(0);
-  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => {});
+  const processCurrentFrameRef = useRef<() => Promise<void>>(async () => { });
   const fpsTrackingRef = useRef({
     timestamps: [] as number[],
     maxSamples: 10,
@@ -118,8 +118,6 @@ export default function Main() {
     setWarning,
     showSettings,
     setShowSettings,
-    isSettingsFullScreen,
-    setIsSettingsFullScreen,
     groupInitialSection,
     setGroupInitialSection,
     settingsInitialSection,
@@ -546,7 +544,7 @@ export default function Main() {
               isVideoLoading={isVideoLoading}
               isStreaming={isStreaming}
               hasSelectedGroup={Boolean(currentGroup)}
-              // trackingMode removed
+            // trackingMode removed
             />
 
             {/* New Cooldown Overlay */}
@@ -614,15 +612,10 @@ export default function Main() {
           <Settings
             onBack={() => {
               setShowSettings(false);
-              setIsSettingsFullScreen(false);
               setGroupInitialSection(undefined);
               setSettingsInitialSection(undefined);
               loadAttendanceDataRef.current();
             }}
-            isFullScreen={isSettingsFullScreen}
-            onToggleFullScreen={() =>
-              setIsSettingsFullScreen(!isSettingsFullScreen)
-            }
             isModal={true}
             quickSettings={quickSettings}
             onQuickSettingsChange={setQuickSettings}

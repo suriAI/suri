@@ -129,7 +129,7 @@ function GroupPanelComponent({
         )}
 
         {/* Main Content Area - Full width when embedded */}
-        <div className="h-full overflow-hidden bg-[#0f0f0f]">
+        <div className="h-full overflow-hidden">
           <GroupContent
             onMembersChange={handleMembersChange}
             onRegistrationSourceChange={onRegistrationSourceChange}

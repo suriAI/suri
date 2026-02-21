@@ -42,14 +42,17 @@ export default function WindowBar() {
 
   return (
     <div
-      className="w-full h-[40px] bg-black/90 flex items-center justify-between select-none flex-shrink-0 border-b border-white/[0.06] relative z-50"
+      className="w-full h-[32px] flex items-center justify-between select-none flex-shrink-0 relative"
       style={
         {
           WebkitAppRegion: isMaximized ? "no-drag" : "drag",
         } as React.CSSProperties
       }
     >
-      <div className="flex items-center ml-4 space-x-3 flex-1">
+      {/* Background Layer */}
+      <div className="absolute inset-0 bg-black/90 border-b border-white/[0.06] z-40 pointer-events-none"></div>
+
+      <div className="flex items-center ml-4 space-x-3 flex-1 relative z-40 pointer-events-none">
         {/* Logo */}
         <img
           src="./icons/suri_mark_logo_transparent.png"
@@ -71,7 +74,7 @@ export default function WindowBar() {
 
       {/* Window Controls */}
       <div
-        className="flex items-center h-full [webkit-app-region:no-drag]"
+        className="flex items-center h-full relative z-[70] [webkit-app-region:no-drag]"
         style={
           {
             WebkitAppRegion: "no-drag",
