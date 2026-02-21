@@ -10,7 +10,7 @@
 .recent-logs-scroll::-webkit-scrollbar-track,
 .live-detections::-webkit-scrollbar-track,
 .sidebar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
+  background: none;
   border-radius: 0 0 12px 0;
 }
 
@@ -29,18 +29,13 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-.custom-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.03);
-}
-
 .custom-scroll::-webkit-scrollbar {
   width: 7px;
   height: 8px;
 }
 
 .custom-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
+  background: none;
   border-radius: 0 0 12px 0;
 }
 
