@@ -578,7 +578,7 @@ export const Settings: React.FC<SettingsProps> = ({
                         useGroupUIStore.setState({ preSelectedMemberId: null });
                       }
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${activeSection === "group" &&
+                    className={`w-full text-left px-3 py-2 rounded-md text-md font-medium transition-all flex items-center gap-2 ${activeSection === "group" &&
                       groupInitialSection === subsection.id
                       ? "bg-white/10 text-white"
                       : "text-white/50 hover:bg-white/5 hover:text-white/70"
@@ -597,7 +597,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeSection === section.id
+              className={`w-full text-left px-3 py-2 rounded-md text-md font-medium transition-all flex items-center gap-2 ${activeSection === section.id
                 ? "bg-white/10 text-white"
                 : "text-white/60 hover:bg-white/5 hover:text-white/80"
                 }`}
