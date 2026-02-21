@@ -1,4 +1,4 @@
-import { WindowBar, WindowFooter } from "@/components/window";
+import { WindowBar } from "@/components/window";
 import Main from "@/components/main";
 import { useUIStore } from "@/components/main/stores/uiStore";
 import { IntroModal } from "@/components/shared/IntroModal";
@@ -34,7 +34,6 @@ function App() {
             )}
           </div>
         </div>
-        <WindowFooter />
       </div>
     </DialogProvider>
   );

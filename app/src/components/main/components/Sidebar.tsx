@@ -21,6 +21,8 @@ const sidebarCollapseIcon = getAssetPath("sidebar-collapse.svg");
 const sidebarExpandIcon = getAssetPath("sidebar-expand.svg");
 
 import { useAttendanceStore, useUIStore } from "@/components/main/stores";
+import { updaterService } from "@/services";
+import type { UpdateInfo } from "@/types/global";
 
 // ... existing imports ...
 
@@ -70,6 +72,30 @@ export const Sidebar = memo(function Sidebar({
 
   // No local state initialization or manual state sync needed - handled by store
   const isInitialized = isHydrated;
+
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+
+    updaterService
+      .waitForInitialization()
+      .then(() => {
+        if (disposed) return;
+        setUpdateInfo(updaterService.getCachedUpdateInfo());
+      })
+      .catch(() => { });
+
+    const unsubscribe = updaterService.onUpdateInfoChanged((info) => {
+      if (disposed) return;
+      setUpdateInfo(info);
+    });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, []);
 
   // Sync isResizing ref with state
   useEffect(() => {
@@ -227,11 +253,10 @@ export const Sidebar = memo(function Sidebar({
             }}
           >
             <div
-              className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${
-                isResizing
+              className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-r transition-all ${isResizing
                   ? "bg-blue-500/70 h-16"
                   : "bg-white/10 group-hover:bg-blue-500/50"
-              }`}
+                }`}
             />
           </div>
         )}
@@ -263,9 +288,14 @@ export const Sidebar = memo(function Sidebar({
 
             {/* Settings Button - Top Right */}
             <motion.button
-              onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center w-9 h-9 bg-transparent border-none group rounded-lg"
-              title="Settings (Ctrl+,)"
+              onClick={() => {
+                setShowSettings(true);
+                if (updateInfo?.hasUpdate) {
+                  useUIStore.getState().setSettingsInitialSection("about");
+                }
+              }}
+              className="flex items-center justify-center w-9 h-9 bg-transparent border-none group rounded-lg relative"
+              title={updateInfo?.hasUpdate ? "Update available! (Ctrl+,)" : "Settings (Ctrl+,)"}
               disabled={isCollapsed}
               aria-label="Open Settings"
               initial="initial"
@@ -279,6 +309,11 @@ export const Sidebar = memo(function Sidebar({
                 }}
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
               ></motion.i>
+
+              {/* Update Badge */}
+              {updateInfo?.hasUpdate && (
+                <div className="absolute top-[6px] right-[6px] w-[6px] h-[6px] bg-emerald-500 rounded-full border border-black shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+              )}
             </motion.button>
           </div>
         </div>
@@ -332,9 +367,14 @@ export const Sidebar = memo(function Sidebar({
 
             {/* Settings Icon */}
             <motion.button
-              onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center w-11 h-11 bg-transparent border-none group rounded-xl"
-              title="Settings (Ctrl+,)"
+              onClick={() => {
+                setShowSettings(true);
+                if (updateInfo?.hasUpdate) {
+                  useUIStore.getState().setSettingsInitialSection("about");
+                }
+              }}
+              className="flex items-center justify-center w-11 h-11 bg-transparent border-none group rounded-xl relative"
+              title={updateInfo?.hasUpdate ? "Update available! (Ctrl+,)" : "Settings (Ctrl+,)"}
               aria-label="Open Settings"
               initial="initial"
               whileHover="hover"
@@ -347,6 +387,11 @@ export const Sidebar = memo(function Sidebar({
                 }}
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
               ></motion.i>
+
+              {/* Update Badge */}
+              {updateInfo?.hasUpdate && (
+                <div className="absolute top-2 right-2 w-[8px] h-[8px] bg-emerald-500 rounded-full border border-black shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+              )}
             </motion.button>
           </div>
         )}

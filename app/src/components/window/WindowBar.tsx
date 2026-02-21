@@ -66,7 +66,7 @@ export default function WindowBar() {
             Suri
           </span>
           <span className="w-1 h-3 border-r border-white/10"></span>
-          <span className="text-white/40 text-[11px] font-medium tracking-wide bg-gradient-to-r from-white/60 to-white/40 bg-clip-text text-transparent">
+          <span className="text-[11px] font-medium tracking-wide bg-gradient-to-r from-white/60 to-white/40 bg-clip-text text-transparent">
             AI-powered Attendance Tracker
           </span>
         </div>
