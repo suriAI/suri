@@ -1,8 +1,23 @@
-import { BackendProcessManager, type BackendConfig, type BackendStatus } from "./backend/BackendProcessManager.js";
-import { BackendClient, type ModelsResponse, type DetectionOptions, type DetectionResponse } from "./backend/BackendClient.js";
+import {
+  BackendProcessManager,
+  type BackendConfig,
+  type BackendStatus,
+} from "./backend/BackendProcessManager.js";
+import {
+  BackendClient,
+  type ModelsResponse,
+  type DetectionOptions,
+  type DetectionResponse,
+} from "./backend/BackendClient.js";
 import type { FaceRecognitionResponse } from "../types/recognition.js";
 
-export type { BackendConfig, BackendStatus, ModelsResponse, DetectionOptions, DetectionResponse };
+export type {
+  BackendConfig,
+  BackendStatus,
+  ModelsResponse,
+  DetectionOptions,
+  DetectionResponse,
+};
 
 export class BackendService {
   private config: BackendConfig;
@@ -41,7 +56,7 @@ export class BackendService {
   async restart(): Promise<void> {
     await this.stop();
     // Small delay to ensure cleanup
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 100));
     return this.start();
   }
 
@@ -77,7 +92,10 @@ export class BackendService {
     return this.client.getModels();
   }
 
-  async detectFaces(imageBase64: string, options: DetectionOptions = {}): Promise<DetectionResponse> {
+  async detectFaces(
+    imageBase64: string,
+    options: DetectionOptions = {},
+  ): Promise<DetectionResponse> {
     return this.client.detectFaces(imageBase64, options);
   }
 
@@ -88,7 +106,13 @@ export class BackendService {
     landmarks_5: number[][],
     enableLivenessDetection: boolean,
   ): Promise<FaceRecognitionResponse> {
-    return this.client.recognizeFace(imageBase64, bbox, groupId, landmarks_5, enableLivenessDetection);
+    return this.client.recognizeFace(
+      imageBase64,
+      bbox,
+      groupId,
+      landmarks_5,
+      enableLivenessDetection,
+    );
   }
 }
 

@@ -8,8 +8,12 @@ import type {
   AttendanceSettings,
   AttendanceEvent,
 } from "../types/recognition";
-import { getLocalDateString, parseLocalDate } from "../utils/index";
-import { fetchWithRetry } from "../utils/http";
+
+import { HttpClient } from "./attendance/HttpClient";
+import { GroupManager } from "./attendance/GroupManager";
+import { MemberManager } from "./attendance/MemberManager";
+import { RecordManager } from "./attendance/RecordManager";
+import { BackupManager } from "./attendance/BackupManager";
 
 const API_BASE_URL = "http://127.0.0.1:8700";
 const API_ENDPOINTS = {
@@ -22,170 +26,44 @@ const API_ENDPOINTS = {
   stats: "/attendance/stats",
 };
 
-class HttpClient {
-  private baseUrl: string;
-  private readinessPromise: Promise<void> | null = null;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
-
-  /**
-   * Gatekeeper: Blocks until backend is confirmed ready via IPC.
-   * Prevents "Connection Refused" errors by ensuring we never call fetch() too early.
-   */
-  private async ensureBackendReady(): Promise<void> {
-    // If we already have a promise (pending or resolved), return it
-    if (this.readinessPromise) {
-      return this.readinessPromise;
-    }
-
-    this.readinessPromise = (async () => {
-      const maxWaitTime = 300000; // 5 minutes safety
-      const checkInterval = 250;
-      const startTime = Date.now();
-
-      // Check for Electron API availability first
-      if (!window.electronAPI || !window.electronAPI.backend_ready) {
-        console.warn(
-          "[AttendanceManager] Electron API not found, skipping strict readiness check.",
-        );
-        return;
-      }
-
-      while (Date.now() - startTime < maxWaitTime) {
-        try {
-          const ready = await window.electronAPI.backend_ready.isReady();
-          if (ready) {
-            return;
-          }
-        } catch {
-          // Ignore IPC errors and keep retrying
-        }
-        await new Promise((resolve) => setTimeout(resolve, checkInterval));
-      }
-
-      console.error("[AttendanceManager] Backend readiness check timed out.");
-    })();
-
-    return this.readinessPromise;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-  ): Promise<T> {
-    // BLOCK HERE: Wait for backend before making any network request
-    await this.ensureBackendReady();
-
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const method = (options.method || "GET").toUpperCase();
-    const headers: Record<string, string> = {
-      ...(options.headers as Record<string, string>),
-    };
-
-    if (
-      (method === "POST" || method === "PUT" || method === "PATCH") &&
-      !headers["Content-Type"]
-    ) {
-      headers["Content-Type"] = "application/json";
-    }
-
-    // Use shared utility for robust retries
-    const response = await fetchWithRetry(url, { ...options, headers });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const detail = (errorData as { detail?: unknown }).detail;
-      const normalizedDetail =
-        typeof detail === "string"
-          ? detail
-          : detail
-            ? JSON.stringify(detail)
-            : undefined;
-      throw new Error(
-        normalizedDetail ||
-          (errorData as { error?: string }).error ||
-          `HTTP ${response.status}: ${response.statusText}`,
-      );
-    }
-
-    return response.json();
-  }
-
-  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const url = params
-      ? `${endpoint}?${new URLSearchParams(params).toString()}`
-      : endpoint;
-    return this.request<T>(url);
-  }
-
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "PUT",
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "DELETE",
-    });
-  }
-}
-
 export class AttendanceManager {
   private readonly clockCheckStorageKey = "suri:lastSystemTimeMs";
   private readonly clockBackwardWarnThresholdMs = 60 * 1000; // 60 seconds
 
-  private warnIfSystemClockWentBackwards(): void {
-    try {
-      const now = Date.now();
-      const lastRaw = localStorage.getItem(this.clockCheckStorageKey);
-      const last = lastRaw ? Number(lastRaw) : NaN;
-
-      if (
-        Number.isFinite(last) &&
-        now + this.clockBackwardWarnThresholdMs < last
-      ) {
-        const diffMs = last - now;
-        const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
-        window.dispatchEvent(
-          new CustomEvent("suri:clock-warning", {
-            detail: {
-              message: `System clock appears to have moved backwards by more than 1 minute (~${diffMinutes} minute(s)). Please check your OS Date/Time settings to avoid incorrect attendance timestamps.`,
-            },
-          }),
-        );
-      }
-
-      localStorage.setItem(this.clockCheckStorageKey, String(now));
-    } catch {
-      // Ignore storage/event issues (warning is best-effort)
-    }
-  }
-
-  private toLocalDateTimeParam(date: Date): string {
-    const pad = (n: number, len: number = 2) => String(n).padStart(len, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
-  }
-
   private httpClient: HttpClient;
+  private groupManager: GroupManager;
+  private memberManager: MemberManager;
+  private recordManager: RecordManager;
+  private backupManager: BackupManager;
+
   private settings: AttendanceSettings | null = null;
   private eventQueue: AttendanceEvent[] = [];
 
   constructor() {
     this.httpClient = new HttpClient(API_BASE_URL);
+    this.groupManager = new GroupManager(this.httpClient, API_ENDPOINTS);
+    this.memberManager = new MemberManager(this.httpClient, API_ENDPOINTS);
+
+    this.recordManager = new RecordManager(
+      this.httpClient,
+      API_ENDPOINTS,
+      this.toLocalDateTimeParam.bind(this),
+      this.warnIfSystemClockWentBackwards.bind(this),
+    );
+
+    this.backupManager = new BackupManager(
+      this.httpClient,
+      API_ENDPOINTS,
+      this.getGroups.bind(this),
+      this.getRecords.bind(this),
+      this.getSessions.bind(this),
+      this.getSettings.bind(this),
+    );
+
     this.loadSettingsWhenReady();
   }
+
+  // --- Core Lifecycle ---
 
   private async loadSettingsWhenReady(): Promise<void> {
     const maxWaitTime = 60000;
@@ -230,15 +108,12 @@ export class AttendanceManager {
     }
 
     console.warn(
-      "[AttendanceManager] Backend not ready after timeout, attempting to load settings anyway...",
+      "[AttendanceManager] Backend not ready after timeout, attempting to load anyway...",
     );
     try {
       await this.loadSettings();
     } catch (error) {
-      console.warn(
-        "[AttendanceManager] Failed to load settings after timeout, using default settings:",
-        error,
-      );
+      console.warn("[AttendanceManager] Failed to load settings:", error);
     }
   }
 
@@ -248,209 +123,96 @@ export class AttendanceManager {
         API_ENDPOINTS.settings,
       );
     } catch (error) {
-      console.error(
-        "[AttendanceManager] Failed to load settings, using defaults:",
-        error,
-      );
+      console.error("[AttendanceManager] Failed to load settings:", error);
     }
   }
+
+  // --- Group Management (Delegated) ---
 
   async createGroup(
     name: string,
     description?: string,
   ): Promise<AttendanceGroup> {
-    try {
-      const groupData = {
-        name,
-        description,
-        settings: {
-          late_threshold_minutes: this.settings?.late_threshold_minutes ?? 15,
-          late_threshold_enabled: false,
-        },
-      };
-
-      const group = await this.httpClient.post<AttendanceGroup>(
-        API_ENDPOINTS.groups,
-        groupData,
-      );
-      return {
-        ...group,
-        created_at: new Date(group.created_at),
-      };
-    } catch (error) {
-      console.error("Error creating group:", error);
-      throw error;
-    }
+    return this.groupManager.createGroup(name, description, this.settings);
   }
 
   async getGroups(): Promise<AttendanceGroup[]> {
-    try {
-      const groups = await this.httpClient.get<AttendanceGroup[]>(
-        API_ENDPOINTS.groups,
-        { active_only: "true" },
-      );
-      return groups.map((group) => ({
-        ...group,
-        created_at: new Date(group.created_at),
-      }));
-    } catch (error) {
-      console.error("Error getting groups:", error);
-      return [];
-    }
+    return this.groupManager.getGroups();
   }
 
   async getGroup(groupId: string): Promise<AttendanceGroup | undefined> {
-    try {
-      const group = await this.httpClient.get<AttendanceGroup>(
-        `${API_ENDPOINTS.groups}/${groupId}`,
-      );
-      return {
-        ...group,
-        created_at: new Date(group.created_at),
-      };
-    } catch (error) {
-      console.error("Error getting group:", error);
-      return undefined;
-    }
+    return this.groupManager.getGroup(groupId);
   }
 
   async updateGroup(
     groupId: string,
     updates: Partial<AttendanceGroup>,
   ): Promise<boolean> {
-    try {
-      await this.httpClient.put<AttendanceGroup>(
-        `${API_ENDPOINTS.groups}/${groupId}`,
-        updates,
-      );
-      return true;
-    } catch (error) {
-      console.error("Error updating group:", error);
-      return false;
-    }
+    return this.groupManager.updateGroup(groupId, updates);
   }
 
   async deleteGroup(groupId: string): Promise<boolean> {
-    try {
-      await this.httpClient.delete(`${API_ENDPOINTS.groups}/${groupId}`);
-      return true;
-    } catch (error) {
-      console.error("Error deleting group:", error);
-      return false;
-    }
+    return this.groupManager.deleteGroup(groupId);
   }
+
+  async getGroupMembers(groupId: string): Promise<AttendanceMember[]> {
+    return this.groupManager.getGroupMembers(groupId);
+  }
+
+  // --- Member Management (Delegated) ---
 
   async addMember(
     groupId: string,
     name: string,
-    options?: {
-      personId?: string;
-      role?: string;
-      email?: string;
-    },
+    options?: { personId?: string; role?: string; email?: string },
   ): Promise<AttendanceMember> {
-    try {
-      const memberData: {
-        group_id: string;
-        name: string;
-        role?: string;
-        email?: string;
-        person_id?: string;
-      } = {
-        group_id: groupId,
-        name,
-        role: options?.role,
-        email: options?.email,
-      };
-
-      if (options?.personId) {
-        memberData.person_id = options.personId;
-      }
-
-      const member = await this.httpClient.post<AttendanceMember>(
-        API_ENDPOINTS.members,
-        memberData,
-      );
-      return {
-        ...member,
-        joined_at: new Date(member.joined_at),
-      };
-    } catch (error) {
-      console.error("Error adding member:", error);
-      throw error;
-    }
+    return this.memberManager.addMember(groupId, name, options);
   }
 
   async getMember(personId: string): Promise<AttendanceMember | undefined> {
-    try {
-      const member = await this.httpClient.get<AttendanceMember>(
-        `${API_ENDPOINTS.members}/${personId}`,
-      );
-      return {
-        ...member,
-        joined_at: new Date(member.joined_at),
-      };
-    } catch {
-      return undefined;
-    }
-  }
-
-  async getGroupMembers(groupId: string): Promise<AttendanceMember[]> {
-    try {
-      const members = await this.httpClient.get<
-        Array<{
-          person_id: string;
-          name: string;
-          role?: string;
-          email?: string;
-          has_face_data: boolean;
-          joined_at: string;
-          is_active: boolean;
-          group_id: string;
-        }>
-      >(`${API_ENDPOINTS.groups}/${groupId}/persons`);
-
-      return members.map((member) => ({
-        person_id: member.person_id,
-        group_id: member.group_id,
-        name: member.name,
-        role: member.role,
-        email: member.email,
-        joined_at: new Date(member.joined_at),
-        is_active: member.is_active,
-        has_face_data: member.has_face_data,
-      }));
-    } catch (error) {
-      console.error("Error getting group members:", error);
-      return [];
-    }
+    return this.memberManager.getMember(personId);
   }
 
   async updateMember(
     personId: string,
     updates: Partial<AttendanceMember>,
   ): Promise<boolean> {
-    try {
-      await this.httpClient.put<AttendanceMember>(
-        `${API_ENDPOINTS.members}/${personId}`,
-        updates,
-      );
-      return true;
-    } catch (error) {
-      console.error("Error updating member:", error);
-      return false;
-    }
+    return this.memberManager.updateMember(personId, updates);
   }
 
   async removeMember(personId: string): Promise<boolean> {
-    try {
-      await this.httpClient.delete(`${API_ENDPOINTS.members}/${personId}`);
-      return true;
-    } catch (error) {
-      console.error("Error removing member:", error);
-      return false;
-    }
+    return this.memberManager.removeMember(personId);
   }
+
+  async getGroupPersons(groupId: string): Promise<AttendanceMember[]> {
+    return this.groupManager.getGroupMembers(groupId);
+  }
+
+  // Re-adding missed face methods in facade
+  async registerFaceForGroupPerson(
+    groupId: string,
+    personId: string,
+    imageData: string,
+    bbox: number[],
+    landmarks_5: number[][],
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    return this.memberManager.registerFaceForGroupPerson(
+      groupId,
+      personId,
+      imageData,
+      bbox,
+      landmarks_5,
+    );
+  }
+
+  async removeFaceDataForGroupPerson(
+    groupId: string,
+    personId: string,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    return this.memberManager.removeFaceDataForGroupPerson(groupId, personId);
+  }
+
+  // --- Record & Session Management (Delegated) ---
 
   async processAttendanceEvent(
     personId: string,
@@ -459,62 +221,19 @@ export class AttendanceManager {
     livenessStatus?: string,
     livenessConfidence?: number,
   ): Promise<AttendanceEvent | null> {
-    try {
-      this.warnIfSystemClockWentBackwards();
-
-      const eventData: Record<string, unknown> = {
-        person_id: personId,
-        confidence,
-      };
-
-      if (location) {
-        eventData.location = location;
-      }
-      if (livenessStatus) {
-        eventData.liveness_status = livenessStatus;
-      }
-      if (typeof livenessConfidence === "number") {
-        eventData.liveness_confidence = livenessConfidence;
-      }
-
-      const event = await this.httpClient.post<AttendanceEvent>(
-        API_ENDPOINTS.events,
-        eventData,
-      );
-
-      const processedEvent: AttendanceEvent = {
-        ...event,
-        timestamp: new Date(event.timestamp),
-      };
-
-      this.eventQueue.push(processedEvent);
-      return processedEvent;
-    } catch (error: unknown) {
-      console.error("Error processing attendance event:", error);
-      throw error;
-    }
+    const event = await this.recordManager.processAttendanceEvent(
+      personId,
+      confidence,
+      location,
+      livenessStatus,
+      livenessConfidence,
+    );
+    if (event) this.eventQueue.push(event);
+    return event;
   }
 
   async getGroupStats(groupId: string, date?: Date): Promise<AttendanceStats> {
-    try {
-      const params: Record<string, string> = {};
-      if (date) {
-        params.date = getLocalDateString(date);
-      }
-
-      return await this.httpClient.get<AttendanceStats>(
-        `${API_ENDPOINTS.groups}/${groupId}/stats`,
-        params,
-      );
-    } catch (error) {
-      console.error("Error getting group stats:", error);
-      return {
-        total_members: 0,
-        present_today: 0,
-        absent_today: 0,
-        late_today: 0,
-      };
-    }
+    return this.recordManager.getGroupStats(groupId, date);
   }
 
   async generateReport(
@@ -522,127 +241,13 @@ export class AttendanceManager {
     startDate: Date,
     endDate: Date,
   ): Promise<AttendanceReport> {
-    try {
-      const startDateTime = new Date(startDate);
-      startDateTime.setHours(0, 0, 0, 0);
-      const endDateTime = new Date(endDate);
-      endDateTime.setHours(23, 59, 59, 999);
-
-      const [group, members, , sessions] = await Promise.all([
-        this.getGroup(groupId),
-        this.getGroupMembers(groupId),
-        this.getRecords({
-          group_id: groupId,
-          start_date: this.toLocalDateTimeParam(startDateTime),
-          end_date: this.toLocalDateTimeParam(endDateTime),
-        }),
-        this.getSessions({
-          group_id: groupId,
-          start_date: getLocalDateString(startDate),
-          end_date: getLocalDateString(endDate),
-        }),
-      ]);
-
-      if (!group) {
-        throw new Error("Group not found");
-      }
-
-      const timeDiff = Math.abs(endDate.getTime() - startDate.getTime());
-      const totalDaysInRange = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
-
-      const memberReports = members.map((member) => {
-        let memberJoinedAt: Date;
-        if (member.joined_at instanceof Date) {
-          memberJoinedAt = member.joined_at;
-        } else if (member.joined_at) {
-          memberJoinedAt = new Date(member.joined_at);
-          if (Number.isNaN(memberJoinedAt.getTime())) {
-            memberJoinedAt = startDate;
-          }
-        } else {
-          memberJoinedAt = startDate;
-        }
-
-        const effectiveStartDate =
-          memberJoinedAt > startDate ? memberJoinedAt : startDate;
-        const effectiveEndDate = endDate;
-
-        const memberTimeDiff = Math.abs(
-          effectiveEndDate.getTime() - effectiveStartDate.getTime(),
-        );
-        const totalDaysMemberWasInGroup =
-          Math.ceil(memberTimeDiff / (1000 * 60 * 60 * 24)) + 1;
-
-        const memberSessions = sessions.filter((s) => {
-          if (s.person_id !== member.person_id) return false;
-          const sessionDate = parseLocalDate(s.date);
-          sessionDate.setHours(0, 0, 0, 0);
-          const joinedDate = new Date(memberJoinedAt);
-          joinedDate.setHours(0, 0, 0, 0);
-          return sessionDate >= joinedDate;
-        });
-
-        const presentDays = memberSessions.filter(
-          (s) => s.status !== "absent",
-        ).length;
-
-        const absentDays =
-          totalDaysMemberWasInGroup > 0
-            ? totalDaysMemberWasInGroup - presentDays
-            : 0;
-        const lateDays = memberSessions.filter((s) => s.is_late).length;
-        const attendanceRate =
-          totalDaysMemberWasInGroup > 0
-            ? (presentDays / totalDaysMemberWasInGroup) * 100
-            : 0;
-
-        return {
-          person_id: member.person_id,
-          name: member.name,
-          total_days: totalDaysMemberWasInGroup,
-          present_days: presentDays,
-          absent_days: absentDays,
-          late_days: lateDays,
-          attendance_rate: Math.round(attendanceRate * 100) / 100,
-        };
-      });
-
-      const averageAttendanceRate =
-        memberReports.length > 0
-          ? memberReports.reduce((sum, m) => sum + m.attendance_rate, 0) /
-            memberReports.length
-          : 0;
-
-      const mostPunctual =
-        memberReports.reduce(
-          (best, current) =>
-            current.late_days < best.late_days ? current : best,
-          memberReports[0],
-        )?.name || "N/A";
-
-      const mostAbsent =
-        memberReports.reduce(
-          (worst, current) =>
-            current.absent_days > worst.absent_days ? current : worst,
-          memberReports[0],
-        )?.name || "N/A";
-
-      return {
-        group_id: groupId,
-        date_range: { start: startDate, end: endDate },
-        members: memberReports,
-        summary: {
-          total_working_days: totalDaysInRange,
-          average_attendance_rate:
-            Math.round(averageAttendanceRate * 100) / 100,
-          most_punctual: mostPunctual,
-          most_absent: mostAbsent,
-        },
-      };
-    } catch (error) {
-      console.error("Error generating report:", error);
-      throw error;
-    }
+    return this.recordManager.generateReport(
+      groupId,
+      startDate,
+      endDate,
+      this.getGroup.bind(this),
+      this.getGroupMembers.bind(this),
+    );
   }
 
   async addRecord(record: {
@@ -654,29 +259,7 @@ export class AttendanceManager {
     is_manual?: boolean;
     created_by?: string;
   }): Promise<AttendanceRecord> {
-    try {
-      const recordData = {
-        ...record,
-        timestamp: record.timestamp
-          ? this.toLocalDateTimeParam(record.timestamp)
-          : undefined,
-        confidence: record.confidence ?? 1.0, // Manual add implies 100% confidence
-        is_manual: true,
-      };
-
-      const newRecord = await this.httpClient.post<AttendanceRecord>(
-        API_ENDPOINTS.records,
-        recordData,
-      );
-
-      return {
-        ...newRecord,
-        timestamp: new Date(newRecord.timestamp),
-      };
-    } catch (error) {
-      console.error("Error adding record:", error);
-      throw error;
-    }
+    return this.recordManager.addRecord(record);
   }
 
   async getRecords(filters?: {
@@ -686,26 +269,7 @@ export class AttendanceManager {
     end_date?: string;
     limit?: number;
   }): Promise<AttendanceRecord[]> {
-    try {
-      const params: Record<string, string> = {};
-      if (filters?.group_id) params.group_id = filters.group_id;
-      if (filters?.person_id) params.person_id = filters.person_id;
-      if (filters?.start_date) params.start_date = filters.start_date;
-      if (filters?.end_date) params.end_date = filters.end_date;
-      if (filters?.limit) params.limit = filters.limit.toString();
-
-      const records = await this.httpClient.get<AttendanceRecord[]>(
-        API_ENDPOINTS.records,
-        params,
-      );
-      return records.map((record) => ({
-        ...record,
-        timestamp: new Date(record.timestamp),
-      }));
-    } catch (error) {
-      console.error("Error getting records:", error);
-      return [];
-    }
+    return this.recordManager.getRecords(filters);
   }
 
   async getSessions(filters?: {
@@ -714,34 +278,13 @@ export class AttendanceManager {
     start_date?: string;
     end_date?: string;
   }): Promise<AttendanceSession[]> {
-    try {
-      const params: Record<string, string> = {};
-      if (filters?.group_id) params.group_id = filters.group_id;
-      if (filters?.person_id) params.person_id = filters.person_id;
-      if (filters?.start_date) params.start_date = filters.start_date;
-      if (filters?.end_date) params.end_date = filters.end_date;
-
-      const sessions = await this.httpClient.get<AttendanceSession[]>(
-        API_ENDPOINTS.sessions,
-        params,
-      );
-
-      return sessions.map((session) => ({
-        ...session,
-        check_in_time: session.check_in_time
-          ? new Date(session.check_in_time)
-          : undefined,
-      }));
-    } catch (error) {
-      console.error("Error getting sessions:", error);
-      return [];
-    }
+    return this.recordManager.getSessions(filters);
   }
 
+  // --- Settings (Internal to Facade for now) ---
+
   async getSettings(): Promise<AttendanceSettings> {
-    if (!this.settings) {
-      await this.loadSettings();
-    }
+    if (!this.settings) await this.loadSettings();
     return { ...this.settings! };
   }
 
@@ -749,75 +292,29 @@ export class AttendanceManager {
     newSettings: Partial<AttendanceSettings>,
   ): Promise<void> {
     try {
-      const updatedSettings = await this.httpClient.put<AttendanceSettings>(
+      const updated = await this.httpClient.put<AttendanceSettings>(
         API_ENDPOINTS.settings,
         newSettings,
       );
-      this.settings = updatedSettings;
+      this.settings = updated;
     } catch (error) {
       console.error("Error updating settings:", error);
       throw error;
     }
   }
 
-  async exportData(): Promise<string> {
-    try {
-      const [groups, members, records, sessions, settings] = await Promise.all([
-        this.getGroups(),
-        this.httpClient.get<AttendanceMember[]>(API_ENDPOINTS.members),
-        this.getRecords(),
-        this.getSessions(),
-        this.getSettings(),
-      ]);
+  // --- Maintenance & Backup (Delegated) ---
 
-      return JSON.stringify(
-        {
-          groups,
-          members: members.map((m) => ({
-            ...m,
-            joined_at: new Date(m.joined_at),
-          })),
-          records,
-          sessions,
-          settings,
-          exported_at: new Date().toISOString(),
-        },
-        null,
-        2,
-      );
-    } catch (error) {
-      console.error("Error exporting data:", error);
-      throw error;
-    }
+  async exportData(): Promise<string> {
+    return this.backupManager.exportData();
   }
 
   async importData(jsonData: string): Promise<boolean> {
-    try {
-      const parsed = JSON.parse(jsonData);
-      const result = await this.httpClient.post<{
-        success: boolean;
-        message: string;
-      }>("/attendance/import", { data: parsed, overwrite_existing: false });
-      console.info("[AttendanceManager] Import result:", result.message);
-      return true;
-    } catch (err) {
-      console.error(
-        "[AttendanceManager] Error importing data:",
-        err instanceof Error ? err.message : "Unknown error",
-      );
-      return false;
-    }
+    return this.backupManager.importData(jsonData);
   }
 
   async cleanupOldData(daysToKeep: number = 90): Promise<void> {
-    try {
-      await this.httpClient.post("/attendance/cleanup", {
-        days_to_keep: daysToKeep,
-      });
-    } catch (err) {
-      console.error("Error cleaning up old data:", err);
-      throw err;
-    }
+    return this.backupManager.cleanupOldData(daysToKeep);
   }
 
   async isBackendAvailable(): Promise<boolean> {
@@ -834,105 +331,15 @@ export class AttendanceManager {
       return await this.httpClient.get<Record<string, unknown>>(
         API_ENDPOINTS.stats,
       );
-    } catch (error) {
-      console.error("Error getting backend stats:", error);
+    } catch {
       return {};
-    }
-  }
-
-  async getGroupPersons(groupId: string): Promise<
-    Array<{
-      person_id: string;
-      name: string;
-      role?: string;
-      email?: string;
-      has_face_data: boolean;
-      joined_at: Date;
-    }>
-  > {
-    try {
-      const persons = await this.httpClient.get<
-        Array<{
-          person_id: string;
-          name: string;
-          role?: string;
-          email?: string;
-          has_face_data: boolean;
-          joined_at: string;
-        }>
-      >(`${API_ENDPOINTS.groups}/${groupId}/persons`);
-      return persons.map((person) => ({
-        ...person,
-        joined_at: new Date(person.joined_at),
-      }));
-    } catch (error) {
-      console.error("Error getting group persons:", error);
-      return [];
-    }
-  }
-
-  async registerFaceForGroupPerson(
-    groupId: string,
-    personId: string,
-    imageData: string,
-    bbox: number[],
-    landmarks_5: number[][],
-  ): Promise<{ success: boolean; message?: string; error?: string }> {
-    try {
-      const result = await this.httpClient.post<{
-        success: boolean;
-        message: string;
-        person_id: string;
-        group_id: string;
-        total_persons: number;
-      }>(
-        `${API_ENDPOINTS.groups}/${groupId}/persons/${personId}/register-face`,
-        {
-          image: imageData,
-          bbox: bbox,
-          landmarks_5: landmarks_5,
-        },
-      );
-      return { success: true, message: result.message };
-    } catch (error) {
-      console.error("Error registering face for group person:", error);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to register face",
-      };
-    }
-  }
-
-  async removeFaceDataForGroupPerson(
-    groupId: string,
-    personId: string,
-  ): Promise<{ success: boolean; message?: string; error?: string }> {
-    try {
-      const result = await this.httpClient.delete<{
-        success: boolean;
-        message: string;
-        person_id: string;
-        group_id: string;
-      }>(`${API_ENDPOINTS.groups}/${groupId}/persons/${personId}/face-data`);
-      return { success: true, message: result.message };
-    } catch (error) {
-      console.error("Error removing face data for group person:", error);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to remove face data",
-      };
     }
   }
 
   async getAttendanceStats(): Promise<AttendanceStats> {
     try {
-      const response =
-        await this.httpClient.get<AttendanceStats>("/attendance/stats");
-      return response;
-    } catch (error) {
-      console.error("Error getting attendance stats:", error);
+      return await this.httpClient.get<AttendanceStats>("/attendance/stats");
+    } catch {
       return {
         total_members: 0,
         present_today: 0,
@@ -940,6 +347,39 @@ export class AttendanceManager {
         late_today: 0,
       };
     }
+  }
+
+  // --- Helpers ---
+
+  private warnIfSystemClockWentBackwards(): void {
+    try {
+      const now = Date.now();
+      const lastRaw = localStorage.getItem(this.clockCheckStorageKey);
+      const last = lastRaw ? Number(lastRaw) : NaN;
+
+      if (
+        Number.isFinite(last) &&
+        now + this.clockBackwardWarnThresholdMs < last
+      ) {
+        const diffMs = last - now;
+        const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+        window.dispatchEvent(
+          new CustomEvent("suri:clock-warning", {
+            detail: {
+              message: `System clock appears to have moved backwards by more than 1 minute (~${diffMinutes} minute(s)).`,
+            },
+          }),
+        );
+      }
+      localStorage.setItem(this.clockCheckStorageKey, String(now));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private toLocalDateTimeParam(date: Date): string {
+    const pad = (n: number, len: number = 2) => String(n).padStart(len, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
   }
 }
 
