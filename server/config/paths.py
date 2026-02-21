@@ -16,6 +16,11 @@ def get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def get_project_root() -> Path:
+    """Get the absolute project root (e.g. repo/suri/ folder in dev)."""
+    return get_base_dir().parent if not IS_FROZEN else get_base_dir()
+
+
 def get_data_dir() -> Path:
     """
     Get the data directory for persistent read-write storage (databases, logs).
@@ -37,7 +42,7 @@ def get_data_dir() -> Path:
         
         data_dir = app_data / APP_NAME / "data"
     else:
-        data_dir = get_base_dir() / "data"
+        data_dir = get_project_root() / "data"
 
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
@@ -49,7 +54,7 @@ DATA_DIR = get_data_dir()
 MODELS_DIR = BASE_DIR / "assets" / "models"
 ALEMBIC_CONFIG_PATH = BASE_DIR / "alembic.ini"
 MIGRATIONS_DIR = BASE_DIR / "migrations"
-PROJECT_ROOT = BASE_DIR.parent if not IS_FROZEN else BASE_DIR
+PROJECT_ROOT = get_project_root()
 
 
 # Helpers for specific path retrieval if needed dynamically

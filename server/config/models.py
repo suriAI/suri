@@ -63,8 +63,8 @@ def validate_directories():
 
     required_dirs = [
         MODELS_DIR,
-        BASE_DIR.parent / "core" / "models",
-        BASE_DIR.parent / "utils",
+        BASE_DIR / "core" / "models",
+        BASE_DIR / "utils",
     ]
     for directory in required_dirs:
         directory.mkdir(parents=True, exist_ok=True)
