@@ -76,6 +76,7 @@ export class BackendProcessManager {
             });
 
             const logFile = path.join(app.getPath("userData"), "backend-startup.log");
+            fs.writeFileSync(logFile, `[${new Date().toISOString()}] Backend starting...\n`);
             const logStream = fs.createWriteStream(logFile, { flags: "a" });
 
             this.process.stdout?.on("data", (data) => {
@@ -266,7 +267,7 @@ export class BackendProcessManager {
     private getBackendExecutablePath(): string {
         if (isDev()) {
             const currentDir = path.dirname(fileURLToPath(import.meta.url));
-            return path.join(currentDir, "..", "..", "..", "server", "run.py");
+            return path.join(currentDir, "..", "..", "..", "..", "server", "run.py");
         }
 
         const platform = process.platform;
