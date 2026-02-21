@@ -656,10 +656,10 @@ function createWindow(): void {
       if (y >= height - radius) {
         const offset = Math.ceil(
           radius -
-          Math.sqrt(
-            radius * radius -
-            (y - (height - radius)) * (y - (height - radius)),
-          ),
+            Math.sqrt(
+              radius * radius -
+                (y - (height - radius)) * (y - (height - radius)),
+            ),
         );
         startX = offset;
       }
@@ -668,10 +668,10 @@ function createWindow(): void {
       if (y >= height - radius) {
         const offset = Math.ceil(
           radius -
-          Math.sqrt(
-            radius * radius -
-            (y - (height - radius)) * (y - (height - radius)),
-          ),
+            Math.sqrt(
+              radius * radius -
+                (y - (height - radius)) * (y - (height - radius)),
+            ),
         );
         endX = width - offset;
       }
@@ -796,7 +796,7 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
-      shell.openExternal(url).catch(() => { });
+      shell.openExternal(url).catch(() => {});
     }
 
     return { action: "deny" };
@@ -811,7 +811,7 @@ function createWindow(): void {
     if (!isAllowed) {
       event.preventDefault();
       if (url.startsWith("http://") || url.startsWith("https://")) {
-        shell.openExternal(url).catch(() => { });
+        shell.openExternal(url).catch(() => {});
       }
     }
   });
@@ -848,7 +848,8 @@ function createWindow(): void {
         type: "info",
         title: "Suri is running in the background",
         message: "Suri will keep running in your system tray.",
-        detail: "You can fully close the app by right-clicking the tray icon and selecting 'Quit'.",
+        detail:
+          "You can fully close the app by right-clicking the tray icon and selecting 'Quit'.",
         buttons: ["Got it", "Quit Suri"],
         defaultId: 0,
         cancelId: 0,

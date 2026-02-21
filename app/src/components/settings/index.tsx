@@ -31,7 +31,6 @@ interface SettingsProps {
   onAudioSettingsChange: (settings: Partial<AudioSettings>) => void;
   attendanceSettings: AttendanceSettings;
   onAttendanceSettingsChange: (settings: Partial<AttendanceSettings>) => void;
-  isStreaming?: boolean;
   // Group Panel props
   initialGroupSection?: GroupSection;
   currentGroup?: AttendanceGroup | null;
@@ -54,7 +53,6 @@ export const Settings: React.FC<SettingsProps> = ({
   onAudioSettingsChange,
   attendanceSettings,
   onAttendanceSettingsChange,
-  isStreaming = false,
   initialGroupSection,
   currentGroup,
   onGroupSelect,
@@ -779,7 +777,7 @@ export const Settings: React.FC<SettingsProps> = ({
               onSpoofDetectionToggle={(enabled) =>
                 updateAttendanceSetting({ enableSpoofDetection: enabled })
               }
-              isStreaming={isStreaming}
+              hasSelectedGroup={!!dropdownValue}
             />
           )}
           {activeSection === "database" && (

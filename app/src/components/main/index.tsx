@@ -705,7 +705,6 @@ export default function Main() {
                 }
               }
             }}
-            isStreaming={isStreaming}
             initialGroupSection={groupInitialSection}
             initialSection={settingsInitialSection}
             currentGroup={currentGroup}

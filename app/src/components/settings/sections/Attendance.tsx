@@ -6,7 +6,7 @@ interface AttendanceProps {
   onLateThresholdToggle: (enabled: boolean) => void;
   onReLogCooldownChange: (seconds: number) => void;
   onSpoofDetectionToggle: (enabled: boolean) => void;
-  isStreaming?: boolean;
+  hasSelectedGroup?: boolean;
 }
 
 export function Attendance({
@@ -15,7 +15,7 @@ export function Attendance({
   onLateThresholdToggle,
   onReLogCooldownChange,
   onSpoofDetectionToggle,
-  isStreaming = false,
+  hasSelectedGroup = false,
 }: AttendanceProps) {
   return (
     <div className="space-y-4 max-w-3xl p-6">
@@ -36,7 +36,6 @@ export function Attendance({
           onClick={() =>
             onSpoofDetectionToggle(!attendanceSettings.enableSpoofDetection)
           }
-          disabled={isStreaming}
           className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
             attendanceSettings.enableSpoofDetection
               ? "bg-cyan-500/30"
@@ -74,7 +73,6 @@ export function Attendance({
             step="300" // 5 min steps
             value={attendanceSettings.reLogCooldownSeconds ?? 1800}
             onChange={(e) => onReLogCooldownChange(parseInt(e.target.value))}
-            disabled={isStreaming}
             className="w-24 accent-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <span className="text-cyan-400 font-semibold text-sm min-w-[2.5rem] text-right whitespace-nowrap">
@@ -91,7 +89,9 @@ export function Attendance({
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-white/90">Late</div>
             <div className="text-xs text-white/50 mt-0.5">
-              Track late arrivals
+              {!hasSelectedGroup
+                ? "Select a group to enable late tracking"
+                : "Track late arrivals"}
             </div>
           </div>
 
@@ -99,7 +99,7 @@ export function Attendance({
             onClick={() =>
               onLateThresholdToggle(!attendanceSettings.lateThresholdEnabled)
             }
-            disabled={isStreaming}
+            disabled={!hasSelectedGroup}
             className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 flex-shrink-0 flex items-center ml-auto ${
               attendanceSettings.lateThresholdEnabled
                 ? "bg-cyan-500/30"
@@ -117,7 +117,7 @@ export function Attendance({
         </div>
 
         {/* Class Start Time */}
-        {attendanceSettings.lateThresholdEnabled && (
+        {attendanceSettings.lateThresholdEnabled && hasSelectedGroup && (
           <>
             {/* Scheduled Start removed - now handled via main UI chip */}
 
@@ -143,7 +143,6 @@ export function Attendance({
                   onChange={(e) =>
                     onLateThresholdChange(parseInt(e.target.value))
                   }
-                  disabled={isStreaming}
                   className="w-24 accent-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <span className="text-cyan-400 font-semibold text-sm min-w-[2.5rem] text-right whitespace-nowrap">

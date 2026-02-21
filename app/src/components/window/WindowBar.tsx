@@ -72,10 +72,12 @@ export default function WindowBar() {
       {/* Window Controls */}
       <div
         className="flex items-center h-full [webkit-app-region:no-drag]"
-        style={{
-          WebkitAppRegion: "no-drag",
-          fontFamily: '"Segoe MDL2 Assets", Arial, sans-serif'
-        } as React.CSSProperties}
+        style={
+          {
+            WebkitAppRegion: "no-drag",
+            fontFamily: '"Segoe MDL2 Assets", Arial, sans-serif',
+          } as React.CSSProperties
+        }
       >
         <button
           onClick={handleMinimize}
