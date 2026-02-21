@@ -180,6 +180,10 @@ export class AttendanceManager {
     return this.memberManager.updateMember(personId, updates);
   }
 
+  async getMembers(): Promise<AttendanceMember[]> {
+    return this.memberManager.getMembers();
+  }
+
   async removeMember(personId: string): Promise<boolean> {
     return this.memberManager.removeMember(personId);
   }

@@ -10,7 +10,7 @@ from api.routes import (
 )
 
 # Initialize router
-router = APIRouter()
+router = APIRouter(prefix="/attendance")
 
 # Include sub-routers
 router.include_router(groups.router)

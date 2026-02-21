@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/members", tags=["members"])
 
+@router.get("", response_model=List[AttendanceMemberResponse])
+async def get_members(repo: AttendanceRepository = Depends(get_repository)):
+    """Get all attendance members"""
+    try:
+        members = await repo.get_members()
+        return members
+    except Exception as e:
+        logger.error(f"Error getting members: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @router.post("", response_model=AttendanceMemberResponse)
 async def add_member(
     member_data: AttendanceMemberCreate,

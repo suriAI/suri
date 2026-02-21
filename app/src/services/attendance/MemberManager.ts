@@ -10,6 +10,21 @@ export class MemberManager {
     this.apiEndpoints = apiEndpoints;
   }
 
+  async getMembers(): Promise<AttendanceMember[]> {
+    try {
+      const members = await this.httpClient.get<AttendanceMember[]>(
+        this.apiEndpoints.members,
+      );
+      return members.map((member) => ({
+        ...member,
+        joined_at: new Date(member.joined_at),
+      }));
+    } catch (error) {
+      console.error("Error getting members:", error);
+      return [];
+    }
+  }
+
   async addMember(
     groupId: string,
     name: string,
