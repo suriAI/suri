@@ -96,18 +96,31 @@ app.whenReady().then(async () => {
   const backendPromise = (async () => {
     try {
       await backendService.start();
+
       const maxWaitTime = 120000;
-      const pollInterval = 500;
+      const pollInterval = 1000;
       const startTime = Date.now();
 
       while (Date.now() - startTime < maxWaitTime) {
         const readiness = await backendService.checkReadiness();
-        if (readiness.ready && readiness.modelsLoaded) return true;
+        if (readiness.ready) return true;
         await new Promise((r) => setTimeout(r, pollInterval));
       }
-      return true;
+
+      throw new Error("Backend synchronization timed out.");
     } catch (e) {
       console.error("[Main] Backend fail:", e);
+      const { dialog } = await import("electron");
+      await dialog.showMessageBox({
+        type: "error",
+        title: "SURI Startup Error",
+        message: "Failed to start background services.",
+        detail:
+          e instanceof Error
+            ? e.message
+            : "An unknown error occurred during backend startup.",
+        buttons: ["Retry", "Quit"],
+      });
       return false;
     }
   })();
