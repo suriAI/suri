@@ -38,11 +38,11 @@ export const useSettings = ({
 }: UseSettingsProps) => {
   const dialog = useDialog();
   const [activeSection, setActiveSection] = useState<string>(
-    initialSection || (initialGroupSection ? "group" : "attendance"),
+    initialSection || "group",
   );
   const [groupInitialSection, setGroupInitialSection] = useState<
     GroupSection | undefined
-  >(initialGroupSection);
+  >(initialGroupSection || "overview");
   const [systemData, setSystemData] = useState<SettingsOverview>({
     totalPersons: 0,
     totalMembers: 0,
