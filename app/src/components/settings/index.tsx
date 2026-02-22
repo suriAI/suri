@@ -40,16 +40,16 @@ export const Settings = React.forwardRef<HTMLDivElement, SettingsProps>(
       label: string;
       icon: string;
     }> = [
-      { id: "overview", label: "Overview", icon: "fa-solid fa-chart-line" },
-      { id: "reports", label: "Reports", icon: "fa-solid fa-chart-bar" },
-      { id: "members", label: "Members", icon: "fa-solid fa-users" },
-      {
-        id: "registration",
-        label: "Registration",
-        icon: "fa-solid fa-id-card",
-      },
-      { id: "settings", label: "Configuration", icon: "fa-solid fa-sliders" },
-    ];
+        { id: "overview", label: "Overview", icon: "fa-solid fa-chart-line" },
+        { id: "reports", label: "Reports", icon: "fa-solid fa-chart-bar" },
+        { id: "members", label: "Members", icon: "fa-solid fa-users" },
+        {
+          id: "registration",
+          label: "Registration",
+          icon: "fa-solid fa-id-card",
+        },
+        { id: "settings", label: "Configuration", icon: "fa-solid fa-sliders" },
+      ];
 
     const sections = [
       { id: "attendance", label: "Attendance", icon: "fa-solid fa-user-check" },
@@ -138,7 +138,7 @@ export const Settings = React.forwardRef<HTMLDivElement, SettingsProps>(
             }}
             style={{ willChange: "transform, opacity" }}
             // Adjusted padding to account for custom window traffic lights
-            className="bg-[#0f0f0f] rounded-xl w-full max-w-[95%] lg:h-[89vh] md:h-[80vh] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden mt-6"
+            className="bg-[#0f0f0f] rounded-xl w-full max-w-[100%] md:h-[90vh] lg:h-[89vh] lg:max-w-[95%] shadow-[0_40px_80px_rgba(0,0,0,0.6)] overflow-hidden mt-6"
           >
             {mainContent}
           </motion.div>
