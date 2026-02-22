@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useGroupUIStore } from "@/components/group/stores";
+import { Modal } from "@/components/common";
 import type { AttendanceGroup, AttendanceMember } from "@/types/recognition";
 import { useCamera } from "@/components/group/sections/registration/hooks/useCamera";
 import { useFaceCapture } from "@/components/group/sections/registration/hooks/useFaceCapture";
@@ -150,46 +151,51 @@ export function FaceCapture({
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
-      {/* Success Modal with Backdrop */}
-      {successMessage && (
-        <>
-          {/* Backdrop - blocks clicks on capture area only, sidebar remains clickable */}
-          <div className="absolute inset-0 bg-black/40 z-40" />
-
-          {/* Modal */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-[1.5rem] border border-cyan-500/30 bg-black/90 p-6 text-sm text-cyan-200 flex flex-col items-center gap-3 min-w-[280px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(0,0,0,0.7)] border-b-cyan-500/50">
-            <div className="text-center">
-              <h4 className="text-base font-black text-white mb-1">Success</h4>
-              <p className="text-xs text-cyan-200/60 font-medium">
-                {successMessage}
-              </p>
-            </div>
-
-            <button
-              onClick={() => {
-                setSuccessMessage(null);
-                setSelectedMemberId("");
-                resetFrames();
-              }}
-              className="w-full px-4 py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 text-[10px] font-black uppercase tracking-widest transition-all"
-            >
-              Done
-            </button>
+      {/* Success Modal */}
+      <Modal
+        isOpen={!!successMessage}
+        onClose={() => {
+          setSuccessMessage(null);
+          setSelectedMemberId("");
+          resetFrames();
+        }}
+        title="Success"
+        maxWidth="sm"
+        hideCloseButton={true}
+      >
+        <div className="flex flex-col items-center gap-4 py-2">
+          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center">
+            <i className="fa-solid fa-check text-xl text-cyan-400"></i>
           </div>
-        </>
-      )}
+          <p className="text-sm text-cyan-200/60 font-medium text-center">
+            {successMessage}
+          </p>
 
-      {globalError && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-[1.5rem] border border-red-500/30 bg-black/80 p-5 text-sm text-red-200 flex flex-col items-center gap-4 min-w-[400px] max-w-[95%] intro-y shadow-[0_20px_50px_rgba(239,68,68,0.2)]">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center mb-1">
-            <i className="fa-solid fa-triangle-exclamation text-xl text-red-400"></i>
-          </div>
-          <div className="text-center">
-            <h4 className="text-base font-black text-white mb-1">
-              Something went wrong
-            </h4>
-            <p className="text-xs text-red-200/60 font-medium">{globalError}</p>
-          </div>
+          <button
+            onClick={() => {
+              setSuccessMessage(null);
+              setSelectedMemberId("");
+              resetFrames();
+            }}
+            className="w-full px-4 py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 text-[10px] font-black uppercase tracking-widest transition-all mt-2"
+          >
+            Done
+          </button>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={!!globalError}
+        onClose={() => setGlobalError(null)}
+        title="Something went wrong"
+        icon={<i className="fa-solid fa-triangle-exclamation text-red-400"></i>}
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center gap-4 py-2">
+          <p className="text-sm text-red-200/60 font-medium text-center">
+            {globalError}
+          </p>
 
           <button
             onClick={() => setGlobalError(null)}
@@ -198,7 +204,7 @@ export function FaceCapture({
             Dismiss
           </button>
         </div>
-      )}
+      </Modal>
 
       <div className="flex-1 overflow-hidden min-h-0">
         {!selectedMemberId && (

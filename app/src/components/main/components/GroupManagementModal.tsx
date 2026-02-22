@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FormInput, ModalCloseButton } from "@/components/common";
+import { FormInput, Modal } from "@/components/common";
 
 interface GroupManagementModalProps {
   showGroupManagement: boolean;
@@ -36,50 +36,42 @@ export function GroupManagementModal({
     }
   }, [showGroupManagement]);
 
-  if (!showGroupManagement) return null;
+  // Handle Enter key for submission
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && newGroupName.trim()) {
+      handleCreateGroup();
+    }
+  };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={() => setShowGroupManagement(false)}
+    <Modal
+      isOpen={showGroupManagement}
+      onClose={() => setShowGroupManagement(false)}
+      title="Create New Group"
+      maxWidth="sm"
     >
-      <div
-        className="w-full max-w-sm bg-[#09090b]/95 border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-5">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-5">
-            <h2 className="text-base font-semibold text-white tracking-tight">
-              Create New Group
-            </h2>
-            <ModalCloseButton onClick={() => setShowGroupManagement(false)} />
-          </div>
-
-          {/* Form */}
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium mb-1.5 text-white/60">
-                Group Name:
-              </label>
-              <FormInput
-                ref={inputRef}
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="Enter group name"
-                focusColor="border-cyan-500/60"
-              />
-            </div>
-            <button
-              onClick={handleCreateGroup}
-              disabled={!newGroupName.trim()}
-              className="btn-success w-full px-4 py-2 text-sm disabled:opacity-50"
-            >
-              Create Group
-            </button>
-          </div>
+      <div className="space-y-3 mt-2">
+        <div>
+          <label className="block text-xs font-medium mb-1.5 text-white/60">
+            Group Name:
+          </label>
+          <FormInput
+            ref={inputRef}
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter group name"
+            focusColor="border-cyan-500/60"
+          />
         </div>
+        <button
+          onClick={handleCreateGroup}
+          disabled={!newGroupName.trim()}
+          className="btn-success w-full px-4 py-2 text-sm disabled:opacity-50 mt-4"
+        >
+          Create Group
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

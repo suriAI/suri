@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { updaterService } from "@/services";
 import type { UpdateInfo } from "@/types/global";
+import { Modal } from "@/components/common";
 
 // ============================================================================
 // Privacy Modal Component
@@ -17,123 +18,99 @@ interface PrivacyModalProps {
 }
 
 const PrivacyModal: React.FC<PrivacyModalProps> = ({ onClose }) => {
-  // Handle escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col p-6">
-        {/* Header */}
-        <div className="flex-shrink-0 mb-4">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={
+        <div>
           <h2 className="text-xl font-semibold text-white">
             Privacy & Data Handling
           </h2>
-          <p className="text-sm text-white/50 mt-1">
+          <p className="text-sm text-white/50 mt-1 font-normal">
             How your information is stored and used
           </p>
         </div>
+      }
+      maxWidth="lg"
+    >
+      <div className="overflow-y-auto max-h-[70vh] space-y-6 custom-scroll pr-2 -mr-2 mt-2">
+        {/* Local-first */}
+        <section>
+          <h3 className="text-sm font-medium text-white mb-2">
+            Your data stays local
+          </h3>
+          <p className="text-xs text-white/50 leading-relaxed">
+            Suri runs entirely on your device. Face recognition data (including
+            biometric templates), attendance records, and settings are stored
+            locally on your computer. Nothing is uploaded to external servers
+            unless you explicitly choose to enable cloud sync features.
+          </p>
+        </section>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-6 custom-scroll pr-2 -mr-2">
-          {/* Local-first */}
-          <section>
-            <h3 className="text-sm font-medium text-white mb-2">
-              Your data stays local
-            </h3>
-            <p className="text-xs text-white/50 leading-relaxed">
-              Suri runs entirely on your device. Face recognition data
-              (including biometric templates), attendance records, and settings
-              are stored locally on your computer. Nothing is uploaded to
-              external servers unless you explicitly choose to enable cloud sync
-              features.
-            </p>
-          </section>
+        {/* No collection */}
+        <section>
+          <h3 className="text-sm font-medium text-white mb-2">
+            No data collection
+          </h3>
+          <p className="text-xs text-white/50 leading-relaxed">
+            This application does not collect, transmit, or share any personal
+            information. We don't track usage patterns, gather analytics, or
+            monitor your activity. There are no hidden callbacks, telemetry, or
+            background data transfers.
+          </p>
+        </section>
 
-          {/* No collection */}
-          <section>
-            <h3 className="text-sm font-medium text-white mb-2">
-              No data collection
-            </h3>
-            <p className="text-xs text-white/50 leading-relaxed">
-              This application does not collect, transmit, or share any personal
-              information. We don't track usage patterns, gather analytics, or
-              monitor your activity. There are no hidden callbacks, telemetry,
-              or background data transfers.
-            </p>
-          </section>
+        {/* Offline operation */}
+        <section>
+          <h3 className="text-sm font-medium text-white mb-2">Works offline</h3>
+          <p className="text-xs text-white/50 leading-relaxed">
+            Face detection, recognition, and attendance recording work without
+            internet. This ensures privacy and allows use in environments with
+            limited or no network access.
+          </p>
+        </section>
 
-          {/* Offline operation */}
-          <section>
-            <h3 className="text-sm font-medium text-white mb-2">
-              Works offline
-            </h3>
-            <p className="text-xs text-white/50 leading-relaxed">
-              Face detection, recognition, and attendance recording work without
-              internet. This ensures privacy and allows use in environments with
-              limited or no network access.
-            </p>
-          </section>
+        {/* Optional cloud */}
+        <section>
+          <h3 className="text-sm font-medium text-white mb-2">
+            Optional cloud sync
+          </h3>
+          <p className="text-xs text-white/50 leading-relaxed">
+            If you enable cloud synchronization in the future, those features
+            will have separate terms you can review before opting in. Cloud
+            features are entirely optional.
+          </p>
+        </section>
 
-          {/* Optional cloud */}
-          <section>
-            <h3 className="text-sm font-medium text-white mb-2">
-              Optional cloud sync
-            </h3>
-            <p className="text-xs text-white/50 leading-relaxed">
-              If you enable cloud synchronization in the future, those features
-              will have separate terms you can review before opting in. Cloud
-              features are entirely optional.
-            </p>
-          </section>
-
-          {/* Legal compliance */}
-          <section>
-            <h3 className="text-sm font-medium text-white mb-2">
-              Regulatory compliance
-            </h3>
-            <p className="text-xs text-white/50 leading-relaxed">
-              Your data, including biometric templates, is stored locally in an
-              isolated environment. You maintain full control with the ability
-              to export or permanently delete your records at any time. This
-              supports compliance with:
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
-                GDPR (EU)
-              </span>
-              <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
-                CCPA (California)
-              </span>
-              <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
-                LGPD (Brazil)
-              </span>
-              <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
-                Data Privacy Act of 2012 (PH)
-              </span>
-            </div>
-          </section>
-        </div>
-
-        {/* Footer */}
-        <div className="flex-shrink-0 mt-6 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-          >
-            Close
-          </button>
-        </div>
+        {/* Legal compliance */}
+        <section>
+          <h3 className="text-sm font-medium text-white mb-2">
+            Regulatory compliance
+          </h3>
+          <p className="text-xs text-white/50 leading-relaxed">
+            Your data, including biometric templates, is stored locally in an
+            isolated environment. You maintain full control with the ability to
+            export or permanently delete your records at any time. This supports
+            compliance with:
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5 pb-2">
+            <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
+              GDPR (EU)
+            </span>
+            <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
+              CCPA (California)
+            </span>
+            <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
+              LGPD (Brazil)
+            </span>
+            <span className="text-[10px] text-white/40 bg-white/5 px-2 py-0.5 rounded">
+              Data Privacy Act of 2012 (PH)
+            </span>
+          </div>
+        </section>
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -152,7 +152,7 @@ export function Dropdown<T extends string | number = string>({
             />
             {/* Options Container - Fixed positioning relative to viewport */}
             <div
-              className="fixed z-[9999] bg-[#0c0c0c] border border-white/10 rounded-md shadow-2xl overflow-hidden"
+              className="fixed z-[9999] bg-[#0c0c0c] border border-white/10 rounded-md overflow-hidden"
               style={{
                 top: `${menuPosition.top}px`,
                 left: `${menuPosition.left}px`,

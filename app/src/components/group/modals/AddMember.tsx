@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { attendanceManager } from "@/services";
 import type { AttendanceGroup, AttendanceMember } from "@/types/recognition";
+import { Modal } from "@/components/common";
 
 interface AddMemberProps {
   group: AttendanceGroup;
@@ -165,13 +166,23 @@ export function AddMember({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-xl font-semibold mb-2">Add Members</h3>
-        <p className="text-sm text-white/60 mb-4">
-          Add one or more people to the group
-        </p>
-
+    <Modal
+      isOpen={true}
+      onClose={() => {
+        resetForm();
+        onClose();
+      }}
+      title={
+        <div>
+          <h3 className="text-xl font-semibold mb-2">Add Members</h3>
+          <p className="text-sm text-white/60 font-normal">
+            Add one or more people to the group
+          </p>
+        </div>
+      }
+      maxWidth="2xl"
+    >
+      <div className="max-h-[90vh] overflow-y-auto mt-2 -m-5 p-5">
         {/* Tab selector */}
         <div className="flex gap-2 mb-4 border-b border-white/10 pb-2">
           <button
@@ -327,20 +338,11 @@ export function AddMember({
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={() => {
-              resetForm();
-              onClose();
-            }}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-          >
-            Cancel
-          </button>
           {!isBulkMode ? (
             <button
               onClick={handleAddMember}
               disabled={!newMemberName.trim() || loading}
-              className={`px-4 py-2 rounded-xl border transition-colors text-sm font-medium disabled:opacity-50 ${
+              className={`w-full px-4 py-2 rounded-xl border transition-colors text-sm font-medium disabled:opacity-50 ${
                 confirmDuplicate
                   ? "bg-amber-500/20 border-amber-400/40 text-amber-200 hover:bg-amber-500/30"
                   : "bg-cyan-500/20 border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30"
@@ -356,13 +358,13 @@ export function AddMember({
             <button
               onClick={() => void handleBulkAddMembers()}
               disabled={!bulkMembersText.trim() || isProcessingBulk}
-              className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
+              className="w-full px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
             >
               {isProcessingBulk ? "Processing…" : `Add Members`}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

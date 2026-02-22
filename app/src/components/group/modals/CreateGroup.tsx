@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { attendanceManager } from "@/services";
 import type { AttendanceGroup } from "@/types/recognition";
-import { ErrorMessage, FormInput, FormTextarea } from "@/components/common";
+import {
+  ErrorMessage,
+  FormInput,
+  FormTextarea,
+  Modal,
+} from "@/components/common";
 
 interface CreateGroupProps {
   onClose: () => void;
@@ -36,13 +41,20 @@ export function CreateGroup({ onClose, onSuccess }: CreateGroupProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-lg">
-        <h3 className="text-xl font-semibold mb-2">Create New Group</h3>
-        <p className="text-sm text-white/60 mb-4">
-          Set up a new attendance group
-        </p>
-
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={
+        <div>
+          <h3 className="text-xl font-semibold mb-2">Create New Group</h3>
+          <p className="text-sm text-white/60 font-normal">
+            Set up a new attendance group
+          </p>
+        </div>
+      }
+      maxWidth="lg"
+    >
+      <div className="mt-2">
         {error && <ErrorMessage message={error} />}
 
         <div className="grid gap-4">
@@ -71,20 +83,14 @@ export function CreateGroup({ onClose, onSuccess }: CreateGroupProps) {
 
         <div className="flex justify-end gap-3 mt-6">
           <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-          >
-            Cancel
-          </button>
-          <button
             onClick={handleCreate}
             disabled={!name.trim() || loading}
-            className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
           >
             {loading ? "Creating…" : "Create Group"}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

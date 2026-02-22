@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useUIStore } from "@/components/main/stores/uiStore";
+import { Modal } from "@/components/common";
 
 export function IntroModal() {
   const { setHasSeenIntro } = useUIStore();
@@ -90,8 +91,8 @@ export function IntroModal() {
   const currentStep = steps[step];
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-4">
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-[420px] relative overflow-hidden">
+    <Modal isOpen={true} maxWidth="md" hideCloseButton={true}>
+      <div className="relative overflow-hidden -m-5">
         {/* Progress Bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-white/5">
           <div
@@ -100,43 +101,45 @@ export function IntroModal() {
           />
         </div>
 
-        <div className="mb-6 mt-2">
-          <h2 className="text-lg font-semibold mb-2 text-white">
-            {currentStep.title}
-          </h2>
-          <div className="min-h-[100px]">{currentStep.content}</div>
-        </div>
-
-        <div className="flex justify-between items-center mt-4">
-          <button
-            onClick={handleBack}
-            disabled={step === 0}
-            className={`text-sm text-white/40 hover:text-white/80 transition-colors px-2 py-1 ${
-              step === 0 ? "opacity-0 pointer-events-none" : "opacity-100"
-            }`}
-          >
-            Back
-          </button>
-
-          <div className="flex gap-1.5">
-            {steps.map((_, i) => (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                  i === step ? "bg-cyan-500" : "bg-white/10"
-                }`}
-              />
-            ))}
+        <div className="p-6">
+          <div className="mb-6 mt-2">
+            <h2 className="text-lg font-semibold mb-2 text-white">
+              {currentStep.title}
+            </h2>
+            <div className="min-h-[100px]">{currentStep.content}</div>
           </div>
 
-          <button
-            onClick={handleNext}
-            className="px-5 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium active:scale-95"
-          >
-            {step === steps.length - 1 ? "Get Started" : "Next"}
-          </button>
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={handleBack}
+              disabled={step === 0}
+              className={`text-sm text-white/40 hover:text-white/80 transition-colors px-2 py-1 ${
+                step === 0 ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
+            >
+              Back
+            </button>
+
+            <div className="flex gap-1.5">
+              {steps.map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    i === step ? "bg-cyan-500" : "bg-white/10"
+                  }`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={handleNext}
+              className="px-5 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium active:scale-95"
+            >
+              {step === steps.length - 1 ? "Get Started" : "Next"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

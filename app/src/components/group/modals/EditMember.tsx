@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { attendanceManager } from "@/services";
 import type { AttendanceMember } from "@/types/recognition";
+import { Modal } from "@/components/common";
 
 interface EditMemberProps {
   member: AttendanceMember;
@@ -38,13 +39,20 @@ export function EditMember({ member, onClose, onSuccess }: EditMemberProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-lg">
-        <h3 className="text-xl font-semibold mb-2">Edit Member</h3>
-        <p className="text-sm text-white/60 mb-4">
-          Update member details and role
-        </p>
-
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={
+        <div>
+          <h3 className="text-xl font-semibold mb-2">Edit Member</h3>
+          <p className="text-sm text-white/60 font-normal">
+            Update member details and role
+          </p>
+        </div>
+      }
+      maxWidth="lg"
+    >
+      <div className="mt-2">
         {error && (
           <div className="mb-4 px-4 py-2 bg-red-600/20 border border-red-500/40 text-red-200 rounded-lg text-sm">
             {error}
@@ -75,20 +83,14 @@ export function EditMember({ member, onClose, onSuccess }: EditMemberProps) {
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-          >
-            Cancel
-          </button>
-          <button
             onClick={handleSave}
             disabled={!name.trim() || loading}
-            className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
           >
             {loading ? "Saving…" : "Save changes"}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

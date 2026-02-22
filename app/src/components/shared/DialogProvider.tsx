@@ -14,6 +14,7 @@ import {
   type DialogAPI,
   type DialogVariant,
 } from "@/components/shared/DialogContext";
+import { Modal } from "@/components/common";
 
 type ActiveDialogState =
   | {
@@ -99,99 +100,55 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     close();
   }, [active, close]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      handleOverlayClick();
-    },
-    [handleOverlayClick],
-  );
-
   return (
     <DialogContext.Provider value={api}>
       {children}
 
-      {active && (
-        <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] px-4"
-          onClick={handleOverlayClick}
-          onKeyDown={handleKeyDown}
-          role="presentation"
-        >
-          <div
-            className="bg-[#0f0f0f] border border-white/10 p-6 rounded-2xl max-w-md w-full"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={
-              active.options.title ||
-              (active.type === "confirm" ? "Confirm" : "Message")
-            }
-          >
-            {active.options.title && (
-              <h3 className="text-lg font-semibold mb-3 text-white flex items-center gap-2">
-                {active.type === "confirm" ? (
-                  <i className="fa-solid fa-triangle-exclamation text-orange-300" />
-                ) : (
-                  <i className="fa-solid fa-circle-info text-cyan-300" />
-                )}
-                {active.options.title}
-              </h3>
-            )}
+      <Modal
+        isOpen={!!active}
+        onClose={handleOverlayClick}
+        title={active?.options.title}
+        icon={
+          active?.type === "confirm" ? (
+            <i className="fa-solid fa-triangle-exclamation text-orange-300" />
+          ) : (
+            <i className="fa-solid fa-circle-info text-cyan-300" />
+          )
+        }
+        maxWidth="sm"
+      >
+        <div className="space-y-6">
+          <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
+            {active?.options.message}
+          </p>
 
-            <div className="mb-6">
-              <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap">
-                {active.options.message}
-              </p>
-            </div>
-
-            {active.type === "alert" ? (
-              <div className="flex justify-end">
-                <button
-                  ref={primaryButtonRef}
-                  type="button"
-                  className={getButtonClasses(
-                    active.options.variant || "default",
-                  )}
-                  onClick={() => {
-                    active.resolve();
-                    close();
-                  }}
-                >
-                  {active.options.buttonText || "OK"}
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-3 justify-end">
-                <button
-                  type="button"
-                  className={getButtonClasses("default")}
-                  onClick={() => {
-                    active.resolve(false);
-                    close();
-                  }}
-                >
-                  {active.options.cancelText}
-                </button>
-                <button
-                  ref={primaryButtonRef}
-                  type="button"
-                  className={getButtonClasses(
-                    active.options.confirmVariant || "default",
-                  )}
-                  onClick={() => {
-                    active.resolve(true);
-                    close();
-                  }}
-                >
-                  {active.options.confirmText}
-                </button>
-              </div>
-            )}
+          <div className="flex justify-end">
+            <button
+              ref={primaryButtonRef}
+              type="button"
+              className={
+                getButtonClasses(
+                  active?.type === "alert"
+                    ? active.options.variant || "default"
+                    : active?.options.confirmVariant || "default",
+                ) + " w-full"
+              }
+              onClick={() => {
+                if (active?.type === "alert") {
+                  active.resolve();
+                } else {
+                  active?.resolve(true);
+                }
+                close();
+              }}
+            >
+              {active?.type === "alert"
+                ? active.options.buttonText || "OK"
+                : active?.options.confirmText}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </DialogContext.Provider>
   );
 }

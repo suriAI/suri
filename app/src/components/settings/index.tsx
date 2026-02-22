@@ -137,7 +137,7 @@ export const Settings = React.forwardRef<HTMLDivElement, SettingsProps>(
             }}
             style={{ willChange: "transform, opacity" }}
             // Adjusted padding to account for custom window traffic lights
-            className="bg-[#0b0b0b] rounded-2xl w-full max-w-[100%] md:h-[92vh] lg:h-[90vh] lg:max-w-[96%] shadow-[0_50px_100px_rgba(0,0,0,0.8)] border border-white/[0.03] overflow-hidden mt-6 relative"
+            className="bg-[#0b0b0b] rounded-2xl w-full max-w-[100%] md:h-[92vh] lg:h-[90vh] lg:max-w-[96%] border border-white/[0.03] overflow-hidden mt-6 relative"
           >
             {/* Floating Close Button */}
             <button
