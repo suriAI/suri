@@ -49,7 +49,7 @@ Unlike cloud-dependent services, Suri executes all processing on local hardware.
 
 <div align="center">
   <br />
-  <img src="app/public/assets/suri-main.jfif" alt="Suri Application Screenshot" width="100%" />
+  <img src="app/public/assets/main-window.jfif" alt="Suri Application Screenshot" width="100%" />
   <br />
 </div>
 
