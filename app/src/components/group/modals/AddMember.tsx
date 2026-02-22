@@ -180,11 +180,10 @@ export function AddMember({
               setBulkMembersText("");
               setConfirmDuplicate(false);
             }}
-            className={`px-4 py-2 text-sm rounded-lg transition ${
-              !isBulkMode
-                ? "bg-cyan-500/20 text-cyan-200"
-                : "text-white/60 hover:text-white"
-            }`}
+            className={`px-4 py-2 text-sm rounded-lg transition ${!isBulkMode
+              ? "bg-cyan-500/20 text-cyan-200"
+              : "text-white/60 hover:text-white"
+              }`}
           >
             One person
           </button>
@@ -195,11 +194,10 @@ export function AddMember({
               setNewMemberRole("");
               setConfirmDuplicate(false);
             }}
-            className={`px-4 py-2 text-sm rounded-lg transition ${
-              isBulkMode
-                ? "bg-cyan-500/20 text-cyan-200"
-                : "text-white/60 hover:text-white"
-            }`}
+            className={`px-4 py-2 text-sm rounded-lg transition ${isBulkMode
+              ? "bg-cyan-500/20 text-cyan-200"
+              : "text-white/60 hover:text-white"
+              }`}
           >
             Bulk Add
           </button>
@@ -215,18 +213,17 @@ export function AddMember({
         {!isBulkMode && (
           <div className="grid gap-4">
             <label className="text-sm">
-              <span className="text-white/60 block mb-2">Full name *</span>
+              <span className="text-white/60 block mb-2">Name *</span>
               <input
                 ref={nameInputRef}
                 type="text"
                 value={newMemberName}
                 onChange={(event) => setNewMemberName(event.target.value)}
-                className={`w-full bg-white/5 border rounded-xl px-4 py-2 focus:outline-none transition-colors ${
-                  isDuplicate && !confirmDuplicate
-                    ? "border-amber-500/50 focus:border-amber-400"
-                    : "border-white/10 focus:border-cyan-500/60"
-                }`}
-                placeholder="Enter full name"
+                className={`w-full bg-white/5 border rounded-xl px-4 py-2 focus:outline-none transition-colors ${isDuplicate && !confirmDuplicate
+                  ? "border-amber-500/50 focus:border-amber-400"
+                  : "border-white/10 focus:border-cyan-500/60"
+                  }`}
+                placeholder="Enter Name"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleAddMember();
                 }}
@@ -292,11 +289,10 @@ export function AddMember({
             {/* Bulk Results */}
             {bulkResults && (
               <div
-                className={`rounded-xl border p-3 ${
-                  bulkResults.failed === 0
-                    ? "border-cyan-500/40 bg-cyan-500/10"
-                    : "border-yellow-500/40 bg-yellow-500/10"
-                }`}
+                className={`rounded-xl border p-3 ${bulkResults.failed === 0
+                  ? "border-cyan-500/40 bg-cyan-500/10"
+                  : "border-yellow-500/40 bg-yellow-500/10"
+                  }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold">
@@ -340,11 +336,10 @@ export function AddMember({
             <button
               onClick={handleAddMember}
               disabled={!newMemberName.trim() || loading}
-              className={`px-4 py-2 rounded-xl border transition-colors text-sm font-medium disabled:opacity-50 ${
-                confirmDuplicate
-                  ? "bg-amber-500/20 border-amber-400/40 text-amber-200 hover:bg-amber-500/30"
-                  : "bg-cyan-500/20 border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30"
-              }`}
+              className={`px-4 py-2 rounded-xl border transition-colors text-sm font-medium disabled:opacity-50 ${confirmDuplicate
+                ? "bg-amber-500/20 border-amber-400/40 text-amber-200 hover:bg-amber-500/30"
+                : "bg-cyan-500/20 border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30"
+                }`}
             >
               {loading
                 ? "Adding…"

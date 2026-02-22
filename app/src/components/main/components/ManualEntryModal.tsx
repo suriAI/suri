@@ -117,7 +117,7 @@ export const ManualEntryModal = ({
           {/* Content */}
           <div className="space-y-4">
             {/* Compact Add Row */}
-            <div className="bg-white/[0.03] rounded-xl p-1.5 border border-white/[0.05]">
+            <div className=" rounded-xl p-1.5">
               <div className="flex gap-2">
                 <div className="flex-1 min-w-0">
                   <Dropdown
@@ -182,9 +182,8 @@ export const ManualEntryModal = ({
                       >
                         {/* Status dot */}
                         <div
-                          className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${
-                            isPresent ? "bg-emerald-400" : "bg-white/20"
-                          }`}
+                          className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${isPresent ? "bg-emerald-400" : "bg-white/20"
+                            }`}
                         />
 
                         {/* Name */}
