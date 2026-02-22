@@ -48,4 +48,5 @@ You can override default behaviors using System Environment Variables.
 
 To enable verbose debug logs for the AI pipeline:
 1. Set `ENVIRONMENT=development`
-2. Check `server/data/server.log` for frame-by-frame inference timings.
+2. Check `data/server.log` (Project Root in dev, AppData in prod) for frame-by-frame inference timings.
+

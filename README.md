@@ -57,9 +57,9 @@ Unlike cloud-dependent services, Suri executes all processing on local hardware.
 
 ### Why Suri?
 
-| **Local First** | **Privacy by Default** | **Hybrid Power** |
+| **Local First** | **Privacy by Default** | **Remote Sync** |
 |:---|:---|:---|
-| The AI runs 100% on the hardware (CPU/GPU). Face recognition takes mere milliseconds because it doesn't wait for a server. | Biometric data is encrypted on the device. It never leaves the machine unless Cloud Sync is explicitly enabled. | Optional "Split-Brain" Sync allows data backup and web reporting, without exposing raw face data to the cloud. |
+| AI runs 100% on local hardware. Recognition takes ~15ms because there's no server round-trip. | No biometric data leaves the device unless Sync is enabled. Everything is encrypted at rest. | Backup logs and view reports from any device. End-to-end encryption (E2EE) prevents biometric data from reaching the cloud. |
 
 <div align="center">
   <br/>
@@ -83,7 +83,7 @@ Detailed technical documentation is organized into dedicated guides.
 
 
 <!-- TECH STACK -->
-## Built With
+## Tech Stack
 
 <p align="center">
   Suri uses a modern, high-performance stack to deliver a native experience.
@@ -101,9 +101,9 @@ Detailed technical documentation is organized into dedicated guides.
 
 - [x] **Core AI**: Local Face Recognition & Liveness Detection.
 - [x] **Data Management**: CSV Import/Export & Group Management.
-- [ ] **Multi-Camera**: Support for parallel RTSP streams.
-- [ ] **Remote Dashboard**: Optional web-based admin panel.
-- [ ] **Mobile Companion**: Check-in app for attendees.
+- [ ] **Remote Dashboard**: Optional web-based admin panel [ ]
+- [ ] **Mobile Companion**: Check-in app for attendees [ ]
+
 
 Visit the [issues page](https://github.com/johnraivenolazo/suri/issues) to submit feature requests.
 
@@ -113,11 +113,11 @@ Visit the [issues page](https://github.com/johnraivenolazo/suri/issues) to submi
 <!-- CONTRIBUTING -->
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. All contributions are **greatly appreciated**.
 
 1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+2. Create a Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit the changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 

@@ -24,8 +24,10 @@ A hybrid approach balances **Security** and **Convenience**.
 
 ## 3. Data Sovereignty
 *   **Offline First**: Suri works 100% offline using a local [SQLite](https://www.sqlite.org/index.html) database. Sync is optional.
+*   **Data Transparency**: In development, persistent data is stored in the project's root `/data` folder. In production, it follows OS standards (e.g., `%LOCALAPPDATA%` on Windows).
 *   **No Telemetry**: App usage metrics and button interactions are not tracked.
 *   **Encryption Keys**: Encryption is derived from the Master Password. If lost, biometric backups are unrecoverable. Password reset is impossible.
+
 
 ## 4. Compliance & Open Source
 *   **GDPR / CCPA**: The user is the data controller. The service acts as the processor (only if Sync is on). Data deletion is available via a single click.

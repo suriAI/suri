@@ -44,9 +44,10 @@ Details regarding the AI models and the development process can be found in the 
 
 ## Local Development Setup
 
-1. **Python 3.8+** - Older versions might work but haven't tested
+1. **Python 3.10+** - Recommended for compatibility with all dependencies
 2. **Install requirements** - `pip install -r server/requirements.txt`
 3. **ONNX Runtime** - Make sure this is installed for inference
+
 
 ## Questions?
 
