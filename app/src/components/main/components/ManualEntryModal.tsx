@@ -182,8 +182,9 @@ export const ManualEntryModal = ({
                       >
                         {/* Status dot */}
                         <div
-                          className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${isPresent ? "bg-emerald-400" : "bg-white/20"
-                            }`}
+                          className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${
+                            isPresent ? "bg-emerald-400" : "bg-white/20"
+                          }`}
                         />
 
                         {/* Name */}

@@ -58,9 +58,10 @@ function extractSemverLikeVersion(input: string): string | null {
  * Parse semantic version string into comparable parts
  */
 // Helper to split version into numeric parts and pre-release tag
-function getVersionParts(
-  version: string,
-): { numeric: number[]; pre: string | null } {
+function getVersionParts(version: string): {
+  numeric: number[];
+  pre: string | null;
+} {
   const [v, ...preParts] = version.split("-");
   const numeric = v
     .replace(/^v/, "")
