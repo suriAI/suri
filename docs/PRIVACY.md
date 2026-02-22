@@ -5,9 +5,10 @@ Privacy is a baseline requirement, not a feature. Trust is not required—the [P
 ## 1. Zero-Image Storage
 **Face images are never stored.**
 
-When the camera detects a face, the AI immediately converts it into a set of numbers (a "vector"). The original image is discarded instantly. The database holds only these lists of numbers.
+When a face is detected, the AI converts it into a "vector" (a string of numbers) and discards the original image immediately. The database only ever sees those numbers.
 
-In the event of hardware theft, original photos cannot be reconstructed from these numbers.
+Even if someone stole the hardware, they couldn't reconstruct a face from those numbers.
+
 
 ## 2. Where Data Lives (The "Split-Brain" Model)
 A hybrid approach balances **Security** and **Convenience**.

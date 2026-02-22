@@ -43,13 +43,13 @@
 <br />
 
 <!-- INTRO -->
-**Suri** is a desktop application for automated attendance tracking that respects privacy. The complete AI pipeline runs locally on the device.
+**Suri** is an offline-first attendance solution designed for speed and data sovereignty. By executing the entire AI pipeline locally, Suri eliminates network latency and keeps biometric data strictly under local control.
 
-Unlike cloud-dependent services, Suri executes all processing on local hardware. This eliminates network latency and keeps data under user control. The system can be used entirely offline, or with **Secure Cloud Sync** enabled to manage multiple devices.
+No servers. No cloud. Just the hardware.
 
 <div align="center">
   <br />
-  <img src="app/public/assets/main-window.jfif" alt="Suri Application Screenshot" width="100%" />
+  <img src="app/public/assets/main-window.png" alt="Suri Application Screenshot" width="100%" />
   <br />
 </div>
 
@@ -71,13 +71,13 @@ Unlike cloud-dependent services, Suri executes all processing on local hardware.
 
 ## Documentation
 
-Detailed technical documentation is organized into dedicated guides.
+Dig into the specifics:
 
-- [**Features & Capabilities**](docs/FEATURES.md) - Details on Attendance Groups, Sessions, and Exports.
-- [**Architecture & Stack**](docs/ARCHITECTURE.md) - Understand the Electron + FastAPI + ONNX hybrid design.
-- [**Installation & Setup**](docs/INSTALLATION.md) - Step-by-step guide to get running in minutes.
-- [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Diagnostic codes and environment flags.
-- [**Privacy & Security**](docs/PRIVACY.md) - Management of biometric embeddings and data encryption.
+- [**Features & Capabilities**](docs/FEATURES.md) - How attendance groups, sessions, and exports work.
+- [**Architecture & Stack**](docs/ARCHITECTURE.md) - The Electron + FastAPI + ONNX setup.
+- [**Installation & Setup**](docs/INSTALLATION.md) - Get it running in minutes.
+- [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Quick fixes and diagnostic codes.
+- [**Privacy & Security**](docs/PRIVACY.md) - How we handle biometric data and encryption.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -99,10 +99,18 @@ Detailed technical documentation is organized into dedicated guides.
 <!-- ROADMAP -->
 ## Roadmap
 
+### Phase 1: Local Foundation (Completed)
 - [x] **Core AI**: Local Face Recognition & Liveness Detection.
 - [x] **Data Management**: CSV Import/Export & Group Management.
-- [ ] **Remote Dashboard**: Optional web-based admin panel [ ]
-- [ ] **Mobile Companion**: Check-in app for attendees [ ]
+- [x] **Privacy Architecture**: Local-first SQLite & E2EE logic.
+
+### Phase 2: Connectivity (In-Progress)
+- [ ] **Multi-Camera**: Parallel RTSP stream support for large venues.
+- [ ] **Remote Sync**: Background synchronization with the Cloud Bridge.
+
+### Phase 3: Ecosystem (Future)
+- [ ] **Remote Dashboard**: Centralized web-based admin panel for report aggregation.
+- [ ] **Mobile Companion**: Attendance check-in and notification app.
 
 
 Visit the [issues page](https://github.com/johnraivenolazo/suri/issues) to submit feature requests.
@@ -113,12 +121,12 @@ Visit the [issues page](https://github.com/johnraivenolazo/suri/issues) to submi
 <!-- CONTRIBUTING -->
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. All contributions are **greatly appreciated**.
+Suri is open source because tools like this should be accessible to everyone. If you want to help make it better, pull requests are always welcome.
 
-1. Fork the Project
-2. Create a Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit the changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
+1. Fork the project
+2. Create a branch (`git checkout -b feature/AmazingFeature`)
+3. Commit what you've built (`git commit -m 'Add some AmazingFeature'`)
+4. Push it to your fork (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -137,11 +145,11 @@ This project relies on open source software. See [Third Party Licenses](THIRD_PA
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* [FastAPI](https://fastapi.tiangolo.com/)
-* [ONNX Runtime](https://onnxruntime.ai/)
-* [Electron](https://www.electronjs.org/)
-* [React](https://react.dev/)
-* [OpenCV](https://opencv.org/)
+*   [FastAPI](https://fastapi.tiangolo.com/) - Powering the low-latency local API.
+*   [ONNX Runtime](https://onnxruntime.ai/) - Enabling high-performance edge inference.
+*   [Electron](https://www.electronjs.org/) - Providing the native desktop experience.
+*   [React](https://react.dev/) - Modern UI state management.
+*   [OpenCV](https://opencv.org/) - The backbone for real-time image processing.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -39,8 +39,8 @@ Everything that requires speed happens here.
 This constitutes the "SaaS" layer, handling two functions:
 1.  **Identity**: Handles Login via OAuth (using PKCE for security).
 2.  **Transport**: Moves data between devices.
-    *   **The Queue**: If a face is registered while offline, data resides in the `Offline Queue`. Upon reconnection, it pushes to the cloud.
-    *   **The Split**: Face data is encrypted (E2EE) before upload. Attendance logs are formatted as standard JSON for web readability.
+    *   **The Queue**: If a face is registered while offline, it stays in the `Offline Queue` until you're back online.
+    *   **The Split**: Face data is encrypted (E2EE) before upload, while attendance logs are sent as standard JSON for reports.
 
 ## Tech Stack (Updated)
 

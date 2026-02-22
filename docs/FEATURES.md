@@ -6,14 +6,14 @@ Suri provides a local attendance system focused on speed and data security.
 
 ### Biometric Authentication
 Uses a pipeline of neural networks to verify identity.
-- **Fast Detection**: Uses lightweight models to find faces in **<10ms**.
-- **Liveness Detection**: Analyzes depth and texture to block photos, screens, and masks.
-- **Vector Matching**: Extracts a **512-dimensional vector** for comparison using Cosine Similarity. Handles glasses and partial occlusion.
+- **Fast Detection**: Finds faces in **<10ms** using lightweight models.
+- **Liveness Detection**: Blocks photos, screens, and masks by analyzing depth and texture.
+- **Vector Matching**: Uses Cosine Similarity to compare 512-dimensional vectors. Stable even if someone is wearing glasses or partially blocked.
 
 ### Identity Tracking
 Maintains identity consistency across video frames.
-- **Robust Association**: Utilizes all detection boxes (high and low confidence) to handle occlusion and motion blur effectively.
-- **Trajectory Prediction**: Uses **Kalman Filtering** to smooth movement and predict positions.
+- **Handling occlusions**: Keeps track of people even if they're moving fast or temporarily blocked from view.
+- **Smoothing**: Uses **Kalman Filtering** to prevent "jittery" tracking and predict positions accurately.
 
 ## Management Tools
 
