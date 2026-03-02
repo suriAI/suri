@@ -381,41 +381,49 @@ export const AttendancePanel = memo(function AttendancePanel({
       )}
 
       {recentAttendance.length > 0 && (
-        <div className="px-2 flex-shrink-0 space-y-1.5">
-          <div className="relative">
-            <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30 text-[10px] pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search name..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="w-full bg-white/5 text-white text-[11px] border border-white/10 rounded-lg pl-7 pr-3 py-1.5 placeholder:text-white/25 focus:border-white/20 focus:outline-none transition-colors"
-            />
-          </div>
+        <div className="px-2 pb-3 flex-shrink-0">
+          <div className="flex items-center">
+            {/* Joined Search and Sort Container */}
+            <div className="relative flex-1 group/search">
+              <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 text-[10px] pointer-events-none group-focus-within/search:text-cyan-400/60 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search name..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full h-9 bg-white/[0.03] text-white text-[11px] border border-r-0 border-white/10 rounded-l-lg rounded-r-none pl-10 pr-3 placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.06] focus:outline-none transition-all"
+              />
+            </div>
 
-          <div className="flex gap-1">
-            <button
-              onClick={() => handleSortFieldChange("time")}
-              className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
-                sortField === "time"
-                  ? "bg-white/10 text-white border border-white/15"
-                  : "text-white/40 hover:text-white/60 hover:bg-white/5"
-              }`}
-            >
-              <i className="fa-regular fa-clock mr-1 text-[9px]" />
-              Newest
-            </button>
-            <button
-              onClick={() => handleSortFieldChange("name")}
-              className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
-                sortField === "name"
-                  ? "bg-white/10 text-white border border-white/15"
-                  : "text-white/40 hover:text-white/60 hover:bg-white/5"
-              }`}
-            >
-              <i className="fa-solid fa-arrow-down-a-z mr-1 text-[9px]" />
-              A–Z
-            </button>
+            <div className="flex-shrink-0">
+              <Tooltip
+                content={`Sort: ${sortField === "time" ? "Newest" : "A-Z"}`}
+                position="top"
+              >
+                <Dropdown
+                  className="w-11"
+                  options={[
+                    { value: "time", label: "Newest" },
+                    { value: "name", label: "A-Z" },
+                  ]}
+                  value={sortField}
+                  onChange={(val) => handleSortFieldChange(val as SortField)}
+                  trigger={
+                    <i
+                      className={`${
+                        sortField === "time"
+                          ? "fa-regular fa-clock"
+                          : "fa-solid fa-arrow-down-a-z"
+                      } text-xs text-white/30 hover:!text-cyan-400 transition-colors pointer-events-auto`}
+                    />
+                  }
+                  menuWidth={110}
+                  buttonClassName="h-9 w-full bg-white/[0.03] border border-l-0 border-white/10 rounded-r-lg rounded-l-none flex items-center justify-center hover:bg-white/[0.07] transition-all"
+                  showPlaceholderOption={false}
+                  allowClear={false}
+                />
+              </Tooltip>
+            </div>
           </div>
         </div>
       )}

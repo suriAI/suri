@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { attendanceManager } from "@/services";
 import { createDisplayNameMap } from "@/utils";
+import { Tooltip } from "@/components/shared";
 import { StatsCard, EmptyState } from "@/components/group/shared";
 import type {
   AttendanceGroup,
@@ -239,13 +240,18 @@ export function Overview({ group, members, onAddMember }: OverviewProps) {
 
                       {/* Timeline Dot Column */}
                       <div className="relative z-10 w-6 h-10 flex items-center justify-center flex-shrink-0">
-                        <div
-                          className={`w-1.5 h-1.5 rounded-full ring-[3px] ring-black/40 transition-all duration-300 ${
-                            isHighConfidence
-                              ? "bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]"
-                              : "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"
-                          }`}
-                        />
+                        <Tooltip
+                          content={`${Math.round(record.confidence * 100)}% match`}
+                          position="top"
+                        >
+                          <div
+                            className={`w-1.5 h-1.5 rounded-full ring-[3px] ring-black/40 transition-all duration-300 cursor-help ${
+                              isHighConfidence
+                                ? "bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]"
+                                : "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                            }`}
+                          />
+                        </Tooltip>
                       </div>
 
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
