@@ -196,10 +196,6 @@ export const drawOverlays = ({
     const isRecognized = recognitionEnabled && recognitionResult?.person_id;
     let label = "";
     let shouldShowLabel = false;
-    const similarityScore =
-      isRecognized && recognitionResult?.similarity
-        ? (recognitionResult.similarity * 100).toFixed(0)
-        : null;
 
     if (
       isRecognized &&
@@ -220,17 +216,6 @@ export const drawOverlays = ({
       ctx.font = "600 13px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = color;
       ctx.fillText(label, labelX, labelY);
-
-      if (similarityScore) {
-        const nameWidth = ctx.measureText(label).width;
-        const percentageX = labelX + nameWidth + 6;
-
-        ctx.font = "500 11px system-ui, -apple-system, sans-serif";
-        ctx.globalAlpha = 0.8;
-        ctx.fillStyle = color;
-        ctx.fillText(`${similarityScore}%`, percentageX, labelY);
-        ctx.globalAlpha = 1.0;
-      }
 
       ctx.restore();
     }

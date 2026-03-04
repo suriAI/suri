@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "start": "cd app && pnpm dev",
+    "dev": "cd app && pnpm dev",
     "clean:app": "cd app && npx eslint . --fix && npx prettier . --write && cd ../",
     "clean:server": "cd server && ruff check --fix && black ."
   },
