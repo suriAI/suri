@@ -30,20 +30,13 @@ def align_face(
     Returns:
         Aligned face image
     """
-    tform, _ = cv2.estimateAffinePartial2D(
-        landmarks,
-        REFERENCE_POINTS
-    )
+    tform, _ = cv2.estimateAffinePartial2D(landmarks, REFERENCE_POINTS)
 
     if tform is None:
         raise ValueError("Failed to compute similarity transformation matrix")
 
     aligned_face = cv2.warpAffine(
-        image,
-        tform,
-        input_size,
-        flags=cv2.INTER_CUBIC,
-        borderMode=cv2.BORDER_REPLICATE
+        image, tform, input_size, flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
     )
 
     return aligned_face

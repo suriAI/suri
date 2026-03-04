@@ -13,7 +13,6 @@ import { HttpClient } from "./attendance/HttpClient";
 import { GroupManager } from "./attendance/GroupManager";
 import { MemberManager } from "./attendance/MemberManager";
 import { RecordManager } from "./attendance/RecordManager";
-import { BackupManager } from "./attendance/BackupManager";
 
 const API_BASE_URL = "http://127.0.0.1:8700";
 const API_ENDPOINTS = {
@@ -34,7 +33,6 @@ export class AttendanceManager {
   private groupManager: GroupManager;
   private memberManager: MemberManager;
   private recordManager: RecordManager;
-  private backupManager: BackupManager;
 
   private settings: AttendanceSettings | null = null;
   private eventQueue: AttendanceEvent[] = [];
@@ -51,14 +49,6 @@ export class AttendanceManager {
       this.warnIfSystemClockWentBackwards.bind(this),
     );
 
-    this.backupManager = new BackupManager(
-      this.httpClient,
-      API_ENDPOINTS,
-      this.getGroups.bind(this),
-      this.getRecords.bind(this),
-      this.getSessions.bind(this),
-      this.getSettings.bind(this),
-    );
     this.loadSettingsWhenReady();
   }
 
@@ -295,16 +285,10 @@ export class AttendanceManager {
     }
   }
 
-  async exportData(): Promise<string> {
-    return this.backupManager.exportData();
-  }
-
-  async importData(jsonData: string): Promise<boolean> {
-    return this.backupManager.importData(jsonData);
-  }
-
   async cleanupOldData(daysToKeep: number = 90): Promise<void> {
-    return this.backupManager.cleanupOldData(daysToKeep);
+    await this.httpClient.post("/attendance/cleanup", {
+      days_to_keep: daysToKeep,
+    });
   }
 
   async isBackendAvailable(): Promise<boolean> {

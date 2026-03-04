@@ -37,3 +37,6 @@ python-multipart
 sqlalchemy[asyncio]
 alembic
 aiosqlite
+
+# Encryption for secure vault backup (.suri format)
+cryptography
