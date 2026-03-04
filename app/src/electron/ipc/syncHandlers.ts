@@ -6,7 +6,7 @@ import { backendService } from "../backendService.js";
 import { syncManager } from "../managers/BackgroundSyncManager.js";
 import { state } from "../State.js";
 
-// ── Cryptographic Constants ───────────────────────────────────────────────────
+// Cryptographic Constants
 const SURI_MAGIC = Buffer.from("SURI\x00\x01"); // 6 bytes
 const SALT_SIZE = 16;
 const IV_SIZE = 12;
@@ -15,7 +15,7 @@ const KEY_SIZE = 32; // AES-256
 const PBKDF2_ITERS = 480_000;
 const PBKDF2_DIGEST = "sha256";
 
-// ── Key Derivation ────────────────────────────────────────────────────────────
+// Key Derivation
 function deriveKey(password: string, salt: Buffer): Buffer {
   return crypto.pbkdf2Sync(
     password,
@@ -26,7 +26,7 @@ function deriveKey(password: string, salt: Buffer): Buffer {
   );
 }
 
-// ── Encrypt plaintext Buffer → encrypted .suri blob ───────────────────────────
+// Encrypt
 function encryptVault(plaintext: Buffer, password: string): Buffer {
   const salt = crypto.randomBytes(SALT_SIZE);
   const iv = crypto.randomBytes(IV_SIZE);
@@ -39,7 +39,7 @@ function encryptVault(plaintext: Buffer, password: string): Buffer {
   return Buffer.concat([SURI_MAGIC, salt, iv, tag, ciphertext]);
 }
 
-// ── Decrypt .suri blob → plaintext Buffer ─────────────────────────────────────
+// Decrypt
 function decryptVault(blob: Buffer, password: string): Buffer {
   const magicLen = SURI_MAGIC.length;
   const minLen = magicLen + SALT_SIZE + IV_SIZE + TAG_SIZE + 1;
@@ -78,7 +78,7 @@ function decryptVault(blob: Buffer, password: string): Buffer {
   }
 }
 
-// ── Password Prompt Window ────────────────────────────────────────────────────
+// Password Prompt Window
 async function promptPassword(
   title: string,
   label: string,
@@ -157,26 +157,33 @@ button { flex: 1; padding: 8px; border-radius: 6px; font-size: 12px; font-weight
       promptWindow.show();
     });
 
+    let hasResolved = false;
+
     ipcMain.handleOnce(
       "vault:password-response",
       (_event, password: string | null) => {
+        if (hasResolved) return;
+        hasResolved = true;
         if (!promptWindow.isDestroyed()) promptWindow.destroy();
         resolve(password && password.length > 0 ? password : null);
       },
     );
 
     promptWindow.on("closed", () => {
-      try {
-        ipcMain.removeHandler("vault:password-response");
-      } catch {
-        /* already removed — ignore */
+      if (!hasResolved) {
+        hasResolved = true;
+        try {
+          ipcMain.removeHandler("vault:password-response");
+        } catch {
+          /* ignore */
+        }
+        resolve(null);
       }
-      resolve(null);
     });
   });
 }
 
-// ── IPC Registration ──────────────────────────────────────────────────────────
+// IPC Registration
 export function registerSyncHandlers() {
   ipcMain.handle("sync:restart-manager", () => {
     syncManager.start();
@@ -188,10 +195,8 @@ export function registerSyncHandlers() {
     return true;
   });
 
-  // ── Export: full encrypted vault (.suri) ─────────────────────────────────
   ipcMain.handle("sync:export-data", async () => {
     try {
-      // 1. Collect full vault payload (attendance + biometrics) from Python
       const exportUrl = `${backendService.getUrl()}/vault/export`;
       const exportRes = await fetch(exportUrl, {
         method: "POST",
@@ -208,7 +213,6 @@ export function registerSyncHandlers() {
 
       const vaultPayload = await exportRes.json();
 
-      // 2. Show save dialog
       const { canceled, filePath } = await dialog.showSaveDialog({
         title: "Save Suri Vault",
         defaultPath: `suri-vault-${new Date().toISOString().slice(0, 10)}.suri`,
@@ -218,7 +222,6 @@ export function registerSyncHandlers() {
 
       if (canceled || !filePath) return { success: false, canceled: true };
 
-      // 3. Ask for an encryption password
       const password = await promptPassword(
         "Set Vault Password",
         "Password (required to restore this vault)",
@@ -226,7 +229,6 @@ export function registerSyncHandlers() {
 
       if (!password) return { success: false, canceled: true };
 
-      // 4. Encrypt and write to disk
       const plaintext = Buffer.from(JSON.stringify(vaultPayload), "utf-8");
       const encrypted = encryptVault(plaintext, password);
       await fs.writeFile(filePath, encrypted);
@@ -241,7 +243,6 @@ export function registerSyncHandlers() {
     }
   });
 
-  // ── Import: open .suri, decrypt, restore everything ──────────────────────
   ipcMain.handle(
     "sync:import-data",
     async (_event, overwrite: boolean = false) => {

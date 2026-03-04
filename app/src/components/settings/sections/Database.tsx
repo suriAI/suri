@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { SettingsOverview } from "@/components/settings/types";
 import type { AttendanceGroup } from "@/types/recognition";
 import { useDatabaseManagement } from "@/components/settings/sections/hooks/useDatabaseManagement";
@@ -187,34 +188,77 @@ export function Database({
       </div>
 
       {/* Backup Status Message */}
-      {status.type !== "idle" && (
-        <div
-          className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-[10px] ${
-            status.type === "loading"
-              ? "bg-white/5 border-white/10 text-white/60"
-              : status.type === "success"
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                : "bg-rose-500/10 border-rose-500/20 text-rose-400"
-          }`}
-        >
-          {status.type === "loading" ? (
-            <i className="fa-solid fa-circle-notch fa-spin mt-0.5" />
-          ) : status.type === "success" ? (
-            <i className="fa-solid fa-circle-check mt-0.5" />
-          ) : (
-            <i className="fa-solid fa-circle-exclamation mt-0.5" />
-          )}
-          <span>{"message" in status ? status.message : ""}</span>
-          {status.type !== "loading" && (
-            <button
-              onClick={() => setStatus({ type: "idle" })}
-              className="ml-auto hover:text-white transition-colors"
-            >
-              <i className="fa-solid fa-xmark" />
-            </button>
-          )}
-        </div>
-      )}
+      <AnimatePresence>
+        {status.type !== "idle" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className={`relative flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border backdrop-blur-md overflow-hidden ${
+              status.type === "loading"
+                ? "bg-white/[0.03] border-white/10 text-white/70 shadow-lg"
+                : status.type === "success"
+                  ? "bg-emerald-500/[0.05] border-emerald-500/20 text-emerald-100 shadow-[0_0_30px_-5px_rgba(16,185,129,0.15)]"
+                  : "bg-rose-500/[0.05] border-rose-500/20 text-rose-100 shadow-[0_0_30px_-5px_rgba(244,63,94,0.15)]"
+            }`}
+          >
+            {/* Animated background glow */}
+            {status.type === "success" && (
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/[0.03] to-emerald-500/0 w-[200%] animate-[shimmer_3s_infinite]" />
+            )}
+            {status.type === "error" && (
+              <div className="absolute inset-0 bg-gradient-to-r from-rose-500/0 via-rose-500/[0.03] to-rose-500/0 w-[200%] animate-[shimmer_3s_infinite]" />
+            )}
+
+            <div className="flex items-start gap-3 relative z-10 w-full">
+              <div
+                className={`flex-shrink-0 mt-0.5 flex items-center justify-center w-5 h-5 rounded-full ${
+                  status.type === "loading"
+                    ? "bg-white/10 text-white/70"
+                    : status.type === "success"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-rose-500/20 text-rose-400"
+                }`}
+              >
+                {status.type === "loading" ? (
+                  <i className="fa-solid fa-circle-notch fa-spin text-[10px]" />
+                ) : status.type === "success" ? (
+                  <i className="fa-solid fa-check text-[10px]" />
+                ) : (
+                  <i className="fa-solid fa-exclamation text-[10px]" />
+                )}
+              </div>
+
+              <div className="flex flex-col min-w-0 pr-6">
+                <span className="text-[11px] font-semibold text-white/90 tracking-wide uppercase mb-0.5">
+                  {status.type === "loading"
+                    ? "Processing"
+                    : status.type === "success"
+                      ? "Success"
+                      : "Error"}
+                </span>
+                <span className="text-[11px] font-medium leading-relaxed opacity-80 break-words">
+                  {"message" in status ? status.message : ""}
+                </span>
+              </div>
+            </div>
+
+            {status.type !== "loading" && (
+              <button
+                onClick={() => setStatus({ type: "idle" })}
+                className={`absolute top-1/2 -translate-y-1/2 right-3 w-6 h-6 flex items-center justify-center rounded-full transition-all z-10 ${
+                  status.type === "success"
+                    ? "text-emerald-400/50 hover:text-emerald-400 hover:bg-emerald-500/10"
+                    : "text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10"
+                }`}
+              >
+                <i className="fa-solid fa-xmark text-[11px]" />
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Search */}
       <div className="relative group/search max-w-sm mx-auto">

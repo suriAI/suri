@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ModalCloseButton } from "@/components/common/ModalCloseButton";
 
 interface ModalProps {
@@ -42,9 +43,9 @@ export function Modal({
       "2xl": "max-w-2xl",
     }[maxWidth] || maxWidth;
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4"
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 px-4"
       onClick={onClose}
     >
       <div
@@ -75,4 +76,6 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

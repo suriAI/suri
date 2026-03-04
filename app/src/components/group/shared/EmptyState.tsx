@@ -10,7 +10,7 @@ interface EmptyStateProps {
 export function EmptyState({ title, action, className = "" }: EmptyStateProps) {
   return (
     <div
-      className={`flex items-center justify-center min-h-0 h-full w-full ${className}`}
+      className={`flex flex-1 items-center justify-center min-h-0 h-full w-full ${className}`}
     >
       <div className="flex flex-col items-center justify-center space-y-3 text-center">
         <div className="text-white/40 text-xs font-medium tracking-tight">

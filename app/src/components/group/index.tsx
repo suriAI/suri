@@ -167,7 +167,7 @@ function GroupPanelComponent({
 
       <MobileDrawer />
 
-      <main className="flex-1 overflow-hidden bg-black">
+      <main className="flex-1 flex flex-col overflow-hidden bg-black h-full relative">
         <GroupContent
           onMembersChange={handleMembersChange}
           onRegistrationSourceChange={onRegistrationSourceChange}

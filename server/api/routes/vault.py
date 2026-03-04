@@ -13,9 +13,11 @@ from sqlalchemy import select
 from api.deps import get_repository
 from database.repository import AttendanceRepository
 from database.models import (
+    AttendanceGroup as GroupModel,
     AttendanceMember as MemberModel,
     AttendanceRecord as RecordModel,
     AttendanceSession as SessionModel,
+    Face as FaceModel,
 )
 from api.schemas import (
     AttendanceGroupResponse,
@@ -33,7 +35,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/vault", tags=["vault"])
 
 
-# ── Schemas ──────────────────────────────────────────────────────────────────
+
+# Schemas
 
 
 class BiometricEntry(BaseModel):
@@ -56,7 +59,8 @@ class VaultImportRequest(BaseModel):
     biometrics: List[BiometricEntry]
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+
+# Routes
 
 
 @router.post("/export", response_model=VaultExportResponse)
@@ -68,7 +72,7 @@ async def export_vault(
     Returns plain JSON — encryption is handled by the Electron layer.
     """
     try:
-        # ── 1. Gather attendance data ─────────────────────────────────────────
+        # Gather attendance data
         groups_orm = await repo.get_groups(active_only=False)
         settings_orm = await repo.get_settings()
 
@@ -110,7 +114,7 @@ async def export_vault(
             exported_at=datetime.now(),
         )
 
-        # ── 2. Gather face embeddings ─────────────────────────────────────────
+        # Gather face embeddings
         biometrics: List[BiometricEntry] = []
         try:
             from core.lifespan import face_recognizer
@@ -164,36 +168,49 @@ async def import_vault(
             skipped
         ) = 0
 
-        # ── 1. Import groups ──────────────────────────────────────────────────
         for group in data.groups:
             existing = await repo.get_group(group.id)
-            if existing and not overwrite:
+
+            # If the group exists, isn't soft-deleted, and we're not overwriting, skip.
+            if existing and not existing.is_deleted and not overwrite:
                 skipped += 1
                 continue
+
             if not existing:
-                await repo.create_group(
-                    {
-                        "id": group.id,
-                        "name": group.name,
-                        "description": group.description,
-                        "settings": (
-                            group.settings.model_dump() if group.settings else {}
+                settings_dict = group.settings.model_dump() if group.settings else {}
+                repo.session.add(
+                    GroupModel(
+                        id=group.id,
+                        name=group.name,
+                        description=group.description,
+                        late_threshold_minutes=settings_dict.get(
+                            "late_threshold_minutes"
                         ),
-                    }
+                        late_threshold_enabled=settings_dict.get(
+                            "late_threshold_enabled", False
+                        ),
+                        class_start_time=settings_dict.get("class_start_time", "08:00"),
+                        organization_id=repo.organization_id,
+                        is_active=group.is_active,
+                        is_deleted=False,
+                    )
                 )
             else:
-                await repo.update_group(
-                    group.id,
-                    {"name": group.name, "description": group.description},
-                )
+                existing.name = group.name
+                existing.description = group.description
+                existing.is_active = group.is_active
+                existing.is_deleted = False
             imported_groups += 1
 
-        # ── 2. Import members ─────────────────────────────────────────────────
         for member in data.members:
+            # Note: get_member excludes soft-deleted members by default, so if they
+            # were soft-deleted, existing will be None, and session.merge will
+            # cleanly restore them in the DB below.
             existing = await repo.get_member(member.person_id)
             if existing and not overwrite:
                 skipped += 1
                 continue
+
             if not existing:
                 await repo.session.merge(
                     MemberModel(
@@ -206,15 +223,14 @@ async def import_vault(
                         is_deleted=False,
                     )
                 )
-                await repo.session.commit()
             else:
-                await repo.update_member(
-                    member.person_id,
-                    {"name": member.name, "role": member.role, "email": member.email},
-                )
+                existing.name = member.name
+                existing.role = member.role
+                existing.email = member.email
+                existing.is_active = member.is_active
+                existing.is_deleted = False
             imported_members += 1
 
-        # ── 3. Import records ─────────────────────────────────────────────────
         for record in data.records:
             existing_result = await repo.session.execute(
                 select(RecordModel).where(RecordModel.id == record.id)
@@ -222,63 +238,57 @@ async def import_vault(
             if existing_result.scalars().first() and not overwrite:
                 skipped += 1
                 continue
-            await repo.add_record(
-                {
-                    "id": record.id,
-                    "person_id": record.person_id,
-                    "group_id": record.group_id,
-                    "timestamp": record.timestamp,
-                    "confidence": record.confidence,
-                    "location": record.location,
-                    "notes": record.notes,
-                    "is_manual": record.is_manual,
-                    "created_by": record.created_by,
-                }
+
+            await repo.session.merge(
+                RecordModel(
+                    id=record.id,
+                    person_id=record.person_id,
+                    group_id=record.group_id,
+                    timestamp=record.timestamp,
+                    confidence=record.confidence,
+                    location=record.location,
+                    notes=record.notes,
+                    is_manual=record.is_manual,
+                    created_by=record.created_by,
+                )
             )
             imported_records += 1
 
-        # ── 4. Import sessions ────────────────────────────────────────────────
         for session in data.sessions:
-            await repo.upsert_session(
-                {
-                    "id": session.id,
-                    "person_id": session.person_id,
-                    "group_id": session.group_id,
-                    "date": session.date,
-                    "check_in_time": session.check_in_time,
-                    "status": session.status,
-                    "is_late": session.is_late,
-                    "late_minutes": session.late_minutes,
-                    "notes": session.notes,
-                }
+            await repo.session.merge(
+                SessionModel(
+                    id=session.id,
+                    person_id=session.person_id,
+                    group_id=session.group_id,
+                    date=session.date,
+                    check_in_time=session.check_in_time,
+                    status=session.status,
+                    is_late=session.is_late,
+                    late_minutes=session.late_minutes,
+                    notes=session.notes,
+                )
             )
             imported_sessions += 1
 
-        # ── 5. Import face embeddings ─────────────────────────────────────────
         imported_biometrics = 0
-        skipped_biometrics = 0
-        try:
-            from core.lifespan import face_recognizer
+        for entry in payload.biometrics:
+            raw_bytes = base64.b64decode(entry.embedding_b64)
+            await repo.session.merge(
+                FaceModel(
+                    person_id=entry.person_id,
+                    embedding=raw_bytes,
+                    embedding_dimension=entry.embedding_dim,
+                    organization_id=repo.organization_id,
+                    is_deleted=False,
+                )
+            )
+            imported_biometrics += 1
 
-            if face_recognizer and face_recognizer.db_manager:
-                for entry in payload.biometrics:
-                    try:
-                        raw_bytes = base64.b64decode(entry.embedding_b64)
-                        embedding = np.frombuffer(raw_bytes, dtype=np.float32).copy()
-                        await face_recognizer.db_manager.add_person(
-                            entry.person_id, embedding
-                        )
-                        imported_biometrics += 1
-                    except Exception as e:
-                        logger.warning(
-                            f"[Vault] Skipped biometric for {entry.person_id}: {e}"
-                        )
-                        skipped_biometrics += 1
+        await repo.session.commit()
 
-                # Refresh the in-memory recognition cache
-                await face_recognizer._refresh_cache()
-        except Exception as bio_err:
-            logger.warning(f"[Vault] Biometric import failed (non-fatal): {bio_err}")
+        from core.lifespan import face_recognizer
+        if face_recognizer:
+            await face_recognizer._refresh_cache()
 
         return SuccessResponse(
             message=(

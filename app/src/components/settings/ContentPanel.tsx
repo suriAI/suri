@@ -215,7 +215,7 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
       </div>
 
       {/* Section Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll">
+      <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden custom-scroll relative">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeSection}
@@ -224,10 +224,10 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
             exit={{ opacity: 0, scale: 0.995 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             style={{ willChange: "opacity, transform" }}
-            className="w-full"
+            className="flex-1 flex flex-col w-full relative"
           >
             {activeSection === "group" && (
-              <div className="h-full w-full">
+              <div className="flex-1 w-full relative flex flex-col">
                 <GroupPanel
                   onBack={handleGroupBack}
                   initialSection={groupInitialSection}
