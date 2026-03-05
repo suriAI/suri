@@ -44,7 +44,7 @@
 
 <div align="center">
   <br />
-  <img src="app/public/assets/main-window.png" alt="Suri Application Screenshot" width="100%" />
+  <img src="app/public/assets/banner.png" alt="Suri Application Screenshot" width="100%" />
   <br />
 </div>
 
