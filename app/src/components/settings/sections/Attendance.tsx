@@ -115,7 +115,13 @@ export function Attendance({
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 ml-auto">
-                  <span className="text-cyan-400 font-semibold text-sm min-w-10 text-right whitespace-nowrap">
+                  <span
+                    className={`font-semibold text-sm min-w-10 text-right whitespace-nowrap transition-colors duration-150 ${
+                      attendanceSettings.trackCheckout
+                        ? "text-cyan-400"
+                        : "text-white/30"
+                    }`}
+                  >
                     {Math.floor(
                       (attendanceSettings.reLogCooldownSeconds ?? 1800) / 60,
                     )}{" "}
@@ -130,7 +136,11 @@ export function Attendance({
                     onChange={(e) =>
                       onReLogCooldownChange(parseInt(e.target.value))
                     }
-                    className="w-24 accent-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`w-24 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      attendanceSettings.trackCheckout
+                        ? "accent-cyan-500"
+                        : "accent-white/20"
+                    }`}
                   />
                 </div>
               </div>
