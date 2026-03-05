@@ -54,14 +54,11 @@ export default function WindowBar() {
         <img
           src="./icons/suri_mark_logo_transparent.png"
           alt="Suri"
-          className="w-8 h-8 object-contain opacity-90 -ml-3 mr-1"
+          className="w-6 h-6 object-contain opacity-90 -ml-3 mr-1"
         />
 
         <div className="flex items-center gap-4">
-          <span className="text-white font-black text-[13px] tracking-tight">
-            Suri
-          </span>
-          <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-white/30">
+          <span className="text-[10px] font-bold text-white/30">
             AI Attendance Tracker
           </span>
         </div>
