@@ -18,8 +18,7 @@ export function ResultView({
   isRegistering,
   framesReady,
 }: ResultViewProps) {
-  const REQUIRED_ANGLE = "Front";
-  const relevantFrames = frames.filter((f) => f.angle === REQUIRED_ANGLE);
+  const relevantFrames = frames.filter((f) => f.angle === "Front");
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">

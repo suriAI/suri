@@ -18,7 +18,6 @@ interface QueuedMember {
   name: string;
   role?: string;
   status: CaptureStatus;
-  capturedAngles: string[];
   error?: string;
   qualityWarning?: string;
   previewUrl?: string;
@@ -30,8 +29,6 @@ interface CameraQueueProps {
   onRefresh?: () => Promise<void> | void;
   onClose?: () => void;
 }
-
-const REQUIRED_ANGLE = "Front";
 
 export function CameraQueue({
   group,
@@ -101,7 +98,6 @@ export function CameraQueue({
       name: member.name,
       role: member.role,
       status: "pending" as CaptureStatus,
-      capturedAngles: [],
     }));
     setMemberQueue(queue);
     setCurrentIndex(0);
@@ -214,13 +210,11 @@ export function CameraQueue({
         throw new Error(result.error || "Registration failed");
       }
 
-      // Mark member as completed since we only need one angle
       setMemberQueue((prev) =>
         prev.map((m, idx) =>
           idx === currentIndex
             ? {
                 ...m,
-                capturedAngles: [REQUIRED_ANGLE],
                 status: "completed" as CaptureStatus,
                 qualityWarning:
                   bestFace.confidence && bestFace.confidence < 0.8
@@ -231,7 +225,6 @@ export function CameraQueue({
         ),
       );
 
-      // Auto-advance to next member since we only need one angle
       if (autoAdvance) {
         if (currentIndex < memberQueue.length - 1) {
           // Next member
@@ -341,7 +334,7 @@ export function CameraQueue({
   return (
     <div className="h-full flex flex-col overflow-hidden bg-[#0f0f0f] text-white">
       {error && (
-        <div className="mx-6 mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center gap-3 flex-shrink-0">
+        <div className="mx-6 mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center gap-3 shrink-0">
           <div className="h-1 w-1 rounded-full bg-red-400 animate-pulse" />
           <span className="flex-1">{error}</span>
           <button
@@ -354,7 +347,7 @@ export function CameraQueue({
       )}
 
       {successMessage && (
-        <div className="mx-6 mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200 flex items-center gap-3 flex-shrink-0">
+        <div className="mx-6 mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200 flex items-center gap-3 shrink-0">
           <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse" />
           <span className="flex-1">{successMessage}</span>
         </div>
@@ -487,7 +480,6 @@ export function CameraQueue({
                             name: member.name,
                             role: member.role,
                             status: "pending",
-                            capturedAngles: [],
                           };
                           setMemberQueue((prev) => {
                             const next = [...prev, newMember];
@@ -500,7 +492,7 @@ export function CameraQueue({
                         }}
                         className={`group w-full rounded-lg border px-3 py-2 text-left transition-all ${
                           isInQueue
-                            ? "border-cyan-400/50 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5"
+                            ? "border-cyan-400/50 bg-linear-to-br from-cyan-500/10 to-cyan-500/5"
                             : "border-white/5 bg-white/5 hover:border-white/10 hover:bg-white/5"
                         }`}
                       >
@@ -854,7 +846,7 @@ export function CameraQueue({
             </div>
 
             {/* Queue Sidebar - Compact */}
-            <div className="w-64 flex-shrink-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-white/5">
+            <div className="w-64 shrink-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-white/5">
               <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
                 <span className="text-xs font-semibold text-white/70">
                   Queue
@@ -892,7 +884,7 @@ export function CameraQueue({
                     >
                       {/* Status Icon */}
                       <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 ${
                           member.status === "completed"
                             ? "bg-cyan-500/20 text-cyan-400"
                             : member.status === "skipped"

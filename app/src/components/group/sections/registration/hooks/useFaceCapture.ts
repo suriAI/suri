@@ -35,26 +35,23 @@ export function useFaceCapture(
   const captureProcessedFrame = useCallback(
     async (angle: string, dataUrl: string, width: number, height: number) => {
       const id = makeId();
-      const label = angle;
 
       setGlobalError(null);
       setSuccessMessage(null);
 
-      setFrames((prev) => {
-        const others = prev.filter((frame) => frame.angle !== angle);
-        return [
-          ...others,
-          {
-            id,
-            angle,
-            label,
-            dataUrl,
-            width,
-            height,
-            status: "processing",
-          },
-        ];
-      });
+      // Replace any previous capture for this slot
+      setFrames((prev) => [
+        ...prev.filter((frame) => frame.angle !== angle),
+        {
+          id,
+          angle,
+          label: angle,
+          dataUrl,
+          width,
+          height,
+          status: "processing",
+        },
+      ]);
 
       try {
         const detection = await backendService.detectFaces(
@@ -120,8 +117,7 @@ export function useFaceCapture(
         return;
       }
 
-      const REQUIRED_ANGLE = "Front";
-      const frame = frames.find((f) => f.angle === REQUIRED_ANGLE);
+      const frame = frames.find((f) => f.angle === "Front");
 
       if (frame?.status !== "ready" || !frame.bbox) {
         setGlobalError("Please capture a valid face image first.");
