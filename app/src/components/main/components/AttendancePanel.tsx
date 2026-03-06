@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, memo, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { createDisplayNameMap } from "@/utils";
-import { Dropdown, Tooltip } from "@/components/shared";
+import { Dropdown, Tooltip, MemberTooltip } from "@/components/shared";
 import type {
   AttendanceGroup,
   AttendanceRecord,
@@ -129,34 +129,35 @@ const AttendanceRecordItem = memo(
     const timeStatus = calculateTimeStatus();
 
     return (
-      <div
-        className={`border-b border-white/5 pr-3 pl-0 py-2.5 relative group transition-colors hover:bg-white/5 border-l-2 ${timeStatus?.borderColor ?? "border-l-transparent"}`}
-        title={
-          classStartTime && !hasCheckedInEarlier
-            ? `Scheduled: ${classStartTime} | Late after: ${lateThresholdMinutes}m`
-            : undefined
-        }
+      <MemberTooltip
+        displayName={displayName}
+        position="right"
+        role={record.event_type === "check_out" ? "Exiting" : "Present"}
       >
-        <div className="flex items-center gap-2 py-0.5">
-          <span className="flex-1 min-w-0 text-[12px] font-medium text-white/90 truncate">
-            {displayName}
-          </span>
+        <div
+          className={`border-b border-white/5 pr-3 pl-0 py-2.5 relative group transition-colors hover:bg-white/5 border-l-2 ${timeStatus?.borderColor ?? "border-l-transparent"}`}
+        >
+          <div className="flex items-center gap-2 py-0.5">
+            <span className="flex-1 min-w-0 text-[12px] font-medium text-white/90 truncate">
+              {displayName}
+            </span>
 
-          <div className="shrink-0 flex items-center gap-1.5">
-            <span
-              className={`text-[10px] font-bold tracking-widest ${timeStatus?.color || "text-white/60"}`}
-            >
-              {timeStatus?.label}
-            </span>
-            <span className="text-[11px] font-mono text-white/40 tabular-nums">
-              {record.timestamp.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
+            <div className="shrink-0 flex items-center gap-1.5">
+              <span
+                className={`text-[10px] font-bold tracking-widest ${timeStatus?.color || "text-white/60"}`}
+              >
+                {timeStatus?.label}
+              </span>
+              <span className="text-[11px] font-mono text-white/40 tabular-nums">
+                {record.timestamp.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      </MemberTooltip>
     );
   },
 );
@@ -333,7 +334,7 @@ export const AttendancePanel = memo(function AttendancePanel({
                 }))}
                 value={
                   currentGroup &&
-                  attendanceGroups.some((g) => g.id === currentGroup.id)
+                    attendanceGroups.some((g) => g.id === currentGroup.id)
                     ? currentGroup.id
                     : null
                 }
@@ -420,11 +421,10 @@ export const AttendancePanel = memo(function AttendancePanel({
                   onChange={(val) => handleSortFieldChange(val as SortField)}
                   trigger={
                     <i
-                      className={`${
-                        sortField === "time"
-                          ? "fa-regular fa-clock"
-                          : "fa-solid fa-arrow-down-a-z"
-                      } text-xs text-white/30 hover:text-cyan-400! transition-colors pointer-events-auto`}
+                      className={`${sortField === "time"
+                        ? "fa-regular fa-clock"
+                        : "fa-solid fa-arrow-down-a-z"
+                        } text-xs text-white/30 hover:text-cyan-400! transition-colors pointer-events-auto`}
                     />
                   }
                   menuWidth={110}

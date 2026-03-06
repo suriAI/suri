@@ -1,4 +1,5 @@
 import { useMemo, memo } from "react";
+import { MemberTooltip } from "@/components/shared";
 import { createDisplayNameMap } from "@/utils";
 import type { DetectionResult, TrackedFace } from "@/components/main/types";
 import type { AttendanceMember } from "@/types/recognition";
@@ -61,11 +62,17 @@ const DetectionCard = memo(
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {hasName ? (
-              <span
-                className={`font-semibold text-sm truncate ${statusStyles.textColor}`}
+              <MemberTooltip
+                displayName={displayName}
+                position="right"
+                role="Recognized"
               >
-                {displayName}
-              </span>
+                <span
+                  className={`font-semibold text-sm truncate cursor-help ${statusStyles.textColor}`}
+                >
+                  {displayName}
+                </span>
+              </MemberTooltip>
             ) : (
               <span className="text-xs italic text-white/40">Unknown</span>
             )}
