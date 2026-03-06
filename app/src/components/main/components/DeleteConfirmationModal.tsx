@@ -50,10 +50,16 @@ export function DeleteConfirmationModal({
         )}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex justify-end gap-3 mt-8">
+        <button
+          onClick={cancelDeleteGroup}
+          className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium"
+        >
+          Cancel
+        </button>
         <button
           onClick={confirmDeleteGroup}
-          className="btn-error flex-1 px-4 py-2 rounded-lg text-sm"
+          className="btn-error px-6 py-2 rounded-lg text-sm font-medium"
         >
           Delete Group
         </button>

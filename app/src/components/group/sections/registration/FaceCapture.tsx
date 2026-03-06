@@ -159,17 +159,18 @@ export function FaceCapture({
             {successMessage}
           </p>
 
-          <button
-            onClick={() => {
-              setSuccessMessage(null);
-              setSelectedMemberId("");
-              resetFrames();
-              // No longer resetting the entire flow state here
-            }}
-            className="w-full px-4 py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 text-[10px] font-black uppercase tracking-widest transition-all mt-2"
-          >
-            Done
-          </button>
+          <div className="flex justify-end w-full mt-2">
+            <button
+              onClick={() => {
+                setSuccessMessage(null);
+                setSelectedMemberId("");
+                resetFrames();
+              }}
+              className="px-6 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 text-xs font-bold transition-all"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -185,12 +186,14 @@ export function FaceCapture({
             {globalError}
           </p>
 
-          <button
-            onClick={() => setGlobalError(null)}
-            className="w-full px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all mt-2"
-          >
-            Dismiss
-          </button>
+          <div className="flex justify-end w-full mt-2">
+            <button
+              onClick={() => setGlobalError(null)}
+              className="px-6 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-xs font-medium transition-all"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       </Modal>
 

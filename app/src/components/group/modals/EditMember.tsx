@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { attendanceManager } from "@/services";
 import type { AttendanceMember } from "@/types/recognition";
-import { Modal } from "@/components/common";
+import { FormInput, Modal } from "@/components/common";
 
 interface EditMemberProps {
   member: AttendanceMember;
@@ -17,6 +17,23 @@ export function EditMember({ member, onClose, onSuccess }: EditMemberProps) {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      const focusInput = () => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      };
+      requestAnimationFrame(() => {
+        focusInput();
+        setTimeout(focusInput, 50);
+      });
+    }
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -48,9 +65,10 @@ export function EditMember({ member, onClose, onSuccess }: EditMemberProps) {
       onClose={onClose}
       title={
         <div>
-          <h3 className="text-xl font-semibold mb-2">Edit Member</h3>
-          <p className="text-sm text-white/60 font-normal">
-            Update member details and role
+          <h3 className="text-xl font-semibold mb-1">Edit Member</h3>
+          <p className="text-sm text-white/40 font-normal">
+            Update details for{" "}
+            <span className="text-cyan-400/70 font-medium">{member.name}</span>
           </p>
         </div>
       }
@@ -65,32 +83,27 @@ export function EditMember({ member, onClose, onSuccess }: EditMemberProps) {
 
         <div className="grid gap-4">
           <label className="text-sm">
-            <span className="text-white/60 block mb-2">Full name *</span>
-            <input
-              type="text"
+            <FormInput
+              ref={inputRef}
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-500/60 transition-colors"
-              placeholder="Enter full name"
+              placeholder="New Name"
+              focusColor="border-cyan-500/60"
             />
           </label>
           <label className="text-sm">
-            <span className="text-white/60 block mb-2">Role (optional)</span>
-            <input
-              type="text"
+            <FormInput
               value={role}
               onChange={(event) => setRole(event.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-500/60 transition-colors"
-              placeholder="e.g. Staff, Student, Teacher"
+              placeholder="New Role"
+              focusColor="border-cyan-500/60"
             />
           </label>
 
           {/* Consent Toggle */}
           <div
-            className={`rounded-xl border transition-all duration-300 ${
-              hasBiometricConsent
-                ? "bg-white/3 border-cyan-500/20"
-                : "bg-white/2 border-white/5"
+            className={`rounded-xl transition-all duration-300 ${
+              hasBiometricConsent ? "bg-black/40" : "bg-black/20"
             }`}
           >
             <label className="flex items-start gap-4 p-4 cursor-pointer group">
@@ -101,31 +114,37 @@ export function EditMember({ member, onClose, onSuccess }: EditMemberProps) {
                   onChange={(e) => setHasBiometricConsent(e.target.checked)}
                   className="peer sr-only"
                 />
-                <div className="h-5 w-5 rounded-md border border-white/20 bg-white/5 transition-all duration-200 peer-checked:border-cyan-500 peer-checked:bg-cyan-500/10 group-hover:border-white/40" />
+                <div className="h-5 w-5 rounded-md border border-white/20 bg-white/5 transition-all duration-200 group-hover:border-white/40" />
                 <i className="fa-solid fa-check absolute text-[9px] text-cyan-400 opacity-0 transition-all duration-200 peer-checked:opacity-100" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-sm font-semibold text-white/90 tracking-tight">
+                  <span className="text-xs font-semibold text-white/90 tracking-tight">
                     I confirm that this member has provided informed biometric
                     consent.
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-white/40 group-hover:text-white/60 transition-colors">
-                  Facial features are encrypted and stored strictly on this
-                  device. Suri does not upload biometric data to the cloud.
+                  Note: Facial features are encrypted and stored strictly on
+                  this device. Suri does not upload biometric data to the cloud.
                 </p>
               </div>
             </label>
           </div>
         </div>
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-3 mt-8">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium"
+          >
+            Cancel
+          </button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || loading}
-            className="w-full px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50"
+            className="px-6 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50 min-w-[120px]"
           >
-            {loading ? "Saving…" : "Save changes"}
+            {loading ? "Saving…" : "Update Member"}
           </button>
         </div>
       </div>

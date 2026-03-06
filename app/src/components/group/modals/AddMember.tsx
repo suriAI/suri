@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { attendanceManager } from "@/services";
 import type { AttendanceGroup, AttendanceMember } from "@/types/recognition";
-import { Modal } from "@/components/common";
+import { FormInput, Modal } from "@/components/common";
 
 interface AddMemberProps {
   group: AttendanceGroup;
@@ -119,13 +119,15 @@ export function AddMember({
     setBulkResults(null);
 
     try {
-      const lines = bulkMembersText.split("\n").filter((line) => line.trim());
+      const lines = bulkMembersText
+        .split("\n")
+        .filter((line: string) => line.trim());
       let success = 0;
       let failed = 0;
       const errors: string[] = [];
 
       for (const line of lines) {
-        const parts = line.split(",").map((p) => p.trim());
+        const parts = line.split(",").map((p: string) => p.trim());
         const name = parts[0];
         const role = parts[1] || "";
 
@@ -177,9 +179,12 @@ export function AddMember({
       }}
       title={
         <div>
-          <h3 className="text-xl font-semibold mb-2">Add Members</h3>
-          <p className="text-sm text-white/60 font-normal">
-            Add one or more people to the group
+          <h3 className="text-xl font-semibold mb-1 tracking-tight">
+            Add Members
+          </h3>
+          <p className="text-sm text-white/40 font-normal">
+            Enroll new people to{" "}
+            <span className="text-cyan-400/70 font-medium">{group.name}</span>
           </p>
         </div>
       }
@@ -229,21 +234,20 @@ export function AddMember({
         {!isBulkMode && (
           <div className="grid gap-4">
             <label className="text-sm">
-              <span className="text-white/60 block mb-2">Name *</span>
-              <input
+              <FormInput
                 ref={nameInputRef}
-                type="text"
                 value={newMemberName}
                 onChange={(event) => setNewMemberName(event.target.value)}
-                className={`w-full bg-white/5 border rounded-lg px-4 py-2 focus:outline-none transition-colors ${
-                  isDuplicate && !confirmDuplicate
-                    ? "border-amber-500/50 focus:border-amber-400"
-                    : "border-white/10 focus:border-cyan-500/60"
-                }`}
                 placeholder="Enter Name"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleAddMember();
                 }}
+                focusColor={
+                  isDuplicate && !confirmDuplicate
+                    ? "border-amber-400"
+                    : "border-cyan-500/60"
+                }
+                className={`${isDuplicate && !confirmDuplicate ? "border-amber-500/50" : ""}`}
               />
               {isDuplicate && !confirmDuplicate && (
                 <div className="mt-2 text-xs text-amber-300 flex items-center gap-2">
@@ -253,16 +257,14 @@ export function AddMember({
               )}
             </label>
             <label className="text-sm">
-              <span className="text-white/60 block mb-2">Role (optional)</span>
-              <input
-                type="text"
+              <FormInput
                 value={newMemberRole}
                 onChange={(event) => setNewMemberRole(event.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-500/60 transition-colors"
                 placeholder="e.g. Staff, Student, Teacher"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleAddMember();
                 }}
+                focusColor="border-cyan-500/60"
               />
             </label>
 
@@ -270,8 +272,8 @@ export function AddMember({
             <div
               className={`rounded-xl border transition-all duration-300 ${
                 hasBiometricConsent
-                  ? "bg-white/3 border-cyan-500/20"
-                  : "bg-white/2 border-white/5"
+                  ? "bg-black/40 border-cyan-500/30"
+                  : "bg-black/20 border-white/5"
               }`}
             >
               <label className="flex items-start gap-4 p-4 cursor-pointer group">
@@ -310,8 +312,8 @@ export function AddMember({
             <div
               className={`rounded-xl border transition-all duration-300 ${
                 hasBiometricConsent
-                  ? "bg-white/3 border-cyan-500/20"
-                  : "bg-white/2 border-white/5"
+                  ? "bg-black/40 border-cyan-500/30"
+                  : "bg-black/20 border-white/5"
               }`}
             >
               <label className="flex items-start gap-4 p-4 cursor-pointer group">
@@ -393,7 +395,7 @@ export function AddMember({
                 </div>
                 {bulkResults.errors.length > 0 && (
                   <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                    {bulkResults.errors.map((err, idx) => (
+                    {bulkResults.errors.map((err: string, idx: number) => (
                       <div
                         key={idx}
                         className="text-xs text-red-200 bg-red-500/10 rounded px-2 py-1"
@@ -409,7 +411,16 @@ export function AddMember({
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-3 mt-8">
+          <button
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium"
+          >
+            Cancel
+          </button>
           <button
             onClick={
               isBulkMode ? () => void handleBulkAddMembers() : handleAddMember
@@ -421,7 +432,7 @@ export function AddMember({
               (isBulkMode && !bulkMembersText.trim()) ||
               !hasBiometricConsent
             }
-            className={`w-full px-4 py-2 rounded-lg border transition-colors text-sm font-medium disabled:opacity-50 ${
+            className={`px-6 py-2 rounded-lg border transition-colors text-sm font-medium disabled:opacity-50 min-w-[120px] ${
               confirmDuplicate && !isBulkMode
                 ? "bg-amber-500/20 border-amber-400/40 text-amber-200 hover:bg-amber-500/30"
                 : "bg-cyan-500/20 border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30"
@@ -435,7 +446,7 @@ export function AddMember({
                   ? "Add Anyway"
                   : isBulkMode
                     ? "Add Members"
-                    : "Add Member"}
+                    : "Create Member"}
           </button>
         </div>
       </div>

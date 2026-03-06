@@ -257,13 +257,13 @@ export function Database({
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400/30 transition-all"
             />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={() => {
                 setPasswordModal({ ...passwordModal, isOpen: false });
                 setPasswordInput("");
               }}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-[11px] font-semibold transition-all"
+              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium"
             >
               Cancel
             </button>
@@ -279,9 +279,9 @@ export function Database({
                   handleImport(pass, passwordModal.overwrite);
                 }
               }}
-              className="px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-400 text-[11px] font-bold transition-all disabled:opacity-30"
+              className="px-6 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/30 transition-colors text-sm font-medium disabled:opacity-50 min-w-[100px]"
             >
-              Confirm
+              {passwordModal.action === "export" ? "Export" : "Import"}
             </button>
           </div>
         </div>
