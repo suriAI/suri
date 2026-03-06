@@ -44,8 +44,8 @@ export function Attendance({
                   {!hasSelectedGroup
                     ? "Select a group to enable this feature"
                     : attendanceSettings.trackCheckout
-                      ? "ON: Tracking both Time In and Time Out to calculate total hours."
-                      : "OFF: Recording Time In only."}
+                      ? "ON: Records both when people arrive and when they leave."
+                      : "OFF: Only records when people show up."}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -56,18 +56,16 @@ export function Attendance({
               onTrackCheckoutToggle(!attendanceSettings.trackCheckout)
             }
             disabled={!hasSelectedGroup}
-            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 shrink-0 flex items-center ml-auto ${
-              attendanceSettings.trackCheckout
-                ? "bg-cyan-500/30"
-                : "bg-white/10"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 shrink-0 flex items-center ml-auto ${attendanceSettings.trackCheckout
+              ? "bg-cyan-500/30"
+              : "bg-white/10"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <div
-              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
-                attendanceSettings.trackCheckout
-                  ? "translate-x-5"
-                  : "translate-x-0"
-              }`}
+              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.trackCheckout
+                ? "translate-x-5"
+                : "translate-x-0"
+                }`}
             ></div>
           </button>
         </div>
@@ -101,14 +99,14 @@ export function Attendance({
                         transition={{ duration: 0.15 }}
                       >
                         {attendanceSettings.trackCheckout
-                          ? `Wait ${Math.floor(
-                              (attendanceSettings.reLogCooldownSeconds ??
-                                1800) / 60,
-                            )} minutes before starting a new session for the same person.`
-                          : `Ignore repeated scans from the same person for ${Math.floor(
-                              (attendanceSettings.reLogCooldownSeconds ??
-                                1800) / 60,
-                            )} minutes.`}
+                          ? `Min Stay: Wait at least ${Math.floor(
+                            (attendanceSettings.reLogCooldownSeconds ??
+                              1800) / 60,
+                          )} minutes before scanning to leave.`
+                          : `Spam Filter: Ignore the same person if they scan again within ${Math.floor(
+                            (attendanceSettings.reLogCooldownSeconds ??
+                              1800) / 60,
+                          )} minutes.`}
                       </motion.div>
                     </AnimatePresence>
                   </div>
@@ -116,11 +114,10 @@ export function Attendance({
 
                 <div className="flex items-center gap-3 shrink-0 ml-auto">
                   <span
-                    className={`font-semibold text-sm min-w-10 text-right whitespace-nowrap transition-colors duration-150 ${
-                      attendanceSettings.trackCheckout
-                        ? "text-cyan-400"
-                        : "text-white/30"
-                    }`}
+                    className={`font-semibold text-sm min-w-10 text-right whitespace-nowrap transition-colors duration-150 ${attendanceSettings.trackCheckout
+                      ? "text-cyan-400"
+                      : "text-white/30"
+                      }`}
                   >
                     {Math.floor(
                       (attendanceSettings.reLogCooldownSeconds ?? 1800) / 60,
@@ -136,11 +133,10 @@ export function Attendance({
                     onChange={(e) =>
                       onReLogCooldownChange(parseInt(e.target.value))
                     }
-                    className={`w-24 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      attendanceSettings.trackCheckout
-                        ? "accent-cyan-500"
-                        : "accent-white/20"
-                    }`}
+                    className={`w-24 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${attendanceSettings.trackCheckout
+                      ? "accent-cyan-500"
+                      : "accent-white/20"
+                      }`}
                   />
                 </div>
               </div>
@@ -152,11 +148,10 @@ export function Attendance({
       {/* 2. Reporting Rules: Late Tracking */}
       <div className="flex flex-col">
         <div
-          className={`flex items-center py-3 gap-4 ${
-            attendanceSettings.lateThresholdEnabled && hasSelectedGroup
-              ? ""
-              : "border-b border-white/5"
-          }`}
+          className={`flex items-center py-3 gap-4 ${attendanceSettings.lateThresholdEnabled && hasSelectedGroup
+            ? ""
+            : "border-b border-white/5"
+            }`}
         >
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-white/90">
@@ -187,18 +182,16 @@ export function Attendance({
               onLateThresholdToggle(!attendanceSettings.lateThresholdEnabled)
             }
             disabled={!hasSelectedGroup}
-            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 shrink-0 flex items-center ml-auto ${
-              attendanceSettings.lateThresholdEnabled
-                ? "bg-cyan-500/30"
-                : "bg-white/10"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 shrink-0 flex items-center ml-auto ${attendanceSettings.lateThresholdEnabled
+              ? "bg-cyan-500/30"
+              : "bg-white/10"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <div
-              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
-                attendanceSettings.lateThresholdEnabled
-                  ? "translate-x-5"
-                  : "translate-x-0"
-              }`}
+              className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.lateThresholdEnabled
+                ? "translate-x-5"
+                : "translate-x-0"
+                }`}
             ></div>
           </button>
         </div>
@@ -274,18 +267,16 @@ export function Attendance({
           onClick={() =>
             onSpoofDetectionToggle(!attendanceSettings.enableSpoofDetection)
           }
-          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 shrink-0 flex items-center ml-auto ${
-            attendanceSettings.enableSpoofDetection
-              ? "bg-cyan-500/30"
-              : "bg-white/10"
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`relative w-11 h-6 rounded-full focus:outline-none transition-colors duration-150 shrink-0 flex items-center ml-auto ${attendanceSettings.enableSpoofDetection
+            ? "bg-cyan-500/30"
+            : "bg-white/10"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <div
-            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${
-              attendanceSettings.enableSpoofDetection
-                ? "translate-x-5"
-                : "translate-x-0"
-            }`}
+            className={`absolute left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ${attendanceSettings.enableSpoofDetection
+              ? "translate-x-5"
+              : "translate-x-0"
+              }`}
           ></div>
         </button>
       </div>
