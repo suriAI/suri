@@ -51,7 +51,6 @@ export function Modal({
 
   const modalContent = (
     <div className="fixed inset-0 z-100 flex items-center justify-center px-4 overflow-hidden">
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -61,7 +60,6 @@ export function Modal({
         onClick={onClose}
       />
 
-      {/* Modal Content */}
       <motion.div
         ref={modalRef}
         initial={{ opacity: 0, scale: 0.95, y: 10 }}

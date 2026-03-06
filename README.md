@@ -71,7 +71,7 @@
 > Please see the [Installation Notes](#-installation-notes) below before installing.
 
 ---
-### 📥 Installation Notes
+### Installation Notes
 
 > [!IMPORTANT]
 > **Suri is currently in Early Access.** Because we are an independent open-source project, our binaries are not yet "notarized" by Microsoft or Apple. 

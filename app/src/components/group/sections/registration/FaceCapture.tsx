@@ -213,20 +213,15 @@ export function FaceCapture({
         )}
 
         {selectedMemberId && (
-          <div className="flex flex-col h-full overflow-hidden p-6 space-y-2">
-            <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
+          <div className="flex flex-col h-full overflow-hidden p-6 space-y-6">
+            <div className="flex flex-col space-y-6 overflow-hidden max-w-4xl mx-auto w-full">
               <CaptureControls
                 source={source}
                 setSource={setSource}
                 hasRequiredFrame={!!framesReady}
-                cameraDevices={cameraDevices}
-                selectedCamera={selectedCamera}
-                setSelectedCamera={setSelectedCamera}
-                isStreaming={isStreaming}
-                stopCamera={stopCamera}
               />
 
-              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/6 bg-black/40 shadow-2xl">
                 {!framesReady ? (
                   source === "live" ? (
                     <CameraFeed
@@ -239,6 +234,9 @@ export function FaceCapture({
                       onStop={stopCamera}
                       source={source}
                       isCameraSelected={!!selectedCamera}
+                      cameraDevices={cameraDevices}
+                      selectedCamera={selectedCamera}
+                      setSelectedCamera={setSelectedCamera}
                     />
                   ) : (
                     <UploadArea

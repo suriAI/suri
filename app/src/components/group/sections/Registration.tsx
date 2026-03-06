@@ -78,9 +78,9 @@ export function Registration({
             action={
               onAddMember
                 ? {
-                    label: "Add Member",
-                    onClick: onAddMember,
-                  }
+                  label: "Add Member",
+                  onClick: onAddMember,
+                }
                 : undefined
             }
           />
@@ -94,13 +94,9 @@ export function Registration({
           <div className="w-full max-w-lg">
             <div className="flex justify-between items-start mb-12">
               <div className="space-y-1">
-                <h2 className="text-4xl font-black text-white/90 tracking-tighter">
-                  How would you like to add faces?
+                <h2 className="text-2xl text-center font-black text-white/90 tracking-tighter">
+                  How would you like to register members for <span className="text-cyan-400/80">{group.name}</span>?
                 </h2>
-                <p className="text-sm text-white/30 font-medium uppercase tracking-widest text-[9px]">
-                  How would you like to capture faces for{" "}
-                  <span className="text-cyan-400/80">{group.name}</span>?
-                </p>
               </div>
 
               {source && (
@@ -219,10 +215,10 @@ export function Registration({
                   </div>
                   <div className="text-left">
                     <span className="block text-lg font-black text-white/80 group-hover:text-white">
-                      Quick sequence
+                      Queue
                     </span>
                     <span className="text-[10px] uppercase font-black tracking-widest text-white/20 group-hover:text-cyan-500/50">
-                      Fast multi-person capture
+                      Multi-member capture
                     </span>
                   </div>
                 </button>

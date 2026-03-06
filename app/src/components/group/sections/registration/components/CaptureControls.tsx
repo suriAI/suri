@@ -1,32 +1,16 @@
-import { Dropdown } from "@/components/shared";
 import type { CaptureSource } from "@/components/group/sections/registration/types";
 
 interface CaptureControlsProps {
   source: CaptureSource;
   setSource: (source: CaptureSource) => void;
   hasRequiredFrame: boolean;
-  cameraDevices: MediaDeviceInfo[];
-  selectedCamera: string;
-  setSelectedCamera: (deviceId: string) => void;
-  isStreaming: boolean;
-  stopCamera: () => void;
 }
 
 export function CaptureControls({
   source,
   setSource,
   hasRequiredFrame,
-  cameraDevices,
-  selectedCamera,
-  setSelectedCamera,
-  isStreaming,
-  stopCamera,
 }: CaptureControlsProps) {
-  // Only show camera dropdown if we have devices and are NOT streaming
-  // or if we are streaming and we want to switch (though switching while streaming might require stop/start logic in parent)
-  // For simplicity, match original behavior: show dropdown unless streaming
-  const showCameraDropdown = cameraDevices.length > 0 && !isStreaming;
-
   return (
     <div className="flex flex-col space-y-4">
       <div className="flex gap-2 shrink-0">
@@ -45,33 +29,6 @@ export function CaptureControls({
           </button>
         ))}
       </div>
-
-      {source === "live" && showCameraDropdown && (
-        <div className="z-10 w-full">
-          <Dropdown
-            options={cameraDevices.map((device, index) => ({
-              value: device.deviceId,
-              label: device.label || `Camera ${index + 1}`,
-            }))}
-            value={selectedCamera}
-            onChange={(deviceId: string | number | null) => {
-              if (deviceId && typeof deviceId === "string") {
-                setSelectedCamera(deviceId);
-                if (isStreaming) {
-                  stopCamera();
-                }
-              }
-            }}
-            placeholder="Select camera…"
-            emptyMessage="No cameras available"
-            disabled={isStreaming || cameraDevices.length <= 1}
-            maxHeight={256}
-            buttonClassName="text-xs px-2 py-2 bg-black/40 border border-white/10 w-full"
-            showPlaceholderOption={false}
-            allowClear={false}
-          />
-        </div>
-      )}
     </div>
   );
 }

@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </h1>
       </div>
 
-      <div className="flex-1 px-3 space-y-10 overflow-y-auto settings-sidebar-scroll pb-6">
+      <div className="flex-1 pl-3 pr-0.5 space-y-10 overflow-y-auto settings-sidebar-scroll pb-6">
         <section>
           <div className="px-3 mb-4 flex items-center justify-between">
             <h2 className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
@@ -121,11 +121,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setRegistrationState(null, null);
                       }
                     }}
-                    className={`w-full relative group/item text-left px-4 py-2.5 rounded-lg text-[14px] font-medium transition-all flex items-center gap-3 ${
-                      isActive
-                        ? "bg-white/6 text-white"
-                        : "text-white/60 hover:bg-white/5 hover:text-white"
-                    }`}
+                    className={`w-full relative group/item text-left px-4 py-2.5 rounded-lg text-[14px] font-medium transition-all flex items-center gap-3 ${isActive
+                      ? "bg-white/6 text-white"
+                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                      }`}
                   >
                     {isActive && (
                       <motion.div
@@ -158,11 +157,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`w-full relative group/item text-left px-4 py-2.5 rounded-lg text-[14px] font-medium transition-all flex items-center gap-3 ${
-                    isActive
-                      ? "bg-white/6 text-white"
-                      : "text-white/60 hover:bg-white/5 hover:text-white"
-                  }`}
+                  className={`w-full relative group/item text-left px-4 py-2.5 rounded-lg text-[14px] font-medium transition-all flex items-center gap-3 ${isActive
+                    ? "bg-white/6 text-white"
+                    : "text-white/60 hover:bg-white/5 hover:text-white"
+                    }`}
                 >
                   {isActive && (
                     <motion.div

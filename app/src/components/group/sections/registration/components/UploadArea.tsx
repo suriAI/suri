@@ -32,14 +32,19 @@ export function UploadArea({ onFileProcessed, onError }: UploadAreaProps) {
   );
 
   return (
-    <div className="h-full rounded-xl border border-white/10 bg-black/40 overflow-hidden">
+    <div className="h-full w-full relative">
       <label className="h-full flex cursor-pointer flex-col items-center justify-center p-8 text-center hover:bg-white/5 transition-all group">
         <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-cyan-500/10 transition-colors">
+            <i className="fa-solid fa-cloud-arrow-up text-3xl text-white/20 group-hover:text-cyan-400 transition-colors"></i>
+          </div>
           <div>
-            <div className="text-sm text-white/60 mb-1">
+            <div className="text-sm font-semibold text-white/80 mb-1">
               Drop image or click to browse
             </div>
-            <div className="text-xs text-white/30">PNG, JPG up to 10MB</div>
+            <div className="text-[10px] uppercase font-black tracking-widest text-white/20">
+              PNG, JPG up to 10MB
+            </div>
           </div>
         </div>
         <input
