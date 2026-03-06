@@ -61,7 +61,43 @@
 ---
 ## Download
 
-[![Release](https://img.shields.io/github/v/release/SuriAI/suri?label=Latest%20Release&color=4caf50)](https://github.com/SuriAI/suri/releases/latest)
+[![Release](https://img.shields.io/github/v/release/johnraivenolazo/suri?label=Latest%20Release&color=4caf50)](https://github.com/johnraivenolazo/suri/releases/latest)
+
+> [!NOTE]
+> **Pre-compiled binaries are currently only available for Windows (`.exe`).**
+> macOS and Linux users can [build from source manually](docs/INSTALLATION.md#building-for-production).
+
+> [!IMPORTANT]
+> Please see the [Installation Notes](#-installation-notes) below before installing.
+
+---
+### 📥 Installation Notes
+
+> [!IMPORTANT]
+> **Suri is currently in Early Access.** Because we are an independent open-source project, our binaries are not yet "notarized" by Microsoft or Apple. 
+
+#### **For Windows Users:**
+If Windows SmartScreen (blue window) appears:
+1.  Click **More info**.
+2.  Click **Run anyway**.
+
+<img src="app/public/assets/smartscreen_warning.png" alt="Windows SmartScreen Warning" width="400" />
+
+<br />
+
+*We are currently in the process of applying for SignPath OSS to eliminate this warning.*
+
+#### **For macOS Users:**
+If you see the "Unidentified Developer" warning:
+1.  **Right-click** `Suri.dmg` in your Applications folder/Downloads.
+2.  Select **Open** from the menu.
+3.  Click **Open** again in the dialog box.
+
+<img src="app/public/assets/macos_gatekeeper_warning.png" alt="macOS Gatekeeper Warning" width="400" />
+
+<br />
+
+*This is a one-time step to grant permission.*
 
 ---
 ## Documentation
