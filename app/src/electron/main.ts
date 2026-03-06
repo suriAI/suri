@@ -1,4 +1,4 @@
-import { app, protocol, BrowserWindow } from "electron";
+import { app, protocol, BrowserWindow, nativeTheme } from "electron";
 import path from "path";
 import { fileURLToPath } from "node:url";
 import { backendService } from "./backendService.js";
@@ -58,6 +58,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 app.whenReady().then(async () => {
+  nativeTheme.themeSource = "dark";
   registerAllHandlers();
 
   // Custom protocol for static file access

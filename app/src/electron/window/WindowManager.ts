@@ -19,7 +19,6 @@ export class WindowManager {
       skipTaskbar: true,
       resizable: false,
       center: true,
-      roundedCorners: true,
       backgroundColor: "#00000000",
       webPreferences: {
         nodeIntegration: false,

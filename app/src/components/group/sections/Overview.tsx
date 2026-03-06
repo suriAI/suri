@@ -230,7 +230,7 @@ export function Overview({ group, members, onAddMember }: OverviewProps) {
                   return (
                     <div
                       key={record.id}
-                      className="group/item flex items-center justify-between p-2 rounded-lg hover:bg-white/1 transition-colors"
+                      className="group/item relative flex items-center justify-between p-2 rounded-lg hover:bg-white/1 transition-colors"
                     >
                       {/* Unbroken Vertical Line Segment */}
                       <div
