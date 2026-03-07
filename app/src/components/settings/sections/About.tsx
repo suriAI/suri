@@ -304,9 +304,11 @@ export const About: React.FC = () => {
               <span className="text-[11px] font-medium text-white/30">
                 Version
               </span>
-              <span className="text-xs font-mono text-white/60">
-                {version || "—"}
-              </span>
+              <div className="px-3 py-1.5 flex items-center justify-center">
+                <span className="text-xs font-mono text-white/60">
+                  {version || "—"}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center justify-between py-3 border-b border-white/5">

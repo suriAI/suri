@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="w-[200px] sm:w-[240px] lg:w-[280px] shrink-0 flex flex-col bg-[#080808] border-r border-white/5">
-      <div className="px-6 py-8 flex items-center justify-between">
+      <div className="px-3 pt-8 pb-4 flex items-center justify-between">
         <h1 className="text-[11px] font-medium text-white/30">Settings</h1>
       </div>
 

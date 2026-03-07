@@ -67,7 +67,7 @@ export function Modal({
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={snappyTransition}
         style={{ willChange: "transform, opacity" }}
-        className={`w-full ${maxWidthClass} bg-[#080808] rounded-xl overflow-hidden border border-white/5 shadow-2xl relative z-10`}
+        className={`w-full ${maxWidthClass} bg-[#080808] rounded-xl overflow-hidden border border-white/5 relative z-10`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5">

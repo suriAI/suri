@@ -249,10 +249,12 @@ export function AddMember({
                 }
                 className={`${isDuplicate && !confirmDuplicate ? "border-amber-500/50" : ""}`}
               />
-              <div className="mt-2 text-[11px] text-amber-400/80 flex items-center gap-2">
-                <i className="fa-solid fa-triangle-exclamation text-[10px]"></i>{" "}
-                A member with this name already exists.
-              </div>
+              {isDuplicate && !confirmDuplicate && (
+                <div className="mt-2 text-[11px] text-amber-400/80 flex items-center gap-2">
+                  <i className="fa-solid fa-triangle-exclamation text-[10px]"></i>{" "}
+                  A member with this name already exists.
+                </div>
+              )}
             </label>
             <label className="text-sm">
               <FormInput
